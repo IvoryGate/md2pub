@@ -71,47 +71,33 @@ body,
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), inset 0 0 0 0.5px rgba(0, 0, 0, 0.04);
 }
 
-/* ── 编辑器：围栏代码块整块化（Phycat 式） ───────────────────────── */
-/* 块体：近白粉底 + 左右围合边框；代码正文深青灰 */
+/* ── 编辑器：围栏代码块整块化（Phycat 式，紧凑版） ───────────────── */
+/* 注意：块样式不得触碰垂直 margin/padding —— CM 行号槽与正文为平行两列，
+   垂直布局变化不参与行号槽高度测量，会导致行号错位 */
 .cm-editor .cm-line.cm-block-code {
   position: relative;
   background: rgba(255, 36, 66, 0.035);
   border-left: 1px solid rgba(255, 36, 66, 0.24);
   border-right: 1px solid rgba(255, 36, 66, 0.24);
-  padding-left: 14px;
+  padding-left: 10px;
   padding-right: 10px;
   color: #37474f;
 }
-/* 缩进引导线：内容行在最浅制表位（4ch）画一根短竖线 */
-.cm-editor .cm-line.cm-code-lead::before {
-  content: '';
-  position: absolute;
-  left: calc(14px + 4ch - 5px);
-  top: 3px;
-  bottom: -1px;
-  width: 2px;
-  border-radius: 1px;
-  background: rgba(255, 36, 66, 0.26);
-}
-/* 头部色带（```lang）：加深底 + 上边框 + 外边距 */
+/* 头部色带（```lang 行）：加深底 + 上边框，垂直布局零改动 */
 .cm-editor .cm-line.cm-fence-head {
   border-radius: 10px 10px 0 0;
   border-top: 1px solid rgba(255, 36, 66, 0.28);
   background: rgba(255, 36, 66, 0.1);
-  margin-top: 10px;
-  padding-top: 4px;
 }
 /* ```lang 围栏行文字：品牌色加粗 */
 .cm-editor .cm-line.cm-fence-line {
   color: #ff2442;
   font-weight: 600;
 }
-/* 闭合围栏：底部圆角 + 下边框 + 外边距，字色淡化 */
+/* 闭合围栏：底部圆角 + 下边框，字色淡化 */
 .cm-editor .cm-line.cm-fence-tail {
   border-radius: 0 0 10px 10px;
   border-bottom: 1px solid rgba(255, 36, 66, 0.24);
-  margin-bottom: 10px;
-  padding-bottom: 4px;
   color: #90a4ae;
 }
 
