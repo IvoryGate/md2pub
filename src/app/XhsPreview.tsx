@@ -21,7 +21,7 @@ const PREVIEW_SCALE = 0.42
 
 /** 画布内容：卡片轨道 + 底部悬浮工具条（面板遮避由 App 的 CSS 变量驱动） */
 export const XhsPreview = ({ bus }: { bus: ScrollBus }) => {
-  const { markdown, themeId, size, overrides } = useStore()
+  const { markdown, themeId, size, overrides, watermark } = useStore()
   const [exporting, setExporting] = useState(false)
   const cardRefs = useRef<Array<HTMLElement | null>>([])
   const railRef = useRef<HTMLDivElement>(null)
@@ -103,7 +103,7 @@ export const XhsPreview = ({ bus }: { bus: ScrollBus }) => {
               onExportSingle={handleExportOne}
               exporting={exporting}
             >
-              <CardPage card={card} theme={theme} />
+              <CardPage card={card} theme={theme} watermark={watermark} />
             </CardFrame>
           ))}
           {cardSet && <div className="h-8" />}

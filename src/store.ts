@@ -1,39 +1,25 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { XhsPadding, XhsTypography, XhsStyleOverrides } from './platforms/xhs'
+import { deepMerge, type XhsStyleOverrides } from './platforms/xhs'
 
-const DEFAULT_MD = `# 3 个被低估的 Notion 数据技巧
+const DEFAULT_MD = `# 从展示到安装：买量的几个基础指标
 
-一句话介绍：这 3 个技巧让你用 Notion 数据库的效率翻倍，最后一个 90% 的人都不知道！
+买量这个过程是这样的：你花钱投了广告。用户在刷手机时，看到你的广告，被吸引住了，顺手点了一下。页面随即跳到应用商店。这时 ta 仍对你的这个产品感兴趣，于是点了下载，马上就打开，或者等会儿再打开。
 
-## 1. 分组视图 + 折叠规则
+## 核心公式
 
-数据库分组其实可以按「是否完成」自动排序，**未完成永远在最上面**。
-
-## 2. 用公式字段做智能标签
-
-- 根据截止日期自动显示「过期 / 今天 / 剩余 3 天」
-- 颜色跟着状态变化
-- 不需要手动打标签
-
-## 3. 关联数据库做周复盘
-
-> 每周五花 10 分钟，把本周任务数据库和周记数据库关联起来。
-
-数学公式也能排：
+把上面的指标凑在一起，很容易就能得到下面这个公式：
 
 $$
-\\int_{0}^{\\infty} e^{-x^2} \\, dx = \\frac{\\sqrt{\\pi}}{2}
+CPI = \\frac{CPM}{1000 \\times CTR \\times CVR} = \\frac{CPM}{IPM}
 $$
 
----
+有了这个公式，面对"买量为什么贵了/便宜了"这样的问题：
 
-*觉得有用的话，点赞收藏，下期分享 Notion + 日历的神仙组合！*
+- CPM 涨了，CTR/CVR 没动 → 大盘问题
+- CPM 没动，CTR 跌了 → 素材问题
+- CPM、CTR 没动，CVR 跌了 → 产品侧问题
 `
-
-const EMPTY_OVERRIDES: XhsStyleOverrides = { padding: {}, typography: {} }
-
-interface XhsOverrides extends XhsStyleOverrides {}
 
 export const useStore = create<{
   markdown: string
@@ -44,13 +30,12 @@ export const useStore = create<{
   setSize: (s: '3:4' | '1:1' | '4:5') => void
   watermark: string
   setWatermark: (s: string) => void
-  /** 编辑器模式：源码 = 纯源码；edit = 实时预览（行内半渲染）；read = 阅读视图 */
+  /** 编辑器模式：source = 纯源码；edit = 实时预览；read = 阅读视图 */
   editorMode: 'source' | 'edit' | 'read'
   setEditorMode: (m: 'source' | 'edit' | 'read') => void
-  /** UI 面板的排版参数微调（叠加在所选主题之上） */
-  overrides: XhsOverrides
-  patchPadding: (p: Partial<XhsPadding>) => void
-  patchTypography: (t: Partial<XhsTypography>) => void
+  /** UI 面板的版式参数微调（深合并叠加在所选主题之上） */
+  overrides: XhsStyleOverrides
+  patchLayout: (p: XhsStyleOverrides) => void
   resetOverrides: () => void
 }>()(
   persist(
@@ -58,21 +43,45 @@ export const useStore = create<{
       markdown: DEFAULT_MD,
       setMarkdown: (markdown) => set({ markdown }),
       themeId: 'clean',
-      setThemeId: (themeId) => set({ themeId, overrides: EMPTY_OVERRIDES }),
+      setThemeId: (themeId) => set({ themeId }),
       size: '3:4',
       setSize: (size) => set({ size }),
       watermark: '@md2pub',
       setWatermark: (watermark) => set({ watermark }),
       editorMode: 'edit',
       setEditorMode: (editorMode) => set({ editorMode }),
-      overrides: EMPTY_OVERRIDES,
-      patchPadding: (padding) =>
-        set((s) => ({ overrides: { ...s.overrides, padding: { ...s.overrides.padding, ...padding } } })),
-      patchTypography: (typography) =>
-        set((s) => ({ overrides: { ...s.overrides, typography: { ...s.overrides.typography, ...typography } } })),
-      resetOverrides: () => set({ overrides: EMPTY_OVERRIDES }),
+      overrides: {},
+      patchLayout: (patch) =>
+        set((s) => ({ overrides: deepMerge(s.overrides, patch) })),
+      resetOverrides: () => set({ overrides: {} }),
     }),
-    { name: 'md2pub-store' },
+    {
+      name: 'md2pub-store',
+      version: 1,
+      // v0 的 overrides = { padding, typography }；迁移到 layout v2 深合并形状
+      migrate: (persisted: any) => {
+        const o = persisted?.overrides
+        if (o && (o.padding || o.typography)) {
+          const t = o.typography ?? {}
+          persisted.overrides = {
+            ...(o.padding ? { padding: o.padding } : {}),
+            body: {
+              ...(t.bodySize != null ? { size: t.bodySize } : {}),
+              ...(t.lineRatio != null ? { lineRatio: t.lineRatio } : {}),
+              ...(t.letterSpacing != null ? { letterSpacing: t.letterSpacing } : {}),
+              ...(t.paragraphSpacing != null ? { paragraphSpacing: t.paragraphSpacing } : {}),
+            },
+            ...(t.headingSpaceBefore != null
+              ? { headings: { h2: { spaceBefore: t.headingSpaceBefore } } }
+              : {}),
+            ...(t.headingSpaceAfter != null
+              ? { headings: { ...persisted.overrides?.headings, h2: { spaceAfter: t.headingSpaceAfter } } }
+              : {}),
+          }
+        }
+        return persisted
+      },
+    },
   ),
 )
 

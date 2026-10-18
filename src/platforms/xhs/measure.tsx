@@ -89,11 +89,11 @@ export function buildCardSet(
   ctx: Omit<XhsLayoutContext, 'size'>,
 ): XhsCardSet {
   const dims = XHS_CARD_SIZES[sizeName]
-  const { availableHeight, typography } = computeContentMetrics(dims, theme)
+  const { availableHeight, body } = computeContentMetrics(dims, theme)
   const { pages, warnings } = paginate(
     doc,
     doc.blocks.map((_, i) => ({ height: heights[Number(i)] ?? 0 })),
-    { availableHeight, blockGap: typography.paragraphSpacing },
+    { availableHeight, blockGap: body.paragraphSpacing },
   )
   return assembleCards(doc, { cover: ctx.cover, size: sizeName }, dims, pages, warnings)
 }

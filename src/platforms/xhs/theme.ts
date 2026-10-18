@@ -1,12 +1,18 @@
 /**
- * 小红书主题模型。
- * 核心：卡片样式由「排版参数」驱动（类比 LaTeX / Word）——
- * 页边距、行距、段距、字间距、段前标题空间，而非散装的视觉魔法数字。
- * 主题 = 纯数据（JSON 序列化，可导入导出/分享），不含任何行为。
+ * 小红书主题模型 v2。
+ * 核心：卡片样式由「版式参数」驱动（类比 LaTeX / Word），面板里没有散装魔法数字。
+ * 主题 = 纯数据（JSON 序列化，可导入导出/分享），所有平台渲染器与测高分页共享同一组值。
+ *
+ * 版式调研依据（2026-10 联网调研）：
+ * - xhs-article-images-skill 长文图设计规范：正文 17px/行高 1.75、标题上 28 下 14、
+ *   引用/结论卡竖条+浅底、图片通栏+细描边、标题不得孤行页尾
+ * - vivy-yi/xiaohongshu-skills graphic-layout：层级靠字号对比（重要元素 2~3×）、
+ *   页边留白 5~10% 宽、行距 1.4~1.6×、正文 ≥20pt（1080 宽折算 ≥36px）
+ * - 卡片模板五件套：尺寸 / 三色系 / 三级字号 / 版式骨架 / 页眉页脚固定位置
  */
 
 export const XHS_CARD_SIZES = {
-  '3:4': { width: 1080, height: 1440 }, // 小红书官方推荐
+  '3:4': { width: 1080, height: 1440 },
   '1:1': { width: 1080, height: 1080 },
   '4:5': { width: 1080, height: 1350 },
 } as const
@@ -21,22 +27,73 @@ export interface XhsPadding {
   left: number
 }
 
-/** 排版度量（样式的唯一事实来源，渲染与测高分页都必须消费同一组值） */
-export interface XhsTypography {
-  /** 正文字号 */
-  bodySize: number
-  /** 一级标题字号（h2/h3 按比例缩小） */
-  headingSize: number
-  /** 行距（行高/字号 比，类比 Word 的 1.5 倍行距） */
-  lineRatio: number
-  /** 字间距 */
-  letterSpacing: number
-  /** 段间距（paragraph spacing） */
-  paragraphSpacing: number
-  /** 标题段前空间（类比 \section spacing） */
-  headingSpaceBefore: number
-  /** 标题段后空间 */
-  headingSpaceAfter: number
+export type HeadingDecoration = 'none' | 'bar' | 'underline'
+export type HeadingLevel = 'h2' | 'h3' | 'h4'
+
+/** 分级标题样式（h1 归封面与文档标题，h5/h6 合并进 h4 的比例档） */
+export interface XhsHeadingStyle {
+  /** 相对正文字号的比例 */
+  sizeRatio: number
+  /** 字重 400~800 */
+  weight: number
+  align: 'left' | 'center'
+  /** 段前/段后 px */
+  spaceBefore: number
+  spaceAfter: number
+  decoration: HeadingDecoration
+}
+
+/** 完整版式卡：页面骨架 + 各元素元素的布局参数（不含颜色） */
+export interface XhsLayout {
+  padding: XhsPadding
+  /** 正文段落 */
+  body: {
+    /** 正文字号 px（1080 宽卡片推荐 36~44） */
+    size: number
+    /** 行高 / 字号 比 */
+    lineRatio: number
+    /** 字间距 px */
+    letterSpacing: number
+    /** 段间距 px（块间统一 gap，分页装箱同源） */
+    paragraphSpacing: number
+    align: 'left' | 'justify'
+  }
+  headings: Record<HeadingLevel, XhsHeadingStyle>
+  /** 列表 */
+  list: {
+    /** 挂起缩进 px（序号/圆点之后正文起点；折行对齐） */
+    indent: number
+    /** 条目间距 px */
+    itemGap: number
+  }
+  quote: { pad: number; radius: number }
+  code: {
+    /** 代码字号 = 正文 × 比例 */
+    sizeRatio: number
+    pad: number
+    radius: number
+    /** 语言标签（头带）开关 */
+    showLang: boolean
+  }
+  table: { sizeRatio: number; cellPad: number }
+  image: {
+    /** 通栏（贴出页边距）还是对齐内容区 */
+    fullBleed: boolean
+    radius: number
+    /** 细描边（palette.muted 淡化） */
+    outline: boolean
+    /** 上下留白 px */
+    marginY: number
+  }
+  divider: { /** 上下留白 px */ gapY: number }
+  header: {
+    showTag: boolean
+    showPageNum: boolean
+    height: number
+  }
+  watermark: { enabled: boolean; pos: 'left' | 'center' | 'right' }
+  /** 封面版式骨架 */
+  cover: 'top' | 'center' | 'bottom'
 }
 
 export interface XhsPalette {
@@ -54,26 +111,40 @@ export interface XhsCardTheme {
   id: string
   name: string
   fontFamily: string
-  page: { padding: XhsPadding; typography: XhsTypography }
+  layout: XhsLayout
   palette: XhsPalette
   /** 背景圆角（导出四角圆弧） */
   radius: number
-  watermark: { enabled: boolean; text: string }
-  /** 列表项符，'' 则用序号 */
   bulletSymbol: string
 }
 
 const FONT_SANS = 'PingFang SC, Microsoft YaHei, Noto Sans SC, sans-serif'
 const FONT_SERIF = '"Source Han Serif SC", "Noto Serif SC", SimSun, serif'
 
-const baseTypography = {
-  bodySize: 38,
-  headingSize: 58,
-  lineRatio: 1.7,
-  letterSpacing: 0.5,
-  paragraphSpacing: 26,
-  headingSpaceBefore: 44,
-  headingSpaceAfter: 18,
+/** 通用基准版式（按调研规范取中值；主题在此之上微调） */
+const baseLayout: XhsLayout = {
+  padding: { top: 96, right: 88, bottom: 96, left: 88 },
+  body: {
+    size: 38,
+    lineRatio: 1.75,
+    letterSpacing: 0.5,
+    paragraphSpacing: 26,
+    align: 'left',
+  },
+  headings: {
+    h2: { sizeRatio: 1.5, weight: 700, align: 'left', spaceBefore: 52, spaceAfter: 18, decoration: 'bar' },
+    h3: { sizeRatio: 1.15, weight: 700, align: 'left', spaceBefore: 34, spaceAfter: 12, decoration: 'none' },
+    h4: { sizeRatio: 1.0, weight: 600, align: 'left', spaceBefore: 26, spaceAfter: 10, decoration: 'none' },
+  },
+  list: { indent: 48, itemGap: 14 },
+  quote: { pad: 24, radius: 12 },
+  code: { sizeRatio: 0.66, pad: 28, radius: 16, showLang: true },
+  table: { sizeRatio: 0.62, cellPad: 14 },
+  image: { fullBleed: false, radius: 12, outline: true, marginY: 16 },
+  divider: { gapY: 28 },
+  header: { showTag: true, showPageNum: true, height: 56 },
+  watermark: { enabled: true, pos: 'left' },
+  cover: 'top',
 }
 
 export const XHS_THEMES: XhsCardTheme[] = [
@@ -81,10 +152,7 @@ export const XHS_THEMES: XhsCardTheme[] = [
     id: 'clean',
     name: '清爽版',
     fontFamily: FONT_SANS,
-    page: {
-      padding: { top: 96, right: 88, bottom: 96, left: 88 },
-      typography: { ...baseTypography },
-    },
+    layout: structuredClone(baseLayout),
     palette: {
       bg: '#fdfcf8',
       text: '#3a3a3a',
@@ -96,16 +164,23 @@ export const XHS_THEMES: XhsCardTheme[] = [
       codeFg: '#f5f2ea',
     },
     radius: 24,
-    watermark: { enabled: true, text: '@md2pub' },
     bulletSymbol: '•',
   },
   {
     id: 'magazine',
     name: '文艺杂志版',
     fontFamily: FONT_SERIF,
-    page: {
+    layout: {
+      ...structuredClone(baseLayout),
       padding: { top: 104, right: 96, bottom: 104, left: 96 },
-      typography: { ...baseTypography, bodySize: 36, headingSize: 54, lineRatio: 1.8, letterSpacing: 1.2, paragraphSpacing: 30 },
+      body: { ...baseLayout.body, size: 36, lineRatio: 1.85, letterSpacing: 1.2, align: 'justify' },
+      headings: {
+        ...baseLayout.headings,
+        h2: { ...baseLayout.headings.h2, weight: 800, spaceBefore: 56 },
+      },
+      list: { indent: 44, itemGap: 16 },
+      quote: { pad: 26, radius: 4 },
+      image: { fullBleed: true, radius: 8, outline: true, marginY: 18 },
     },
     palette: {
       bg: '#f6f1e7',
@@ -118,16 +193,15 @@ export const XHS_THEMES: XhsCardTheme[] = [
       codeFg: '#f0e8d8',
     },
     radius: 8,
-    watermark: { enabled: true, text: '@md2pub' },
     bulletSymbol: '◦',
   },
   {
     id: 'dark',
     name: '暗夜版',
     fontFamily: FONT_SANS,
-    page: {
-      padding: { top: 96, right: 88, bottom: 96, left: 88 },
-      typography: { ...baseTypography, paragraphSpacing: 28 },
+    layout: {
+      ...structuredClone(baseLayout),
+      headings: { ...baseLayout.headings, h2: { ...baseLayout.headings.h2, decoration: 'underline' } },
     },
     palette: {
       bg: '#191b22',
@@ -140,7 +214,6 @@ export const XHS_THEMES: XhsCardTheme[] = [
       codeFg: '#e6eaf2',
     },
     radius: 24,
-    watermark: { enabled: true, text: '@md2pub' },
     bulletSymbol: '▸',
   },
 ]
@@ -148,34 +221,43 @@ export const XHS_THEMES: XhsCardTheme[] = [
 export const getTheme = (id: string): XhsCardTheme =>
   XHS_THEMES.find(t => t.id === id) ?? XHS_THEMES[0]!
 
-/**
- * 用户在 UI 里对主题的微调（排版参数面板）。
- * 合成规则：以所选主题为底，覆盖已知字段；保持纯数据。
- */
-export interface XhsStyleOverrides {
-  padding?: Partial<XhsPadding>
-  typography?: Partial<XhsTypography>
+/** ======================= 版式覆盖 ======================= */
+
+/** 任意字段的弱类型局部覆盖（面板滑杆只提供 patch，递归合并到此展开） */
+export type DeepPartial<T> = {
+  [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K]
+}
+
+/** 面板对主题的微调 = 对当前主题版式的深合并覆盖（保持纯数据） */
+export type XhsStyleOverrides = DeepPartial<XhsLayout>
+
+/** 递归深合并（数组/原始值直接覆盖）。store patch 与主题合成共用 */
+export function deepMerge<T>(target: T, patch?: DeepPartial<T>): T {
+  if (!patch) return target
+  const out: any = Array.isArray(target) ? [...(target as any)] : { ...(target as any) }
+  for (const k of Object.keys(patch) as Array<keyof T>) {
+    const pv = (patch as any)[k]
+    const tv = (target as any)[k]
+    out[k] =
+      pv && typeof tv === 'object' && tv && !Array.isArray(tv) && typeof pv === 'object'
+        ? deepMerge(tv, pv)
+        : pv
+  }
+  return out
 }
 
 export function applyXhsOverrides(base: XhsCardTheme, overrides: XhsStyleOverrides): XhsCardTheme {
-  return {
-    ...base,
-    page: {
-      padding: { ...base.page.padding, ...overrides.padding },
-      typography: { ...base.page.typography, ...overrides.typography },
-    },
-  }
+  return { ...base, layout: deepMerge(base.layout, overrides) }
 }
 
-/** 内容可用区派生常量：页眉行高 & 页脚水印预留 */
-export const XHS_HEADER_HEIGHT = 56
+/** 内容可用区派生常量：页脚水印预留（页面高度的一部分，分页与渲染共用） */
 export const XHS_FOOTER_RESERVE = 56
 
-/** 给定尺寸与主题时的内容可用区：测高分页与内容渲染共用这里派生 */
+/** 给定尺寸与主题时可用区：测高分页与内容渲染共用这里派生 */
 export function computeContentMetrics(size: { width: number; height: number }, theme: XhsCardTheme) {
-  const { padding, typography } = theme.page
+  const { padding, body, header } = theme.layout
   const contentWidth = size.width - padding.left - padding.right
   const availableHeight =
-    size.height - padding.top - padding.bottom - XHS_HEADER_HEIGHT - XHS_FOOTER_RESERVE
-  return { contentWidth, availableHeight, typography }
+    size.height - padding.top - padding.bottom - header.height - XHS_FOOTER_RESERVE
+  return { contentWidth, availableHeight, body }
 }
