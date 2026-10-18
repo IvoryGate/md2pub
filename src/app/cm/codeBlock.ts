@@ -33,7 +33,7 @@ export function fencedLines(doc: import('@codemirror/state').Text): Set<number> 
 }
 
 /** 头部色带内 padding（index.css .cm-fence-head padding-top 同值，改需同步） */
-export const FENCE_HEAD_PAD = 12
+export const FENCE_HEAD_PAD = 8
 
 /** 行装饰：栅栏块整块化 + 标题/hr 的块间外边距（间距恒定、行号块内居中） */
 /**
