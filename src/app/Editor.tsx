@@ -49,8 +49,10 @@ const cmTheme = EditorView.theme({
   '.cm-gutters': { backgroundColor: 'transparent', border: 'none', color: 'rgba(255,36,66,0.34)' },
   '.cm-lineNumbers .cm-gutterElement': {
     fontSize: '10.5px',
-    // 与正文共享同一行高（12.5px × 1.7 = 21.25px），否则行号纵向漂移
-    lineHeight: '21.25px',
+    // 行号与其渲染块垂直居中：cell 高度=块高（CM 几何测量含大字号行与 margin 镜像）
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
   },
   '.cm-activeLine': { backgroundColor: 'rgba(0,0,0,0.03)' },
   '.cm-activeLineGutter': {

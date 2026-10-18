@@ -8,7 +8,11 @@ import {
 import { type Range } from '@codemirror/state'
 
 const fenceRe = /^\s{0,3}(```|~~~)/
+const headingRe = /^(#{1,6})(\s|$)/
+const hrRe = /^\s{0,3}(?:-{3,}|\*{3,}|_{3,})\s*$/
 const inlineCodeRe = /`([^`\n]+)`/g
+
+/** 行装饰：栅栏块整块化 + 标题/hr 的块间外边距（间距恒定、行号块内居中） */
 
 /**
  * 围栏代码块「整块化」装饰（Phycat/Obsidian 式）：
@@ -56,13 +60,28 @@ function build(view: EditorView): DecorationSet {
     }
 
     if (isFence) {
-      // 起始围栏：开新块，```lang 行强调
+      // 起始围栏：开新块，```lang 行强调；块上外边距（与上文拉开一点）
       ranges.push(
         Decoration.line({
           class: 'cm-block-code cm-fence-head cm-fence-line',
         }).range(line.from),
       )
       inFence = true
+      continue
+    }
+
+    if (headingRe.test(line.text)) {
+      const level = Math.min(6, (headingRe.exec(line.text)![1]!.length))
+      ranges.push(
+        Decoration.line({ class: `cm-h-line cm-h${level}` }).range(line.from),
+      )
+      continue
+    }
+
+    if (hrRe.test(line.text)) {
+      ranges.push(
+        Decoration.line({ class: 'cm-hr-line' }).range(line.from),
+      )
       continue
     }
 
