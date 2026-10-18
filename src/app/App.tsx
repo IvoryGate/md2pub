@@ -43,7 +43,7 @@ const App = () => {
         className="canvas-grid relative min-h-0 flex-1"
         style={{
           // CSS 变量驱动卡片轨道避让浮动面板（面板收起时自动回收空间）
-          '--rail-pl': editorOpen ? '432px' : '36px',
+          '--rail-pl': editorOpen ? '508px' : '36px',
           '--rail-pr': '344px',
         } as React.CSSProperties}
       >
