@@ -1,14 +1,17 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { PanelLeftOpen } from 'lucide-react'
 import { XhsPreview } from './XhsPreview'
 import { EditorPanel } from './Editor'
 import { Sidebar } from './Sidebar'
+import { createScrollBus } from './scrollSync'
 import { useStore } from '../store'
 import { getTheme, applyXhsOverrides } from '../platforms/xhs'
 
 const App = () => {
   const { themeId, overrides, size } = useStore()
   const [editorOpen, setEditorOpen] = useState(true)
+  // 编辑器 ↔ 卡片轨道 双向滚动同步总线（面板生命周期内保持唯一实例）
+  const bus = useMemo(() => createScrollBus(), [])
   // 生效主题 = 所选主题预设 + 用户参数覆盖
   const theme = applyXhsOverrides(getTheme(themeId), overrides)
 
@@ -49,7 +52,7 @@ const App = () => {
       >
         {/* 编辑器浮动面板（可折叠） */}
         {editorOpen ? (
-          <EditorPanel onCollapse={() => setEditorOpen(false)} />
+          <EditorPanel onCollapse={() => setEditorOpen(false)} bus={bus} />
         ) : (
           <button
             className="glass absolute left-5 top-4 z-10 flex h-10 items-center gap-2 rounded-2xl px-4 text-[13px] font-semibold text-ink transition-transform hover:scale-[1.02]"
@@ -64,7 +67,7 @@ const App = () => {
         <Sidebar baseTheme={theme} />
 
         {/* 画布内容（卡片轨道 + 底部工具条） */}
-        <XhsPreview />
+        <XhsPreview bus={bus} />
       </main>
     </div>
   )

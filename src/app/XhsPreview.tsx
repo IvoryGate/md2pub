@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Download, Files, Sheet } from 'lucide-react'
 import { parseDocument } from '../core/document/parse'
 import {
@@ -14,15 +14,24 @@ import {
   exportCardsZip,
   safeFilename,
 } from '../platforms/xhs'
+import { bindSyncScroll, type ScrollBus } from './scrollSync'
 import { useStore } from '../store'
 
 const PREVIEW_SCALE = 0.42
 
 /** 画布内容：卡片轨道 + 底部悬浮工具条（面板遮避由 App 的 CSS 变量驱动） */
-export const XhsPreview = () => {
+export const XhsPreview = ({ bus }: { bus: ScrollBus }) => {
   const { markdown, themeId, size, overrides } = useStore()
   const [exporting, setExporting] = useState(false)
   const cardRefs = useRef<Array<HTMLElement | null>>([])
+  const railRef = useRef<HTMLDivElement>(null)
+
+  // 卡片轨道滚动 ⇋ 编辑器滚动（双向）
+  useEffect(() => {
+    const el = railRef.current
+    if (!el) return
+    return bindSyncScroll(el, 'rail', bus)
+  }, [bus])
 
   const doc = useMemo(() => parseDocument(markdown), [markdown])
   const theme = useMemo(() => {
@@ -78,7 +87,7 @@ export const XhsPreview = () => {
       <XhsMeasureLayer doc={doc} theme={theme} contentWidth={contentWidth} onHeights={onHeights} />
 
       {/* 卡片轨道（左右留白避让浮动面板） */}
-      <div className="h-full overflow-y-auto">
+      <div ref={railRef} className="h-full overflow-y-auto">
         <div
           className="mx-auto flex w-fit flex-col gap-6 py-6"
           style={{ paddingLeft: 'var(--rail-pl)', paddingRight: 'var(--rail-pr)' }}

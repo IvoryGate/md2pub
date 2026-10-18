@@ -1,72 +1,88 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo } from 'react'
 import { Pencil, ChevronLeft } from 'lucide-react'
-import { useStore } from '../store'
+import CodeMirror from '@uiw/react-codemirror'
+import { EditorView } from '@codemirror/view'
+import { markdown as markdownLang } from '@codemirror/lang-markdown'
+import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
+import { tags } from '@lezer/highlight'
 import { parseDocument } from '../core/document/parse'
+import { inlineMathPreview } from './cm/inlineMath'
+import { codeBlockStyler } from './cm/codeBlock'
+import { bindSyncScroll, type ScrollBus } from './scrollSync'
+import { useStore } from '../store'
 
-/** 行高常量：正文与行号槽必须共用同一度量，否则滚动同步会错位 */
-const LINE_H = 21.25 // 12.5px * 1.7
-const PAD_TOP = 10
-const PAD_LEFT = 44
-const PAD_RIGHT = 8
-const MONO_FONT = '"SF Mono", ui-monospace, "JetBrains Mono", Consolas, monospace'
+const INK = '#1d1d1f'
+const SOFT = '#6e6e73'
+const FAINT = '#aeaeb2'
+const ACCENT = '#ff2442'
+const MONO = '"SF Mono", ui-monospace, "JetBrains Mono", Consolas, monospace'
 
-/**
- * 行号与真实行对应、正文软换行（Typora 行为）：
- * 用 canvas 逐行 measureText 计算每条逻辑行折成几个视觉行（行宽/内容宽），
- * 行号锚定在逻辑行块顶部，槽体总高 = Σ视觉行 × LINE_H，与 textarea 滚动天然同步。
- */
-function useLogicalLineMetrics(markdown: string, contentWidth: number) {
-  return useMemo(() => {
-    const lines = markdown.split('\n')
-    if (contentWidth <= 0) {
-      return { lines, rows: lines.map(() => 1), offsets: lines.map(() => 0) }
-    }
-    const ctx = document.createElement('canvas').getContext('2d')!
-    ctx.font = `12.5px ${MONO_FONT}`
-    const rows: number[] = []
-    const offsets: number[] = []
-    let acc = 0
-    for (const line of lines) {
-      const width = ctx.measureText(line).width
-      const n = Math.max(1, Math.ceil(width / contentWidth))
-      offsets.push(acc)
-      acc += n
-      rows.push(n)
-    }
-    if (rows.length === 0) rows.push(1)
-    return { lines, rows, offsets }
-  }, [markdown, contentWidth])
-}
+/** 行内预览高亮：标题变大加粗、强调/删除线/链接/引用/标记淡化 */
+const mdHighlight = HighlightStyle.define([
+  { tag: tags.heading1, fontSize: '1.55em', fontWeight: '800', color: INK },
+  { tag: tags.heading2, fontSize: '1.3em', fontWeight: '700', color: INK },
+  { tag: tags.heading3, fontSize: '1.15em', fontWeight: '700', color: INK },
+  { tag: [tags.heading4, tags.heading5, tags.heading6], fontWeight: '650', color: INK },
+  { tag: tags.strong, fontWeight: '700', color: INK },
+  { tag: tags.emphasis, fontStyle: 'italic' },
+  { tag: tags.strikethrough, textDecoration: 'line-through' },
+  {
+    tag: tags.monospace,
+    color: '#3f2b2b',
+  },
+  { tag: tags.link, color: ACCENT },
+  { tag: tags.url, color: FAINT },
+  { tag: tags.quote, color: SOFT, fontStyle: 'italic' },
+  { tag: [tags.processingInstruction, tags.meta], color: FAINT },
+])
 
-/** 编辑器浮动玻璃面板（可折叠）——软换行 + 逻辑行号，Obsidian 式 */
-export const EditorPanel = ({ onCollapse }: { onCollapse: () => void }) => {
-  const { markdown, setMarkdown } = useStore()
+const cmTheme = EditorView.theme({
+  '&': { fontSize: '12.5px', color: INK, backgroundColor: 'transparent' },
+  '&.cm-focused': { outline: 'none' },
+  '.cm-scroller': {
+    fontFamily: MONO,
+    lineHeight: '1.7',
+    padding: '6px 10px 16px 2px',
+  },
+  '.cm-content': { caretColor: ACCENT },
+  '.cm-cursor, .cm-dropCursor': { borderLeftColor: ACCENT, borderLeftWidth: '2px' },
+  '.cm-gutters': { backgroundColor: 'transparent', border: 'none', color: FAINT },
+  '.cm-lineNumbers .cm-gutterElement': { fontSize: '10.5px' },
+  '.cm-activeLine': { backgroundColor: 'rgba(0,0,0,0.03)' },
+  '.cm-activeLineGutter': {
+    backgroundColor: 'transparent',
+    color: SOFT,
+    fontWeight: '600',
+  },
+  '.cm-selectionBackground, &.cm-focused .cm-selectionBackground': {
+    backgroundColor: 'rgba(255,36,66,0.13) !important',
+  },
+  '.cm-placeholder': { color: FAINT },
+})
+
+/** 编辑器浮动玻璃面板（可折叠）—— CodeMirror 语法高亮 + KaTeX 行内预览 */
+export const EditorPanel = ({
+  onCollapse,
+  bus,
+}: {
+  onCollapse: () => void
+  bus: ScrollBus
+}) => {
+  const markdown = useStore((s) => s.markdown)
+  const setMarkdown = useStore((s) => s.setMarkdown)
   const doc = useMemo(() => parseDocument(markdown), [markdown])
 
-  const taRef = useRef<HTMLTextAreaElement>(null)
-  const [scrollTop, setScrollTop] = useState(0)
-  const [cursorLine, setCursorLine] = useState(0)
-  const [contentWidth, setContentWidth] = useState(0)
-
-  const { lines, rows } = useLogicalLineMetrics(markdown, contentWidth)
-  const totalVisualRows = rows.reduce((a, b) => a + b, 0)
-
-  // 内容宽（文本框 clientWidth − 左右内边距）随面板/窗口变化重新测量
-  useEffect(() => {
-    const ta = taRef.current
-    if (!ta) return
-    const update = () => setContentWidth(ta.clientWidth - PAD_LEFT - PAD_RIGHT)
-    update()
-    const ro = new ResizeObserver(update)
-    ro.observe(ta)
-    return () => ro.disconnect()
-  }, [])
-
-  const syncCursor = () => {
-    const ta = taRef.current
-    if (!ta) return
-    setCursorLine(markdown.slice(0, ta.selectionStart).split('\n').length - 1)
-  }
+  const extensions = useMemo(
+    () => [
+      markdownLang(),
+      EditorView.lineWrapping,
+      syntaxHighlighting(mdHighlight),
+      inlineMathPreview,
+      codeBlockStyler,
+      cmTheme,
+    ],
+    [],
+  )
 
   return (
     <div className="glass absolute bottom-5 left-5 top-4 z-10 flex w-[470px] flex-col rounded-[20px]">
@@ -86,48 +102,30 @@ export const EditorPanel = ({ onCollapse }: { onCollapse: () => void }) => {
         </button>
       </div>
 
-      <div className="relative min-h-0 flex-1 pb-3 pr-1 pt-1">
-        <div className="relative h-full">
-          {/* 行号槽：同宽同字体同行高，逻辑行块高度=Σ视觉行，随滚动平移 */}
-          <div className="pointer-events-none absolute inset-y-0 left-0 w-10 overflow-hidden">
-            <div
-              className="pr-2 text-right font-mono text-[10.5px] text-ink-faint select-none"
-              style={{ paddingTop: PAD_TOP, lineHeight: `${LINE_H}px`, transform: `translateY(${-scrollTop}px)`, height: totalVisualRows * LINE_H + PAD_TOP }}
-            >
-              {lines.map((_, i) => (
-                <div key={i} className="relative" style={{ height: rows[i]! * LINE_H }}>
-                  <span
-                    className={i === cursorLine ? 'font-semibold text-ink-soft' : ''}
-                    style={{ position: 'absolute', top: 0, left: 0, right: 0 }}
-                  >
-                    {i + 1}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <textarea
-            ref={taRef}
-            value={markdown}
-            onChange={(e) => setMarkdown(e.target.value)}
-            onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
-            onKeyUp={syncCursor}
-            onClick={syncCursor}
-            spellCheck={false}
-            className="h-full w-full resize-none bg-transparent font-mono text-[12.5px] text-ink caret-accent outline-none"
-            style={{
-              paddingLeft: PAD_LEFT,
-              paddingRight: PAD_RIGHT,
-              paddingTop: PAD_TOP,
-              paddingBottom: 12,
-              lineHeight: `${LINE_H}px`,
-              whiteSpace: 'pre-wrap',
-              wordBreak: 'break-word',
-            }}
-            placeholder={'# 标题\n\n正文…'}
-          />
-        </div>
+      {/* 编辑区：CodeMirror 接管行号/软换行/高亮；滚动经 bus 与卡片轨道同步 */}
+      <div className="relative min-h-0 flex-1 overflow-hidden pb-2">
+        <CodeMirror
+          value={markdown}
+          onChange={setMarkdown}
+          extensions={extensions}
+          theme={cmTheme}
+          height="100%"
+          style={{ height: '100%' }}
+          basicSetup={{
+            lineNumbers: true,
+            foldGutter: false,
+            highlightActiveLine: true,
+            highlightActiveLineGutter: true,
+            autocompletion: false,
+            bracketMatching: false,
+            closeBrackets: false,
+            searchKeymap: false,
+            highlightSelectionMatches: false,
+          }}
+          onCreateEditor={(view) => {
+            bindSyncScroll(view.scrollDOM, 'editor', bus)
+          }}
+        />
       </div>
     </div>
   )
