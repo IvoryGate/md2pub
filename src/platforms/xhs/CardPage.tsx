@@ -1,10 +1,11 @@
 import katex from 'katex'
-import { useEffect, useRef, useState } from 'react'
+import { useRef } from 'react'
 import { renderInline, stripInline } from '../../core/document/parse'
 import type { Block } from '../../core/document/types'
 import type { XhsCard } from './layout'
 import type { XhsCardTheme } from './theme'
 import { XHS_HEADER_HEIGHT, XHS_FOOTER_RESERVE } from './theme'
+import { useDiagramSvg } from '../shared-blocks'
 
 /**
  * 小红书卡片渲染器。
@@ -13,6 +14,8 @@ import { XHS_HEADER_HEIGHT, XHS_FOOTER_RESERVE } from './theme'
  */
 
 const HEADER_HEIGHT = XHS_HEADER_HEIGHT
+
+// ---------- 异步内容块 ----------
 
 // ---------- 异步内容块 ----------
 
@@ -39,34 +42,8 @@ const MathBlock = ({ text, theme }: { text: string; theme: XhsCardTheme }) => {
   )
 }
 
-let mermaidReady = false
-const ensureMermaid = async () => {
-  const mermaid = (await import('mermaid')).default
-  if (!mermaidReady) {
-    mermaid.initialize({ startOnLoad: false, theme: 'default', securityLevel: 'loose' })
-    mermaidReady = true
-  }
-  return mermaid
-}
-
 const MermaidBlock = ({ text }: { text: string }) => {
-  const [svg, setSvg] = useState('')
-  const [error, setError] = useState('')
-  useEffect(() => {
-    let alive = true
-    ensureMermaid()
-      .then(m => m.render(`mmd-${Math.random().toString(36).slice(2)}`, text))
-      .then(({ svg }) => {
-        if (alive) setSvg(svg)
-      })
-      .catch(err => {
-        if (alive) setError(String(err?.message ?? err))
-      })
-    return () => {
-      alive = false
-    }
-  }, [text])
-
+  const { svg, error } = useDiagramSvg('mermaid', text)
   if (error)
     return (
       <div
@@ -96,26 +73,7 @@ const MermaidBlock = ({ text }: { text: string }) => {
 
 /** PlantUML：走公共渲染服务 Kroki（网络依赖，MVP 够用） */
 const PlantumlBlock = ({ text }: { text: string }) => {
-  const [svg, setSvg] = useState('')
-  const [error, setError] = useState('')
-  useEffect(() => {
-    let alive = true
-    fetch('https://kroki.io/plantuml/svg', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ diagram_source: text, diagram_type: 'plantuml' }),
-    })
-      .then(r => r.text())
-      .then(body => {
-        if (!alive) return
-        if (body.startsWith('<svg') || body.includes('<svg')) setSvg(body)
-        else setError(body.slice(0, 200))
-      })
-      .catch(err => alive && setError(String(err)))
-    return () => {
-      alive = false
-    }
-  }, [text])
+  const { svg, error } = useDiagramSvg('plantuml', text)
   if (error) return <div style={{ fontSize: 24, color: '#c0564e', whiteSpace: 'pre-wrap' }}>{error}</div>
   if (!svg)
     return <div style={{ fontFamily: 'monospace', fontSize: 24, color: '#999' }}>{text}</div>

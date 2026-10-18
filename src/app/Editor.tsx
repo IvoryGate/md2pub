@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Pencil, ChevronLeft, CodeXml } from 'lucide-react'
+import { Pencil, ChevronLeft } from 'lucide-react'
 import CodeMirror from '@uiw/react-codemirror'
 import { EditorView, type ViewUpdate } from '@codemirror/view'
 import { markdown as markdownLang } from '@codemirror/lang-markdown'
@@ -9,6 +9,7 @@ import { inlineMathPreview } from './cm/inlineMath'
 import { inlineRender } from './cm/inlineRender'
 import { codeBlockStyler, fencedLines, FENCE_HEAD_PAD } from './cm/codeBlock'
 import { bindSyncScroll, type ScrollBus } from './scrollSync'
+import { ReadView } from './ReadView'
 import { useStore } from '../store'
 
 const INK = '#1d1d1f'
@@ -164,8 +165,8 @@ export const EditorPanel = ({
 }) => {
   const markdown = useStore((s) => s.markdown)
   const setMarkdown = useStore((s) => s.setMarkdown)
-  const inlinePreview = useStore((s) => s.inlinePreview)
-  const toggleInlinePreview = useStore((s) => s.toggleInlinePreview)
+  const editorMode = useStore((s) => s.editorMode)
+  const setEditorMode = useStore((s) => s.setEditorMode)
   const stats = useMemo(() => countWordsAndChars(markdown), [markdown])
   const fmt = (n: number) => n.toLocaleString('en-US')
 
@@ -178,11 +179,12 @@ export const EditorPanel = ({
       markdownLang(),
       EditorView.lineWrapping,
       syntaxHighlighting(mdHighlight),
-      ...(inlinePreview ? [inlineMathPreview, inlineRender] : []),
+      // 实时预览（edit 模式）才挂行内渲染；source 模式 = 纯源码
+      ...(editorMode === 'edit' ? [inlineMathPreview, inlineRender] : []),
       codeBlockStyler,
       cmTheme,
     ],
-    [inlinePreview],
+    [editorMode],
   )
 
   return (
@@ -197,17 +199,26 @@ export const EditorPanel = ({
         <span className="pointer-events-none absolute left-1/2 top-1/2 max-w-[46%] -translate-x-1/2 -translate-y-1/2 truncate whitespace-nowrap text-[11px] leading-none tabular-nums text-ink-faint">
           {fmt(stats.words)} 词 {fmt(stats.chars)} 字符
         </span>
-        <div className="ml-auto flex items-center gap-1">
-          <button
-            className={
-              'flex h-6 w-6 items-center justify-center rounded-full transition-colors hover:bg-black/5 ' +
-              (inlinePreview ? 'text-[#ff2442]' : 'text-ink-faint')
-            }
-            onClick={toggleInlinePreview}
-            title={inlinePreview ? '行内渲染：开（点按回到源码态）' : '行内渲染：关（点按开启）'}
-          >
-            <CodeXml className="h-4 w-4" strokeWidth={1.8} />
-          </button>
+        <div className="ml-auto flex items-center gap-2">
+          {/* 三模式切换（Obsidian 对位）：源码 / 编辑 / 阅读 */}
+          <nav className="segmented">
+            {(['source', 'edit', 'read'] as const).map((m) => (
+              <button
+                key={m}
+                className={editorMode === m ? 'on' : ''}
+                onClick={() => setEditorMode(m)}
+                title={
+                  m === 'source'
+                    ? '源码模式：纯 markdown 源码'
+                    : m === 'edit'
+                      ? '编辑模式：实时预览（行内半渲染）'
+                      : '阅读模式：完整渲染，不可编辑'
+                }
+              >
+                {m === 'source' ? '源码' : m === 'edit' ? '编辑' : '阅读'}
+              </button>
+            ))}
+          </nav>
           <button
             className="flex h-6 w-6 items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-black/5 hover:text-ink"
             onClick={onCollapse}
@@ -218,49 +229,53 @@ export const EditorPanel = ({
         </div>
       </div>
 
-      {/* 编辑区：CodeMirror + 自绘行号覆盖层；滚动经 bus 与卡片轨道同步 */}
-      <div ref={holderRef} className="relative min-h-0 flex-1 overflow-hidden pb-2">
-        <CodeMirror
-          value={markdown}
-          onChange={setMarkdown}
-          extensions={extensions}
-          theme={cmTheme}
-          height="100%"
-          style={{ height: '100%' }}
-          basicSetup={{
-            lineNumbers: false,
-            foldGutter: false,
-            highlightActiveLine: true,
-            highlightActiveLineGutter: false,
-            autocompletion: false,
-            bracketMatching: false,
-            closeBrackets: false,
-            searchKeymap: false,
-            highlightSelectionMatches: false,
-          }}
-          onCreateEditor={(view) => {
-            viewRef.current = view
-            bindSyncScroll(view.scrollDOM, 'editor', bus)
-            view.scrollDOM.addEventListener('scroll', schedule, { passive: true })
-            schedule()
-          }}
-          onUpdate={(u: ViewUpdate) => {
-            if (u.docChanged || u.viewportChanged || u.geometryChanged || u.selectionSet) schedule()
-          }}
-        />
-        {/* 自绘行号层：绝对定位 + pointer-events none，跟随真实 .cm-line 矩形 */}
-        <div className="editor-ln-layer">
-          {nums.map((x) => (
-            <div
-              key={x.n}
-              className={'editor-ln' + (x.active ? ' is-active' : '')}
-              style={{ top: x.top, height: x.h, width: NUM_W }}
-            >
-              {x.n}
-            </div>
-          ))}
+      {/* 编辑/源码：CodeMirror + 自绘行号覆盖层；阅读：整页渲染。滚动经 bus 与卡片轨道同步 */}
+      {editorMode === 'read' ? (
+        <ReadView markdown={markdown} bus={bus} />
+      ) : (
+        <div ref={holderRef} className="relative min-h-0 flex-1 overflow-hidden pb-2">
+          <CodeMirror
+            value={markdown}
+            onChange={setMarkdown}
+            extensions={extensions}
+            theme={cmTheme}
+            height="100%"
+            style={{ height: '100%' }}
+            basicSetup={{
+              lineNumbers: false,
+              foldGutter: false,
+              highlightActiveLine: true,
+              highlightActiveLineGutter: false,
+              autocompletion: false,
+              bracketMatching: false,
+              closeBrackets: false,
+              searchKeymap: false,
+              highlightSelectionMatches: false,
+            }}
+            onCreateEditor={(view) => {
+              viewRef.current = view
+              bindSyncScroll(view.scrollDOM, 'editor', bus)
+              view.scrollDOM.addEventListener('scroll', schedule, { passive: true })
+              schedule()
+            }}
+            onUpdate={(u: ViewUpdate) => {
+              if (u.docChanged || u.viewportChanged || u.geometryChanged || u.selectionSet) schedule()
+            }}
+          />
+          {/* 自绘行号层：绝对定位 + pointer-events none，跟随真实 .cm-line 矩形 */}
+          <div className="editor-ln-layer">
+            {nums.map((x) => (
+              <div
+                key={x.n}
+                className={'editor-ln' + (x.active ? ' is-active' : '')}
+                style={{ top: x.top, height: x.h, width: NUM_W }}
+              >
+                {x.n}
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }
