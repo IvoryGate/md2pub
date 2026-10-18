@@ -44,6 +44,9 @@ export const useStore = create<{
   setSize: (s: '3:4' | '1:1' | '4:5') => void
   watermark: string
   setWatermark: (s: string) => void
+  /** 编辑器：行内公式/预览类 widget 总开关（关闭 = 纯文本源码态） */
+  inlinePreview: boolean
+  toggleInlinePreview: () => void
   /** UI 面板的排版参数微调（叠加在所选主题之上） */
   overrides: XhsOverrides
   patchPadding: (p: Partial<XhsPadding>) => void
@@ -60,6 +63,8 @@ export const useStore = create<{
       setSize: (size) => set({ size }),
       watermark: '@md2pub',
       setWatermark: (watermark) => set({ watermark }),
+      inlinePreview: true,
+      toggleInlinePreview: () => set((s) => ({ inlinePreview: !s.inlinePreview })),
       overrides: EMPTY_OVERRIDES,
       patchPadding: (padding) =>
         set((s) => ({ overrides: { ...s.overrides, padding: { ...s.overrides.padding, ...padding } } })),

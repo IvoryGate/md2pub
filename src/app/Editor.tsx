@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Pencil, ChevronLeft } from 'lucide-react'
+import { Pencil, ChevronLeft, CodeXml } from 'lucide-react'
 import CodeMirror from '@uiw/react-codemirror'
 import { EditorView, type ViewUpdate } from '@codemirror/view'
 import { markdown as markdownLang } from '@codemirror/lang-markdown'
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import { tags } from '@lezer/highlight'
-import { parseDocument } from '../core/document/parse'
 import { inlineMathPreview } from './cm/inlineMath'
 import { codeBlockStyler, fencedLines, FENCE_HEAD_PAD } from './cm/codeBlock'
 import { bindSyncScroll, type ScrollBus } from './scrollSync'
@@ -50,6 +49,16 @@ interface LineNum {
   /** 条带高（=首视觉行高；整块行即块高） */
   h: number
   active: boolean
+}
+
+/** Obsidian 式字数统计：CJK 字符逐个计词 + 拉丁词按空白分词；字符数不含空白 */
+function countWordsAndChars(md: string) {
+  // 剥离 front-matter（统计正文才有意义）
+  const body = md.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, '')
+  const cjk = body.match(/[\u3400-\u9fff\uf900-\ufaff]/g)?.length ?? 0
+  const latin = body.match(/[A-Za-z0-9][A-Za-z0-9'’_\-]*/g)?.length ?? 0
+  const chars = body.replace(/\s/g, '').length
+  return { words: cjk + latin, chars }
 }
 
 const cmTheme = EditorView.theme({
@@ -154,7 +163,10 @@ export const EditorPanel = ({
 }) => {
   const markdown = useStore((s) => s.markdown)
   const setMarkdown = useStore((s) => s.setMarkdown)
-  const doc = useMemo(() => parseDocument(markdown), [markdown])
+  const inlinePreview = useStore((s) => s.inlinePreview)
+  const toggleInlinePreview = useStore((s) => s.toggleInlinePreview)
+  const stats = useMemo(() => countWordsAndChars(markdown), [markdown])
+  const fmt = (n: number) => n.toLocaleString('en-US')
 
   const holderRef = useRef<HTMLDivElement | null>(null)
   const viewRef = useRef<EditorView | null>(null)
@@ -165,22 +177,33 @@ export const EditorPanel = ({
       markdownLang(),
       EditorView.lineWrapping,
       syntaxHighlighting(mdHighlight),
-      inlineMathPreview,
+      ...(inlinePreview ? [inlineMathPreview] : []),
       codeBlockStyler,
       cmTheme,
     ],
-    [],
+    [inlinePreview],
   )
 
   return (
     <div className="glass absolute bottom-5 left-5 top-4 z-10 flex w-[470px] flex-col rounded-[20px]">
-      <div className="flex h-11 shrink-0 items-center gap-2 px-4">
+      <div className="flex h-11 shrink-0 items-center gap-1.5 px-4">
         <Pencil className="h-3.5 w-3.5 text-ink-faint" strokeWidth={1.8} />
         <span className="text-[13px] font-semibold">编辑器</span>
-        <span className="ml-1 rounded-full bg-black/5 px-2 py-0.5 text-[10.5px] tabular-nums text-ink-soft">
-          {doc.blocks.length} 块
+        {/* Obsidian 式字数统计：纯文本、无胶囊底 */}
+        <span className="ml-1 truncate text-[11px] tabular-nums text-ink-faint">
+          {fmt(stats.words)} 词 {fmt(stats.chars)} 字符
         </span>
         <div className="flex-1" />
+        <button
+          className={
+            'flex h-6 w-6 items-center justify-center rounded-full transition-colors hover:bg-black/5 ' +
+            (inlinePreview ? 'text-[#ff2442]' : 'text-ink-faint')
+          }
+          onClick={toggleInlinePreview}
+          title={inlinePreview ? '行内公式渲染：开' : '行内公式渲染：关'}
+        >
+          <CodeXml className="h-4 w-4" strokeWidth={1.8} />
+        </button>
         <button
           className="flex h-6 w-6 items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-black/5 hover:text-ink"
           onClick={onCollapse}
