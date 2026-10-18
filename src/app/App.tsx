@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { PanelLeftOpen } from 'lucide-react'
 import { XhsPreview } from './XhsPreview'
 import { EditorPanel } from './Editor'
 import { Sidebar } from './Sidebar'
@@ -42,7 +43,7 @@ const App = () => {
         className="canvas-grid relative min-h-0 flex-1"
         style={{
           // CSS 变量驱动卡片轨道避让浮动面板（面板收起时自动回收空间）
-          '--rail-pl': editorOpen ? '416px' : '36px',
+          '--rail-pl': editorOpen ? '432px' : '36px',
           '--rail-pr': '344px',
         } as React.CSSProperties}
       >
@@ -51,10 +52,11 @@ const App = () => {
           <EditorPanel onCollapse={() => setEditorOpen(false)} />
         ) : (
           <button
-            className="glass absolute left-5 top-4 z-10 flex items-center gap-1.5 rounded-2xl px-4 py-2.5 text-[13px] font-semibold text-ink"
+            className="glass absolute left-5 top-4 z-10 flex h-10 items-center gap-2 rounded-2xl px-4 text-[13px] font-semibold text-ink transition-transform hover:scale-[1.02]"
             onClick={() => setEditorOpen(true)}
           >
-            <span className="text-ink-soft">›</span> 编辑器
+            <PanelLeftOpen className="h-4 w-4 text-ink-soft" strokeWidth={1.8} />
+            编辑器
           </button>
         )}
 

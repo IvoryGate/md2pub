@@ -1,15 +1,17 @@
 import { useMemo } from 'react'
+import { Pencil, ChevronLeft } from 'lucide-react'
 import { useStore } from '../store'
 import { parseDocument } from '../core/document/parse'
 
-/** 编辑器浮动玻璃面板（可折叠）——只保留必要 chrome */
+/** 编辑器浮动玻璃面板（可折叠）——与样式面板同高对齐 */
 export const EditorPanel = ({ onCollapse }: { onCollapse: () => void }) => {
   const { markdown, setMarkdown } = useStore()
   const doc = useMemo(() => parseDocument(markdown), [markdown])
 
   return (
-    <div className="glass absolute bottom-24 left-5 top-4 z-10 flex w-[400px] flex-col rounded-[20px]">
+    <div className="glass absolute bottom-5 left-5 top-4 z-10 flex w-[400px] flex-col rounded-[20px]">
       <div className="flex h-11 shrink-0 items-center gap-2 px-4">
+        <Pencil className="h-3.5 w-3.5 text-ink-faint" strokeWidth={1.8} />
         <span className="text-[13px] font-semibold">编辑器</span>
         <span className="ml-1 rounded-full bg-black/5 px-2 py-0.5 text-[10.5px] tabular-nums text-ink-soft">
           {doc.blocks.length} 块
@@ -20,7 +22,7 @@ export const EditorPanel = ({ onCollapse }: { onCollapse: () => void }) => {
           onClick={onCollapse}
           title="收起面板"
         >
-          ‹
+          <ChevronLeft className="h-4 w-4" strokeWidth={1.8} />
         </button>
       </div>
       <div className="min-h-0 flex-1 px-1 pb-1">

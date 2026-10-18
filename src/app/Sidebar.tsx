@@ -1,4 +1,5 @@
 import { XHS_THEMES, type XhsPadding, type XhsTypography, type XhsCardTheme } from '../platforms/xhs'
+import { Palette, Check, RotateCcw } from 'lucide-react'
 import { useStore } from '../store'
 
 /** 样式设置浮动面板：主题预设 + 排版参数，无解释文案 */
@@ -48,12 +49,14 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
     <aside className="glass absolute bottom-5 right-5 top-4 z-10 flex w-[312px] flex-col overflow-hidden rounded-[20px]">
       {/* 面板头 */}
       <div className="flex h-11 shrink-0 items-center gap-2 border-b border-black/[0.06] px-4">
+        <Palette className="h-3.5 w-3.5 text-ink-faint" strokeWidth={1.8} />
         <span className="text-[13px] font-semibold">样式设置</span>
         <div className="flex-1" />
         <button
-          className="rounded-full bg-ink px-2.5 py-1 text-[11px] font-medium text-white transition-opacity hover:opacity-80"
+          className="flex items-center gap-1 rounded-full bg-ink px-2.5 py-1 text-[11px] font-medium text-white transition-opacity hover:opacity-80"
           onClick={resetOverrides}
         >
+          <RotateCcw className="h-3 w-3" strokeWidth={2} />
           重置样式
         </button>
       </div>
@@ -82,11 +85,7 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
                     <div className="h-[3px] w-4.5 rounded-full" style={{ background: t.palette.accent }} />
                   </div>
                   <div className={`text-[12.5px] font-medium ${active ? 'text-ink' : 'text-ink-soft'}`}>{t.name}</div>
-                  {active && (
-                    <svg className="ml-auto h-3.5 w-3.5 text-ink" viewBox="0 0 16 16" fill="none">
-                      <path d="M3.5 8.5l3 3 6-7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  )}
+                  {active && <Check className="ml-auto h-3.5 w-3.5 text-ink" strokeWidth={2} />}
                 </button>
               )
             })}
