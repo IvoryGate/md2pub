@@ -1,52 +1,68 @@
+import { useState } from 'react'
 import { XhsPreview } from './XhsPreview'
-import Editor from './Editor'
+import { EditorPanel } from './Editor'
 import { Sidebar } from './Sidebar'
 import { useStore } from '../store'
 import { getTheme, applyXhsOverrides } from '../platforms/xhs'
 
 const App = () => {
-  const { themeId, overrides } = useStore()
-  // 生效主题 = 所选主题预设 + 用户在样式面板的参数覆盖
+  const { themeId, overrides, size } = useStore()
+  const [editorOpen, setEditorOpen] = useState(true)
+  // 生效主题 = 所选主题预设 + 用户参数覆盖
   const theme = applyXhsOverrides(getTheme(themeId), overrides)
 
   return (
-    <div className="flex h-screen w-screen flex-col overflow-hidden bg-paper text-ink">
-      {/* 顶栏 */}
-      <header className="flex h-12 shrink-0 items-center gap-3 border-b border-line bg-panel px-4">
-        {/* 品牌 */}
-        <div className="flex items-center gap-2">
-          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-ink text-[11px] font-black text-paper">
+    <div className="flex h-screen w-screen flex-col overflow-hidden text-ink">
+      {/* 顶栏（融入画布，无分界线） */}
+      <header className="relative z-20 flex h-12 shrink-0 items-center px-4">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-6.5 w-6.5 items-center justify-center rounded-[7px] bg-ink text-[11px] font-black text-white shadow-sm">
             x2
           </div>
-          <span className="text-[13.5px] font-bold tracking-tight">md2pub</span>
+          <span className="text-[14px] font-bold tracking-[-0.01em]">md2pub</span>
         </div>
 
-        {/* 平台 Tab */}
-        <nav className="ml-3 flex items-center gap-0.5 rounded-lg bg-sunken p-0.5">
-          <button className="rounded-md bg-panel px-3 py-1 text-[12.5px] font-semibold text-ink shadow-sm">
-            小红书
-          </button>
-          <button disabled className="cursor-not-allowed rounded-md px-3 py-1 text-[12.5px] text-ink-faint" title="下一站：微信公众号排版">
-            公众号
-          </button>
+        <nav className="segmented ml-5">
+          <button className="on">小红书</button>
+          <button disabled className="cursor-not-allowed opacity-45" title="建设中">公众号</button>
         </nav>
 
         <div className="flex-1" />
-
-        <span className="hidden text-[11px] text-ink-faint lg:inline">排版参数实时生效 · 所有产物本地生成</span>
+        <div className="segmented">
+          {(['3:4', '1:1', '4:5'] as const).map((s) => (
+            <button key={s} className={size === s ? 'on' : ''} onClick={() => useStore.getState().setSize(s)}>
+              {s}
+            </button>
+          ))}
+        </div>
       </header>
 
-      {/* 三栏：编辑 / 画布 / 样式面板 */}
-      <main className="grid min-h-0 flex-1 grid-cols-[minmax(320px,30%)_1fr_288px]">
-        <section className="min-h-0 overflow-hidden border-r border-line">
-          <Editor />
-        </section>
-        <section className="min-h-0">
-          <XhsPreview />
-        </section>
-        <section className="min-h-0">
-          <Sidebar baseTheme={theme} />
-        </section>
+      {/* 全幅画布 */}
+      <main
+        className="canvas-grid relative min-h-0 flex-1"
+        style={{
+          // CSS 变量驱动卡片轨道避让浮动面板（面板收起时自动回收空间）
+          '--rail-pl': editorOpen ? '416px' : '36px',
+          '--rail-pr': '344px',
+        } as React.CSSProperties}
+      >
+        {/* 编辑器浮动面板（可折叠） */}
+        {editorOpen ? (
+          <EditorPanel onCollapse={() => setEditorOpen(false)} />
+        ) : (
+          <button
+            className="glass absolute left-5 top-4 z-10 flex items-center gap-1.5 rounded-2xl px-4 py-2.5 text-[13px] font-semibold text-ink"
+            onClick={() => setEditorOpen(true)}
+          >
+            <span className="text-ink-soft">›</span> 编辑器
+          </button>
+        )}
+
+        {/* 样式设置浮动面板 */}
+        <Sidebar baseTheme={theme} />
+
+        {/* 画布内容（卡片轨道 + 底部工具条） */}
+        <XhsPreview />
       </main>
     </div>
   )

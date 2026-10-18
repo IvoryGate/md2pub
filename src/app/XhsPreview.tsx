@@ -15,23 +15,19 @@ import {
 } from '../platforms/xhs'
 import { useStore } from '../store'
 
-const PREVIEW_SCALE = 0.34
+const PREVIEW_SCALE = 0.36
 
-/** 中央画布：点阵背景 + 卡片轨道 + 导出工具条（仅依赖 xhs 平台 public API） */
+/** 画布内容：卡片轨道 + 底部悬浮工具条（面板遮避由 App 的 CSS 变量驱动） */
 export const XhsPreview = () => {
   const { markdown, themeId, size, overrides } = useStore()
   const [exporting, setExporting] = useState(false)
   const cardRefs = useRef<Array<HTMLElement | null>>([])
 
   const doc = useMemo(() => parseDocument(markdown), [markdown])
-  // 与 App 三栏共享同一份合成规则：主题预设 + UI 参数覆盖
-  const theme = useMemo(
-    () => {
-      const base = XHS_THEMES.find(t => t.id === themeId) ?? XHS_THEMES[0]!
-      return applyXhsOverrides(base, overrides)
-    },
-    [themeId, overrides],
-  )
+  const theme = useMemo(() => {
+    const base = XHS_THEMES.find(t => t.id === themeId) ?? XHS_THEMES[0]!
+    return applyXhsOverrides(base, overrides)
+  }, [themeId, overrides])
 
   const [heights, onHeights] = useMeasuredHeights()
   const cardSet = useMemo(
@@ -76,43 +72,16 @@ export const XhsPreview = () => {
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="relative h-full">
       {/* 隐藏度量层 */}
       <XhsMeasureLayer doc={doc} theme={theme} contentWidth={contentWidth} onHeights={onHeights} />
 
-      {/* 画布工具条 */}
-      <div className="flex h-10 shrink-0 items-center gap-2 border-b border-line bg-panel px-4">
-        <span className="text-[12.5px] font-semibold text-ink">小红书</span>
-        <span className="rounded-full bg-sunken px-2 py-0.5 text-[10.5px] font-medium tabular-nums text-ink-soft">
-          {cardSet ? `${totalPages} 页正文` : '…计算版式'}
-        </span>
-        {cardSet && cardSet.warnings.length > 0 && (
-          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10.5px] text-amber-700">
-            {cardSet.warnings.length} 处溢出
-          </span>
-        )}
-        <div className="flex-1" />
-        <button
-          className="rounded-full bg-accent px-3.5 py-1 text-[11.5px] font-medium text-white shadow-[0_1px_4px_rgba(255,36,66,0.35)] transition-colors hover:bg-accent-deep disabled:opacity-40"
-          onClick={handleExportAll}
-          disabled={exporting || !cardSet}
+      {/* 卡片轨道（左右留白避让浮动面板） */}
+      <div className="h-full overflow-y-auto">
+        <div
+          className="mx-auto flex w-fit flex-col gap-8 py-6"
+          style={{ paddingLeft: 'var(--rail-pl)', paddingRight: 'var(--rail-pr)' }}
         >
-          {exporting ? '导出中…' : '导出全部 ZIP'}
-        </button>
-      </div>
-
-      {/* 溢出告警条 */}
-      {cardSet && cardSet.warnings.length > 0 && (
-        <div className="border-b border-amber-200 bg-amber-50 px-4 py-1.5 text-[11px] leading-relaxed text-amber-700">
-          {cardSet.warnings.slice(0, 2).map((w, i) => (
-            <div key={i}>⚠️ {w}</div>
-          ))}
-        </div>
-      )}
-
-      {/* 点阵画布 · 卡片轨道 */}
-      <div className="canvas-dots min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto flex w-fit flex-col gap-7 px-10 py-8">
           {cardSet?.cards.map((card, i) => (
             <CardFrame
               key={i}
@@ -121,20 +90,48 @@ export const XhsPreview = () => {
               height={cardSet.size.height}
               scale={PREVIEW_SCALE}
               cardRef={(el) => { cardRefs.current[i] = el }}
-              onExportSingle={handleExportOne}
               onExportIndex={i}
+              onExportSingle={handleExportOne}
               exporting={exporting}
             >
               <CardPage card={card} theme={theme} />
             </CardFrame>
           ))}
+          {cardSet && <div className="h-16" />}
         </div>
+      </div>
+
+      {/* 底部悬浮工具条 */}
+      <div className="glass absolute bottom-5 left-1/2 z-20 flex -translate-x-1/2 items-center gap-1.5 rounded-full py-1.5 pl-3.5 pr-1.5">
+        <span className="text-[12px] font-medium tabular-nums text-ink">
+          {cardSet ? `${totalPages} 页` : '版式计算中…'}
+        </span>
+        {cardSet && cardSet.warnings.length > 0 && (
+          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10.5px] text-amber-700">
+            {cardSet.warnings.length} 处溢出
+          </span>
+        )}
+        <div className="mx-0.5 h-4 w-px bg-black/10" />
+        <button
+          className="rounded-full border border-black/[0.14] bg-white px-3 py-1 text-[11.5px] text-ink transition-colors hover:bg-black/[0.04] disabled:opacity-40"
+          onClick={() => handleExportOne(0)}
+          disabled={exporting}
+        >
+          导出当前
+        </button>
+        <button
+          className="rounded-full bg-ink px-3.5 py-1 text-[11.5px] font-medium text-white transition-opacity hover:opacity-85 disabled:opacity-40"
+          onClick={handleExportAll}
+          disabled={exporting || !cardSet}
+        >
+          {exporting ? '导出中…' : '导出全部'}
+        </button>
       </div>
     </div>
   )
 }
 
-/** 卡片轨道项：标签 chip + PNG 快捷键 + 原生分辨率渲染 */
+/** 卡片轨道项：原生分辨率渲染 + 悬浮快捷导出 */
 const CardFrame = ({
   label,
   width,
@@ -157,25 +154,22 @@ const CardFrame = ({
   exporting: boolean
 }) => (
   <div className="group flex flex-col items-center gap-1.5">
-    <div className="flex items-center gap-2">
-      <span
-        className={`rounded-full px-2.5 py-0.5 text-[10.5px] font-semibold ${
-          label === '封面' ? 'bg-accent text-white' : 'bg-panel text-ink-soft shadow-sm ring-1 ring-line'
-        }`}
-      >
-        {label}
-      </span>
-      <button
-        className="rounded-full bg-panel px-2 py-0.5 text-[10px] text-ink-soft opacity-0 shadow-sm ring-1 ring-line transition-opacity hover:text-accent group-hover:opacity-100"
-        onClick={() => onExportSingle(onExportIndex)}
-        disabled={exporting}
-      >
-        PNG
-      </button>
-    </div>
+    <span
+      className={`rounded-full px-2.5 py-0.5 text-[10.5px] font-semibold ${
+        label === '封面'
+          ? 'bg-accent text-white shadow-[0_1px_4px_rgba(255,36,66,0.4)]'
+          : 'glass text-ink-soft'
+      }`}
+    >
+      {label}
+    </span>
     <div
-      className="relative overflow-hidden rounded-2xl bg-white shadow-[0_8px_28px_rgba(32,29,25,0.13),0_2px_6px_rgba(32,29,25,0.08)] transition-shadow group-hover:shadow-[0_12px_36px_rgba(32,29,25,0.18)]"
-      style={{ width: width * scale, height: height * scale }}
+      className="relative overflow-hidden rounded-[18px] bg-white transition-shadow"
+      style={{
+        width: width * scale,
+        height: height * scale,
+        boxShadow: '0 18px 50px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06)',
+      }}
     >
       <div
         ref={(el) => cardRef(el?.querySelector<HTMLElement>('[data-xhs-card]') ?? null)}
@@ -184,5 +178,12 @@ const CardFrame = ({
         {children}
       </div>
     </div>
+    <button
+      className="rounded-full bg-white/90 px-2.5 py-1 text-[10.5px] font-medium text-ink-soft opacity-0 shadow-sm ring-1 ring-black/[0.08] backdrop-blur transition-opacity hover:text-ink group-hover:opacity-100"
+      onClick={() => onExportSingle(onExportIndex)}
+      disabled={exporting}
+    >
+      导出 PNG
+    </button>
   </div>
 )
