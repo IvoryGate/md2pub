@@ -12,7 +12,7 @@ const headingRe = /^(#{1,6})(\s|$)/
 const hrRe = /^\s{0,3}(?:-{3,}|\*{3,}|_{3,})\s*$/
 const inlineCodeRe = /`([^`\n]+)`/g
 
-/** 栅栏行集合缓存（供行号 gutter 判定"标题倍率是否生效"复用） */
+/** 栅栏行集合缓存（供行号覆盖层判定"标题倍率是否生效"复用） */
 let fenceCache: { doc: unknown; lines: Set<number> } | null = null
 export function fencedLines(doc: import('@codemirror/state').Text): Set<number> {
   if (fenceCache && fenceCache.doc === doc) return fenceCache.lines
@@ -31,6 +31,9 @@ export function fencedLines(doc: import('@codemirror/state').Text): Set<number> 
   fenceCache = { doc, lines: set }
   return set
 }
+
+/** 头部色带内 padding（index.css .cm-fence-head padding-top 同值，改需同步） */
+export const FENCE_HEAD_PAD = 12
 
 /** 行装饰：栅栏块整块化 + 标题/hr 的块间外边距（间距恒定、行号块内居中） */
 /**

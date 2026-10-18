@@ -82,23 +82,28 @@ body,
   padding-right: 10px;
   color: #37474f;
 }
-/* 头部色带（```lang 行）：加深底 + 上边框 + 块间距（行号格自动镜像偏移） */
+/* 头部色带（```lang 行）：加深底 + 上边框。
+   框本体向上生长：margin 仅留 4px 缝隙，另 12px 作为带内 padding，
+   使 ```mermaid 文字在带内下沉、色带顶边贴近上文（与行号覆盖层的
+   FENCE_HEAD_PAD 是同一数值，改这里需同步改 codeBlock.ts） */
 .cm-editor .cm-line.cm-fence-head {
   border-radius: 10px 10px 0 0;
   border-top: 1px solid rgba(255, 36, 66, 0.28);
   background: rgba(255, 36, 66, 0.1);
-  margin-top: 14px;
+  margin-top: 4px;
+  padding-top: 12px;
 }
 /* ```lang 围栏行文字：品牌色加粗 */
 .cm-editor .cm-line.cm-fence-line {
   color: #ff2442;
   font-weight: 600;
 }
-/* 闭合围栏：底部圆角 + 下边框 + 块间距，字色淡化 */
+/* 闭合围栏：底部圆角 + 下边框，框本体向下生长（与头部对称），字色淡化 */
 .cm-editor .cm-line.cm-fence-tail {
   border-radius: 0 0 10px 10px;
   border-bottom: 1px solid rgba(255, 36, 66, 0.24);
-  margin-bottom: 14px;
+  margin-bottom: 4px;
+  padding-bottom: 10px;
   color: #90a4ae;
 }
 

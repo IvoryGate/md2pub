@@ -7,7 +7,7 @@ import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import { tags } from '@lezer/highlight'
 import { parseDocument } from '../core/document/parse'
 import { inlineMathPreview } from './cm/inlineMath'
-import { codeBlockStyler, fencedLines } from './cm/codeBlock'
+import { codeBlockStyler, fencedLines, FENCE_HEAD_PAD } from './cm/codeBlock'
 import { bindSyncScroll, type ScrollBus } from './scrollSync'
 import { useStore } from '../store'
 
@@ -100,6 +100,8 @@ function useLineNumbers(
       if (r.bottom < base || r.top > limit) continue
       const line = doc.lineAt(view.posAtDOM(el, 0))
       const isFence = fenced.has(line.number)
+      // 头部色带内建有 padding（带体向上生长），编号对准带内的 ```lang 文字行
+      const headPad = el.classList.contains('cm-fence-head') ? FENCE_HEAD_PAD : 0
       const mh = isFence ? null : /^(#{1,6})(\s|$)/.exec(line.text)
       // 标题单行 → 条带=块高；段落软换行 → 条带=首视觉行；围栏行 → 该行实测高
       const rowH = mh
@@ -107,7 +109,7 @@ function useLineNumbers(
         : Math.min(r.height, BASE_ROW_H)
       out.push({
         n: line.number,
-        top: r.top - base,
+        top: r.top - base + headPad,
         h: rowH,
         active: line.number === activeN,
       })
