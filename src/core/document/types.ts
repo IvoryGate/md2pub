@@ -28,6 +28,7 @@ export type Block =
   | { type: 'mermaid'; text: string }
   | { type: 'plantuml'; text: string }
   | { type: 'list'; ordered: boolean; items: string[] }
+  | { type: 'table'; head: string[]; rows: string[][] }
   | { type: 'image'; url: string; alt?: string }
   | { type: 'divider' }
   | { type: 'pagebreak' }

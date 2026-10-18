@@ -127,6 +127,40 @@ function scanTokens(tokens: Token[]): Block[] {
           continue
         }
 
+        // 表格（GFM）：table_open 后按 thead/tbody/tr/th/td 结构收集
+        case 'table_open': {
+          const head: string[] = []
+          const rows: string[][] = []
+          let row: string[] = []
+          let isHead = true
+          i++
+          while (i < tokens.length) {
+            const tk = tokens[i]!
+            if (tk.type === 'table_close') {
+              i++
+              break
+            }
+            switch (tk.type) {
+              case 'thead_close':
+                isHead = false
+                break
+              case 'tr_open':
+                row = []
+                break
+              case 'inline':
+                row.push(tk.content)
+                break
+              case 'tr_close':
+                if (isHead) head.push(...row)
+                else rows.push(row)
+                break
+            }
+            i++
+          }
+          push({ type: 'table', head, rows })
+          continue
+        }
+
         // 引用（含嵌套）：收集期间出现的所有 inline 文本行
         case 'blockquote_open': {
           let depth = 0

@@ -249,6 +249,58 @@ export const BlockView = ({ block, theme }: { block: Block; theme: XhsCardTheme 
           ))}
         </ol>
       )
+    case 'table':
+      return (
+        <div style={{ overflowX: 'auto' }}>
+          <table
+            style={{
+              borderCollapse: 'collapse',
+              width: '100%',
+              fontSize: T.bodySize * 0.58,
+              fontFamily: theme.fontFamily,
+            }}
+          >
+            <thead>
+              <tr>
+                {block.head.map((h, i) => (
+                  <th
+                    key={i}
+                    style={{
+                      textAlign: 'left',
+                      padding: '12px 16px',
+                      background: p.quoteBg,
+                      color: p.heading,
+                      fontWeight: 700,
+                      whiteSpace: 'nowrap',
+                      borderTopLeftRadius: i === 0 ? 10 : 0,
+                      borderTopRightRadius: i === block.head.length - 1 ? 10 : 0,
+                    }}
+                    dangerouslySetInnerHTML={{ __html: renderInline(h) }}
+                  />
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {block.rows.map((r, ri) => (
+                <tr key={ri} style={{ borderTop: `1px solid ${p.muted}33` }}>
+                  {r.map((c, ci) => (
+                    <td
+                      key={ci}
+                      style={{
+                        padding: '10px 16px',
+                        color: p.text,
+                        lineHeight: 1.5,
+                        letterSpacing: T.letterSpacing,
+                      }}
+                      dangerouslySetInnerHTML={{ __html: renderInline(c) }}
+                    />
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )
     case 'image':
       return (
         <img
