@@ -237,10 +237,12 @@ body,
   color: #6e6e73;
 }
 
-/* 编辑模式实时预览：代码块部件（沿用 Phycat 粉框语言）
-   语言头带 + 粉色行号 + 等宽正文，整体与源码态围栏框视觉连续 */
+/* 编辑模式实时预览：代码块部件（Phycat 粉框 + macOS 红绿灯）
+   语言头带全宽贴合边框（拷贝 .cm-block-widget 的 2px 垂直 padding 必须清零，
+   否则色带四周会露一圈浅底缝）+ 绝对行号 + 语法高亮正文 */
 .cm-block-widget.cm-code-widget {
   margin: 4px 0;
+  padding: 0;
   border: 1px solid rgba(255, 36, 66, 0.24);
   border-radius: 10px;
   overflow: hidden;
@@ -251,21 +253,71 @@ body,
   white-space: normal;
   color: #37474f;
 }
-.cm-code-widget .cm-code-head {
-  padding: 3px 12px;
+.cm-code-head {
+  display: flex;
+  align-items: center;
+  padding: 4px 10px 4px 5px;
   border-bottom: 1px solid rgba(255, 36, 66, 0.22);
   background: rgba(255, 36, 66, 0.1);
-  color: #ff2442;
-  font-weight: 600;
-  font-size: 11px;
 }
+/* 语言标签按钮：默认低调，hover 提亮；点击复制整块代码 */
+.cm-code-lang {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  padding: 2px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #e51b37;
+  font-family: var(--font-mono, ui-monospace, Consolas, monospace);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  opacity: 0.82;
+  cursor: pointer;
+  transition: background 0.15s ease, opacity 0.15s ease, color 0.15s ease;
+  user-select: none;
+}
+.cm-code-lang:hover {
+  opacity: 1;
+  background: rgba(255, 36, 66, 0.1);
+}
+.cm-code-lang svg {
+  opacity: 0.6;
+}
+.cm-code-lang:hover svg {
+  opacity: 1;
+}
+.cm-code-lang.is-copied {
+  color: #14934f;
+  opacity: 1;
+}
+/* macOS 红绿灯（装饰，右上角） */
+.cm-code-dots {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.cm-code-dot {
+  display: block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.14);
+}
+.cm-code-dot.is-r { background: #ff5f57; }
+.cm-code-dot.is-y { background: #febc2e; }
+.cm-code-dot.is-g { background: #28c840; }
 .cm-code-widget .cm-code-body {
   display: grid;
   grid-template-columns: max-content minmax(0, 1fr);
   align-items: baseline;
   padding: 0 10px;
 }
-.cm-code-widget .cm-code-body > :last-child {
+.cm-code-widget :is(.cm-code-t, .cm-code-n):last-child {
   padding-bottom: 4px;
 }
 .cm-code-widget .cm-code-n {
@@ -280,6 +332,36 @@ body,
   white-space: pre-wrap;
   word-break: break-word;
 }
+/* highlight.js 配色（Phycat Sakura 光色板对位） */
+.cm-code-widget .hljs-keyword,
+.cm-code-widget .hljs-selector-tag,
+.cm-code-widget .hljs-doctag { color: #d81b60; }
+.cm-code-widget .hljs-title,
+.cm-code-widget .hljs-section { color: #8e24aa; }
+.cm-code-widget .hljs-string,
+.cm-code-widget .hljs-regexp,
+.cm-code-widget .hljs-addition,
+.cm-code-widget .hljs-char.escape_ { color: #2e7d32; }
+.cm-code-widget .hljs-comment,
+.cm-code-widget .hljs-quote { color: #b0bec5; font-style: italic; }
+.cm-code-widget .hljs-number,
+.cm-code-widget .hljs-literal,
+.cm-code-widget .hljs-symbol { color: #f57c00; }
+.cm-code-widget .hljs-attr,
+.cm-code-widget .hljs-property { color: #00897b; }
+.cm-code-widget .hljs-tag,
+.cm-code-widget .hljs-name { color: #d81b60; }
+.cm-code-widget .hljs-built_in,
+.cm-code-widget .hljs-type,
+.cm-code-widget .hljs-class { color: #0277bd; }
+.cm-code-widget .hljs-operator { color: #8e24aa; }
+.cm-code-widget .hljs-punctuation { color: #90a4ae; }
+.cm-code-widget .hljs-variable,
+.cm-code-widget .hljs-template-variable { color: #546e7a; }
+.cm-code-widget .hljs-meta { color: #f57c00; }
+.cm-code-widget .hljs-deletion { color: #c0564e; text-decoration: line-through; }
+.cm-code-widget .hljs-emphasis { font-style: italic; }
+.cm-code-widget .hljs-strong { font-weight: 700; }
 .cm-block-widget table {
   width: 100%;
   border-collapse: collapse;

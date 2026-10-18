@@ -2,6 +2,7 @@ import { Decoration, WidgetType, EditorView, type DecorationSet } from '@codemir
 import { StateField, type EditorState, type Range } from '@codemirror/state'
 import { diagramSvg, renderMathHtml } from '../../platforms/shared-blocks'
 import { renderInline } from '../../core/document/parse'
+import { highlightCodeLines } from './hl'
 
 /**
  * 编辑模式「实时预览」（Obsidian 对位）：
@@ -136,7 +137,8 @@ class BlockWidget extends WidgetType {
   }
 }
 
-/** 代码块部件：整块渲染成粉色代码框（语言头带 + 行号 + 等宽正文） */
+/** 代码块部件：整块渲染成 Phycat 粉框代码编辑器
+ *  语言标签点击复制整块内容 + macOS 红绿灯装饰（右上角）+ 逐行语法高亮 */
 class CodeWidget extends WidgetType {
   constructor(
     readonly lang: string,
@@ -153,24 +155,58 @@ class CodeWidget extends WidgetType {
   override toDOM(): HTMLElement {
     const wrap = document.createElement('div')
     wrap.className = 'cm-block-widget cm-code-widget'
-    const esc = (s: string) =>
-      s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    // ---- 头部：语言标签（点击复制）| 红绿灯 ----
     const head = document.createElement('div')
     head.className = 'cm-code-head'
-    head.textContent = this.lang || 'text'
+    const lang = document.createElement('button')
+    lang.type = 'button'
+    lang.className = 'cm-code-lang'
+    lang.title = '点击复制代码'
+    lang.innerHTML = `<svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="5.5" y="5.5" width="9" height="9" rx="2"/><path d="M10.5 5.5v-2a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h2"/></svg><span>${this.lang || 'text'}</span>`
+    // mousedown/click 截断在按钮内，避免冒泡到 CM 把块映射回源码态
+    const swallow = (e: Event) => {
+      e.stopPropagation()
+      e.preventDefault()
+    }
+    lang.addEventListener('mousedown', swallow, true)
+    lang.addEventListener('click', (e) => {
+      swallow(e)
+      void navigator.clipboard.writeText(this.text).catch(() => {})
+      const label = lang.querySelector('span')!
+      const icon = lang.querySelector('svg')!
+      const old = label.textContent
+      label.textContent = '已复制'
+      lang.classList.add('is-copied')
+      icon.style.display = 'none'
+      window.setTimeout(() => {
+        label.textContent = old
+        lang.classList.remove('is-copied')
+        icon.style.display = ''
+      }, 1200)
+    })
+    head.appendChild(lang)
+    const dots = document.createElement('span')
+    dots.className = 'cm-code-dots'
+    for (const c of ['is-r', 'is-y', 'is-g']) {
+      const dot = document.createElement('i')
+      dot.className = `cm-code-dot ${c}`
+      dots.appendChild(dot)
+    }
+    head.appendChild(dots)
     wrap.appendChild(head)
-    // 行号列宽用 grid max-content 自动分配（ch 单位受字体回退影响会和期望不符）
+    // ---- 正文：grid 行号列 + 高亮代码列 ----
     const body = document.createElement('div')
     body.className = 'cm-code-body'
     wrap.appendChild(body)
-    const lines = this.text.length ? this.text.split('\n') : ['']
+    const highlight = highlightCodeLines(this.lang.toLowerCase(), this.text)
+    const lines = highlight.length ? highlight : ['&nbsp;']
     lines.forEach((ln, idx) => {
       const n = document.createElement('span')
       n.className = 'cm-code-n'
       n.textContent = String(this.startLine + 1 + idx)
       const t = document.createElement('span')
       t.className = 'cm-code-t'
-      t.innerHTML = esc(ln) || '&nbsp;'
+      t.innerHTML = ln
       body.appendChild(n)
       body.appendChild(t)
     })
