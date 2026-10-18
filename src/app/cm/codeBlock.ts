@@ -12,8 +12,27 @@ const headingRe = /^(#{1,6})(\s|$)/
 const hrRe = /^\s{0,3}(?:-{3,}|\*{3,}|_{3,})\s*$/
 const inlineCodeRe = /`([^`\n]+)`/g
 
-/** 行装饰：栅栏块整块化 + 标题/hr 的块间外边距（间距恒定、行号块内居中） */
+/** 栅栏行集合缓存（供行号 gutter 判定"标题倍率是否生效"复用） */
+let fenceCache: { doc: unknown; lines: Set<number> } | null = null
+export function fencedLines(doc: import('@codemirror/state').Text): Set<number> {
+  if (fenceCache && fenceCache.doc === doc) return fenceCache.lines
+  const set = new Set<number>()
+  let inFence = false
+  for (let i = 1; i <= doc.lines; i++) {
+    const isFence = fenceRe.test(doc.line(i).text)
+    if (inFence) {
+      set.add(i)
+      if (isFence) inFence = false
+    } else if (isFence) {
+      set.add(i)
+      inFence = true
+    }
+  }
+  fenceCache = { doc, lines: set }
+  return set
+}
 
+/** 行装饰：栅栏块整块化 + 标题/hr 的块间外边距（间距恒定、行号块内居中） */
 /**
  * 围栏代码块「整块化」装饰（Phycat/Obsidian 式）：
  * - 围栏区每一行加线装饰，背景连续 → 视觉上是一个完整的色框

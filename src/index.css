@@ -112,6 +112,26 @@ body,
 .cm-editor .cm-h6 { margin-top: 6px; margin-bottom: 2px; }
 .cm-editor .cm-hr-line { margin-top: 10px; margin-bottom: 10px; color: #d1a3ae; }
 
+/* 行号：自绘 gutter（cm-ln-gutter）——编号钉在「首行视觉行」条带内 flex 居中。
+   cell 高度/间距由 CM 几何测量镜像，不在此处触碰 */
+.cm-editor .cm-ln-gutter .cm-gutterElement {
+  position: relative;
+  min-width: 22px;
+  padding-right: 8px;
+}
+.cm-editor .cm-ln-gutter .cm-ln-num {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 10.5px;
+  line-height: 1;
+}
+
 /* 行内 code：小 chip（延续 Phycat 主色调描边风格） */
 .cm-editor .cm-inline-code {
   background: rgba(255, 36, 66, 0.07);

@@ -8,6 +8,7 @@ import { tags } from '@lezer/highlight'
 import { parseDocument } from '../core/document/parse'
 import { inlineMathPreview } from './cm/inlineMath'
 import { codeBlockStyler } from './cm/codeBlock'
+import { lineNumbersGutter } from './cm/lineNumbers'
 import { bindSyncScroll, type ScrollBus } from './scrollSync'
 import { useStore } from '../store'
 
@@ -47,13 +48,6 @@ const cmTheme = EditorView.theme({
   '.cm-content': { caretColor: ACCENT },
   '.cm-cursor, .cm-dropCursor': { borderLeftColor: ACCENT, borderLeftWidth: '2px' },
   '.cm-gutters': { backgroundColor: 'transparent', border: 'none', color: 'rgba(255,36,66,0.34)' },
-  '.cm-lineNumbers .cm-gutterElement': {
-    fontSize: '10.5px',
-    // 行号与其渲染块垂直居中：cell 高度=块高（CM 几何测量含大字号行与 margin 镜像）
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-  },
   '.cm-activeLine': { backgroundColor: 'rgba(0,0,0,0.03)' },
   '.cm-activeLineGutter': {
     backgroundColor: 'transparent',
@@ -85,6 +79,7 @@ export const EditorPanel = ({
       syntaxHighlighting(mdHighlight),
       inlineMathPreview,
       codeBlockStyler,
+      lineNumbersGutter,
       cmTheme,
     ],
     [],
@@ -118,7 +113,7 @@ export const EditorPanel = ({
           height="100%"
           style={{ height: '100%' }}
           basicSetup={{
-            lineNumbers: true,
+            lineNumbers: false,
             foldGutter: false,
             highlightActiveLine: true,
             highlightActiveLineGutter: true,
