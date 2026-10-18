@@ -6,6 +6,7 @@ import { markdown as markdownLang } from '@codemirror/lang-markdown'
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import { tags } from '@lezer/highlight'
 import { inlineMathPreview } from './cm/inlineMath'
+import { inlineRender } from './cm/inlineRender'
 import { codeBlockStyler, fencedLines, FENCE_HEAD_PAD } from './cm/codeBlock'
 import { bindSyncScroll, type ScrollBus } from './scrollSync'
 import { useStore } from '../store'
@@ -177,7 +178,7 @@ export const EditorPanel = ({
       markdownLang(),
       EditorView.lineWrapping,
       syntaxHighlighting(mdHighlight),
-      ...(inlinePreview ? [inlineMathPreview] : []),
+      ...(inlinePreview ? [inlineMathPreview, inlineRender] : []),
       codeBlockStyler,
       cmTheme,
     ],
@@ -186,31 +187,35 @@ export const EditorPanel = ({
 
   return (
     <div className="glass absolute bottom-5 left-5 top-4 z-10 flex w-[470px] flex-col rounded-[20px]">
-      <div className="flex h-11 shrink-0 items-center gap-1.5 px-4">
-        <Pencil className="h-3.5 w-3.5 text-ink-faint" strokeWidth={1.8} />
-        <span className="text-[13px] font-semibold">编辑器</span>
-        {/* Obsidian 式字数统计：纯文本、无胶囊底 */}
-        <span className="ml-1 truncate text-[11px] tabular-nums text-ink-faint">
+      {/* 三段式头部：左（铅笔+标题）· 中（字数统计绝对居中）· 右（开关+收起） */}
+      <div className="relative flex h-11 shrink-0 items-center px-4">
+        <div className="flex items-center gap-1.5">
+          <Pencil className="h-3.5 w-3.5 text-ink-faint" strokeWidth={1.8} />
+          <span className="text-[13px] font-semibold leading-none">编辑器</span>
+        </div>
+        {/* Obsidian 式字数统计：纯文本、无胶囊底，水平居中 */}
+        <span className="pointer-events-none absolute left-1/2 top-1/2 max-w-[46%] -translate-x-1/2 -translate-y-1/2 truncate whitespace-nowrap text-[11px] leading-none tabular-nums text-ink-faint">
           {fmt(stats.words)} 词 {fmt(stats.chars)} 字符
         </span>
-        <div className="flex-1" />
-        <button
-          className={
-            'flex h-6 w-6 items-center justify-center rounded-full transition-colors hover:bg-black/5 ' +
-            (inlinePreview ? 'text-[#ff2442]' : 'text-ink-faint')
-          }
-          onClick={toggleInlinePreview}
-          title={inlinePreview ? '行内公式渲染：开' : '行内公式渲染：关'}
-        >
-          <CodeXml className="h-4 w-4" strokeWidth={1.8} />
-        </button>
-        <button
-          className="flex h-6 w-6 items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-black/5 hover:text-ink"
-          onClick={onCollapse}
-          title="收起面板"
-        >
-          <ChevronLeft className="h-4 w-4" strokeWidth={1.8} />
-        </button>
+        <div className="ml-auto flex items-center gap-1">
+          <button
+            className={
+              'flex h-6 w-6 items-center justify-center rounded-full transition-colors hover:bg-black/5 ' +
+              (inlinePreview ? 'text-[#ff2442]' : 'text-ink-faint')
+            }
+            onClick={toggleInlinePreview}
+            title={inlinePreview ? '行内渲染：开（点按回到源码态）' : '行内渲染：关（点按开启）'}
+          >
+            <CodeXml className="h-4 w-4" strokeWidth={1.8} />
+          </button>
+          <button
+            className="flex h-6 w-6 items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-black/5 hover:text-ink"
+            onClick={onCollapse}
+            title="收起面板"
+          >
+            <ChevronLeft className="h-4 w-4" strokeWidth={1.8} />
+          </button>
+        </div>
       </div>
 
       {/* 编辑区：CodeMirror + 自绘行号覆盖层；滚动经 bus 与卡片轨道同步 */}
