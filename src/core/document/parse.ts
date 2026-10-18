@@ -41,15 +41,31 @@ function parseFrontMatter(raw: string): { meta: DocMeta; body: string } {
   const match = /^---\n([\s\S]*?)\n---\n?/.exec(raw.trimStart())
   if (!match) return { meta, body: raw }
 
-  for (const line of match[1].split('\n')) {
+  for (let i = 0; i < match[1]!.split('\n').length; i++) {
+    const line = match[1].split('\n')[i]!
     const idx = line.indexOf(':')
     if (idx <= 0) continue
     const key = line.slice(0, idx).trim()
     const value = line.slice(idx + 1).trim()
-    if (key === 'title') meta.title = value
+    if (key === 'title') meta.title = value || undefined
     else if (key === 'author') meta.author = value
     else if (key === 'cover') meta.cover = value
-    else if (key === 'tags') meta.tags = value.split(/[,，]/).map(t => t.trim()).filter(Boolean)
+    else if (key === 'tags') {
+      // 两种写法：逗号分隔 `tags: a, b` 或 YAML 列表
+      if (value) {
+        meta.tags = value.split(/[,，]/).map(t => t.trim()).filter(Boolean)
+      } else {
+        // 收集后续 `- item` 行
+        const items: string[] = []
+        for (let j = i + 1; j < match[1].split('\n').length; j++) {
+          const l = match[1].split('\n')[j]!
+          const m = /^\s*-\s+(.+)$/.exec(l)
+          if (!m) break
+          items.push(m[1].trim())
+        }
+        meta.tags = items
+      }
+    }
   }
   return { meta, body: raw.slice(match[0].length) }
 }

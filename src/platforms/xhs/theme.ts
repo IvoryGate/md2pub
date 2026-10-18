@@ -148,6 +148,25 @@ export const XHS_THEMES: XhsCardTheme[] = [
 export const getTheme = (id: string): XhsCardTheme =>
   XHS_THEMES.find(t => t.id === id) ?? XHS_THEMES[0]!
 
+/**
+ * 用户在 UI 里对主题的微调（排版参数面板）。
+ * 合成规则：以所选主题为底，覆盖已知字段；保持纯数据。
+ */
+export interface XhsStyleOverrides {
+  padding?: Partial<XhsPadding>
+  typography?: Partial<XhsTypography>
+}
+
+export function applyXhsOverrides(base: XhsCardTheme, overrides: XhsStyleOverrides): XhsCardTheme {
+  return {
+    ...base,
+    page: {
+      padding: { ...base.page.padding, ...overrides.padding },
+      typography: { ...base.page.typography, ...overrides.typography },
+    },
+  }
+}
+
 /** 内容可用区派生常量：页眉行高 & 页脚水印预留 */
 export const XHS_HEADER_HEIGHT = 56
 export const XHS_FOOTER_RESERVE = 56

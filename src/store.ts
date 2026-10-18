@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import type { XhsPadding, XhsTypography, XhsStyleOverrides } from './platforms/xhs'
 
 const DEFAULT_MD = `# 3 个被低估的 Notion 数据技巧
 
@@ -30,6 +31,10 @@ $$
 *觉得有用的话，点赞收藏，下期分享 Notion + 日历的神仙组合！*
 `
 
+const EMPTY_OVERRIDES: XhsStyleOverrides = { padding: {}, typography: {} }
+
+interface XhsOverrides extends XhsStyleOverrides {}
+
 export const useStore = create<{
   markdown: string
   setMarkdown: (s: string) => void
@@ -39,18 +44,32 @@ export const useStore = create<{
   setSize: (s: '3:4' | '1:1' | '4:5') => void
   watermark: string
   setWatermark: (s: string) => void
+  /** UI 面板的排版参数微调（叠加在所选主题之上） */
+  overrides: XhsOverrides
+  patchPadding: (p: Partial<XhsPadding>) => void
+  patchTypography: (t: Partial<XhsTypography>) => void
+  resetOverrides: () => void
 }>()(
   persist(
     (set) => ({
       markdown: DEFAULT_MD,
       setMarkdown: (markdown) => set({ markdown }),
       themeId: 'clean',
-      setThemeId: (themeId) => set({ themeId }),
+      setThemeId: (themeId) => set({ themeId, overrides: EMPTY_OVERRIDES }),
       size: '3:4',
       setSize: (size) => set({ size }),
       watermark: '@md2pub',
       setWatermark: (watermark) => set({ watermark }),
+      overrides: EMPTY_OVERRIDES,
+      patchPadding: (padding) =>
+        set((s) => ({ overrides: { ...s.overrides, padding: { ...s.overrides.padding, ...padding } } })),
+      patchTypography: (typography) =>
+        set((s) => ({ overrides: { ...s.overrides, typography: { ...s.overrides.typography, ...typography } } })),
+      resetOverrides: () => set({ overrides: EMPTY_OVERRIDES }),
     }),
     { name: 'md2pub-store' },
   ),
 )
+
+/** 全量独立的持久化键名（诊断用） */
+export const STORE_KEY = 'md2pub-store'

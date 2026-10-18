@@ -1,69 +1,51 @@
 import { XhsPreview } from './XhsPreview'
 import Editor from './Editor'
+import { Sidebar } from './Sidebar'
 import { useStore } from '../store'
-import { XHS_THEMES, XHS_CARD_SIZES, type XhsCardSizeName } from '../platforms/xhs'
+import { getTheme, applyXhsOverrides } from '../platforms/xhs'
 
 const App = () => {
-  const { themeId, setThemeId, size, setSize, watermark, setWatermark } = useStore()
+  const { themeId, overrides } = useStore()
+  // 生效主题 = 所选主题预设 + 用户在样式面板的参数覆盖
+  const theme = applyXhsOverrides(getTheme(themeId), overrides)
 
   return (
-    <div className="flex h-screen w-screen flex-col overflow-hidden bg-stone-100 text-stone-900">
-      {/* 顶栏：平台设置 */}
-      <header className="flex flex-wrap items-center gap-3 border-b border-stone-200 bg-white px-4 py-2.5">
+    <div className="flex h-screen w-screen flex-col overflow-hidden bg-paper text-ink">
+      {/* 顶栏 */}
+      <header className="flex h-12 shrink-0 items-center gap-3 border-b border-line bg-panel px-4">
+        {/* 品牌 */}
         <div className="flex items-center gap-2">
-          <span className="rounded-md bg-stone-900 px-2 py-0.5 text-xs font-bold text-white">md2pub</span>
-          <span className="text-xs text-stone-400">Markdown → 小红书 / 公众号</span>
+          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-ink text-[11px] font-black text-paper">
+            x2
+          </div>
+          <span className="text-[13.5px] font-bold tracking-tight">md2pub</span>
         </div>
+
+        {/* 平台 Tab */}
+        <nav className="ml-3 flex items-center gap-0.5 rounded-lg bg-sunken p-0.5">
+          <button className="rounded-md bg-panel px-3 py-1 text-[12.5px] font-semibold text-ink shadow-sm">
+            小红书
+          </button>
+          <button disabled className="cursor-not-allowed rounded-md px-3 py-1 text-[12.5px] text-ink-faint" title="下一站：微信公众号排版">
+            公众号
+          </button>
+        </nav>
+
         <div className="flex-1" />
 
-        {/* 尺寸 */}
-        <label className="flex items-center gap-1.5 text-xs text-stone-500">
-          尺寸
-          <select
-            className="rounded border border-stone-300 bg-white px-1.5 py-1 text-xs"
-            value={size}
-            onChange={(e) => setSize(e.target.value as XhsCardSizeName)}
-          >
-            {Object.keys(XHS_CARD_SIZES).map((k) => (
-              <option key={k} value={k}>
-                {k} · {XHS_CARD_SIZES[k as XhsCardSizeName].width}×{XHS_CARD_SIZES[k as XhsCardSizeName].height}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        {/* 主题 */}
-        <label className="flex items-center gap-1.5 text-xs text-stone-500">
-          主题
-          <select
-            className="rounded border border-stone-300 bg-white px-1.5 py-1 text-xs"
-            value={themeId}
-            onChange={(e) => setThemeId(e.target.value)}
-          >
-            {XHS_THEMES.map((t) => (
-              <option key={t.id} value={t.id}>{t.name}</option>
-            ))}
-          </select>
-        </label>
-
-        {/* 水印 */}
-        <label className="flex items-center gap-1.5 text-xs text-stone-500">
-          水印
-          <input
-            className="w-24 rounded border border-stone-300 px-1.5 py-1 text-xs"
-            value={watermark}
-            onChange={(e) => setWatermark(e.target.value)}
-            placeholder="留空隐藏"
-          />
-        </label>
+        <span className="hidden text-[11px] text-ink-faint lg:inline">排版参数实时生效 · 所有产物本地生成</span>
       </header>
 
-      <main className="grid min-h-0 flex-1 grid-cols-[minmax(360px,34%)_1fr]">
-        <section className="min-h-0 border-r border-stone-200">
+      {/* 三栏：编辑 / 画布 / 样式面板 */}
+      <main className="grid min-h-0 flex-1 grid-cols-[minmax(320px,30%)_1fr_288px]">
+        <section className="min-h-0 overflow-hidden border-r border-line">
           <Editor />
         </section>
         <section className="min-h-0">
           <XhsPreview />
+        </section>
+        <section className="min-h-0">
+          <Sidebar baseTheme={theme} />
         </section>
       </main>
     </div>

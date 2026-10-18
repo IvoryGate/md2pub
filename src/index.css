@@ -1,13 +1,96 @@
 @import "tailwindcss";
 
+/*
+ * md2pub Design Tokens
+ * 参考 doocs/md / mdnice / 各高星小红书卡片工具的共性设计语言：
+ * 暖纸白工作台 + 单一强调色（小红书红）+ 轻量描边与低饱和文字层级
+ */
+@theme {
+  --color-paper: #f4f2ee;      /* 工作台底色（暖纸白） */
+  --color-panel: #ffffff;      /* 面板 */
+  --color-sunken: #ebe9e4;     /* 下沉区（画布） */
+  --color-ink: #201d19;        /* 主文字 */
+  --color-ink-soft: #78736a;   /* 次级文字 */
+  --color-ink-faint: #a8a29a;  /* 弱文字 */
+  --color-line: #e6e3dc;       /* 描边 */
+  --color-line-strong: #d3cfc6;
+  --color-accent: #ff2442;     /* 小红书红 */
+  --color-accent-deep: #e51b37;
+  --color-accent-soft: #ffeaee;
+
+  --font-sans: "Inter var", system-ui, "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+  --font-mono: "JetBrains Mono", "Cascadia Code", Consolas, "SF Mono", monospace;
+}
+
 html,
 body,
 #root {
   height: 100%;
   margin: 0;
+  font-family: var(--font-sans);
 }
 
-/* 渲染标记：卡片导出使用原生尺寸，保持预览像素一致性 */
-.xhs-card {
-  box-sizing: border-box;
+/* 点阵画布背景（小红书卡片工具通用惯例） */
+.canvas-dots {
+  background-color: var(--color-sunken);
+  background-image: radial-gradient(circle, #d9d5cd 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+/* 滑杆（排版参数控件） */
+.xhs-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--color-line-strong);
+  outline: none;
+}
+.xhs-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--color-panel);
+  border: 2px solid var(--color-accent);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.15);
+  cursor: grab;
+  transition: transform 0.15s ease;
+}
+.xhs-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+.xhs-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--color-panel);
+  border: 2px solid var(--color-accent);
+  cursor: grab;
+}
+
+/* 滚动条 */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #d3cfc6;
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: #b9b4aa;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::selection {
+  background: var(--color-accent-soft);
+  color: var(--color-ink);
 }
