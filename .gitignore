@@ -19,6 +19,9 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
+# Playwright MCP artifacts
+.playwright-mcp/
+
 # Editor / OS
 .vscode/*
 !.vscode/extensions.json

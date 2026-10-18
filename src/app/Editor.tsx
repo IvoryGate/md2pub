@@ -28,7 +28,8 @@ const Editor = () => {
         />
       </div>
       <div className="border-t border-stone-200 bg-stone-50 px-4 py-1.5 text-[11px] text-stone-400">
-        提示：单独一行 <code className="rounded bg-stone-200 px-1">---</code> 表示手动分页；文档头部
+        提示：分页由排版参数（页边距/行距/段距）自动计算；<code className="rounded bg-stone-200 px-1">--- 渲染为分割线</code>；显式分页写
+        <code className="mx-1 rounded bg-stone-200 px-1">{'<!-- pagebreak -->'}</code>；文档头部
         Front-matter 的 <code className="mx-1 rounded bg-stone-200 px-1">title / tags / author</code>{' '}
         会同步到封面。
       </div>
