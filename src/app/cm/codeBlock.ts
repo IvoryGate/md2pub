@@ -42,8 +42,10 @@ function build(view: EditorView): DecorationSet {
     const isFence = fenceRe.test(line.text)
 
     if (inFence) {
+      // 缩进引导线：有 ≥4 空格前导的内容行，在最浅制表位画一根短竖线（Phycat 的 line lead）
+      const lead = /^\s{4,}/.test(line.text) ? ' cm-code-lead' : ''
       ranges.push(
-        Decoration.line({ class: 'cm-block-code' }).range(line.from),
+        Decoration.line({ class: `cm-block-code${lead}` }).range(line.from),
       )
       if (isFence) {
         // 闭合围栏：补底部圆角

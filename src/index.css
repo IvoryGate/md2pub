@@ -72,28 +72,47 @@ body,
 }
 
 /* ── 编辑器：围栏代码块整块化（Phycat 式） ───────────────────────── */
+/* 块体：近白粉底 + 左右围合边框；代码正文深青灰 */
 .cm-editor .cm-line.cm-block-code {
-  background: rgba(255, 36, 66, 0.045);
-  border-left: 2px solid rgba(255, 36, 66, 0.32);
-  padding-left: 10px;
+  position: relative;
+  background: rgba(255, 36, 66, 0.035);
+  border-left: 1px solid rgba(255, 36, 66, 0.24);
+  border-right: 1px solid rgba(255, 36, 66, 0.24);
+  padding-left: 14px;
   padding-right: 10px;
+  color: #37474f;
 }
+/* 缩进引导线：内容行在最浅制表位（4ch）画一根短竖线 */
+.cm-editor .cm-line.cm-code-lead::before {
+  content: '';
+  position: absolute;
+  left: calc(14px + 4ch - 5px);
+  top: 3px;
+  bottom: -1px;
+  width: 2px;
+  border-radius: 1px;
+  background: rgba(255, 36, 66, 0.26);
+}
+/* 头部色带（```lang）：加深底 + 上边框 + 外边距 */
 .cm-editor .cm-line.cm-fence-head {
-  border-radius: 12px 12px 0 0;
-  border-top: 1px solid rgba(255, 36, 66, 0.1);
+  border-radius: 10px 10px 0 0;
+  border-top: 1px solid rgba(255, 36, 66, 0.28);
+  background: rgba(255, 36, 66, 0.1);
+  margin-top: 10px;
+  padding-top: 4px;
 }
-.cm-editor .cm-line.cm-fence-tail {
-  border-radius: 0 0 12px 12px;
-  border-bottom: 1px solid rgba(255, 36, 66, 0.08);
-}
-/* ```lang 围栏行：强调为品牌色 */
+/* ```lang 围栏行文字：品牌色加粗 */
 .cm-editor .cm-line.cm-fence-line {
   color: #ff2442;
   font-weight: 600;
 }
-/* 围栏内代码整块不再逐段 chip，色值贴近 Phycat 的深青灰 */
-.cm-editor .cm-line.cm-block-code {
-  color: #0e5257;
+/* 闭合围栏：底部圆角 + 下边框 + 外边距，字色淡化 */
+.cm-editor .cm-line.cm-fence-tail {
+  border-radius: 0 0 10px 10px;
+  border-bottom: 1px solid rgba(255, 36, 66, 0.24);
+  margin-bottom: 10px;
+  padding-bottom: 4px;
+  color: #90a4ae;
 }
 
 /* 行内 code：小 chip（延续 Phycat 主色调描边风格） */
