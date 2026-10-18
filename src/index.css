@@ -1,0 +1,13 @@
+@import "tailwindcss";
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+/* 渲染标记：卡片导出使用原生尺寸，保持预览像素一致性 */
+.xhs-card {
+  box-sizing: border-box;
+}
