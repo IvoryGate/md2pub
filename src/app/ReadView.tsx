@@ -80,7 +80,8 @@ const MathReadBlock = ({ text }: { text: string }) => {
   const html = useMemo(() => renderMathHtml(text), [text])
   return (
     <div
-      className="read-math my-3 overflow-x-auto text-center text-[15px] text-[#1d1d1f]"
+      className="read-math my-3 overflow-x-auto overflow-y-hidden text-center text-[15px] text-[#1d1d1f]"
+      style={{ scrollbarWidth: 'none' }}
       dangerouslySetInnerHTML={{ __html: html }}
     />
   )

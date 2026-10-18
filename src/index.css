@@ -178,6 +178,108 @@ body,
   font-size: 11px;
   color: #c0564e;
 }
+.cm-block-widget.cm-block-math {
+  padding: 3px 0;
+  text-align: center;
+  font-family: inherit;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--color-ink, #1d1d1f);
+  white-space: normal;
+  /* 仅横向可滚：纵向溢出溢也不准画竖向滚动条
+     （overflow-x:auto 会把 overflow-y 连带算成 auto，KaTeX 1~2px
+     的 strut 溢出就会画出几乎满高的竖条，观感像公式右边多了根线） */
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+.cm-block-widget.cm-block-math::-webkit-scrollbar {
+  display: none;
+}
+.cm-block-widget.cm-block-math .katex-display {
+  margin: 0;
+}
+
+/* 编辑模式实时预览：行级部件与行装饰 */
+.cm-rule-widget {
+  display: inline-block;
+  width: 100%;
+  height: 1px;
+  vertical-align: middle;
+  background: rgba(0, 0, 0, 0.14);
+}
+.cm-bullet-widget {
+  display: inline-block;
+  width: 1.15em;
+  text-align: center;
+  color: rgba(255, 36, 66, 0.75);
+  font-weight: 700;
+}
+.cm-task-widget {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: 2px;
+  border: 1.5px solid rgba(255, 36, 66, 0.45);
+  border-radius: 3.5px;
+  vertical-align: -1px;
+  background: #fff;
+}
+.cm-task-widget.is-checked {
+  border-color: rgba(255, 36, 66, 0.75);
+  background: rgba(255, 36, 66, 0.75);
+  box-shadow: inset 0 0 0 1.5px #fff;
+}
+.cm-editor .cm-line.cm-quote-line {
+  border-left: 3px solid rgba(255, 36, 66, 0.4);
+  background: rgba(255, 36, 66, 0.035);
+  padding-left: 9px;
+  color: #6e6e73;
+}
+
+/* 编辑模式实时预览：代码块部件（沿用 Phycat 粉框语言）
+   语言头带 + 粉色行号 + 等宽正文，整体与源码态围栏框视觉连续 */
+.cm-block-widget.cm-code-widget {
+  margin: 4px 0;
+  border: 1px solid rgba(255, 36, 66, 0.24);
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(255, 36, 66, 0.035);
+  font-family: var(--font-mono, ui-monospace, "SF Mono", Consolas, monospace);
+  font-size: 11.5px;
+  line-height: 1.55;
+  white-space: normal;
+  color: #37474f;
+}
+.cm-code-widget .cm-code-head {
+  padding: 3px 12px;
+  border-bottom: 1px solid rgba(255, 36, 66, 0.22);
+  background: rgba(255, 36, 66, 0.1);
+  color: #ff2442;
+  font-weight: 600;
+  font-size: 11px;
+}
+.cm-code-widget .cm-code-body {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  align-items: baseline;
+  padding: 0 10px;
+}
+.cm-code-widget .cm-code-body > :last-child {
+  padding-bottom: 4px;
+}
+.cm-code-widget .cm-code-n {
+  padding-right: 10px;
+  text-align: right;
+  color: rgba(255, 36, 66, 0.34);
+  font-size: 10.5px;
+  white-space: pre;
+  user-select: none;
+}
+.cm-code-widget .cm-code-t {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
 .cm-block-widget table {
   width: 100%;
   border-collapse: collapse;

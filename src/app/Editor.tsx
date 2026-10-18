@@ -7,7 +7,7 @@ import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import { tags } from '@lezer/highlight'
 import { inlineMathPreview } from './cm/inlineMath'
 import { inlineRender } from './cm/inlineRender'
-import { blockPreview } from './cm/blockPreview'
+import { livePreview } from './cm/livePreview'
 import { codeBlockStyler, fencedLines, FENCE_HEAD_PAD } from './cm/codeBlock'
 import { bindSyncScroll, type ScrollBus } from './scrollSync'
 import { ReadView } from './ReadView'
@@ -190,13 +190,35 @@ export const EditorPanel = ({
   const viewRef = useRef<EditorView | null>(null)
   const { nums, schedule } = useLineNumbers(viewRef, holderRef)
 
+  // 块级渲染部件（mermaid / 表格 / 公式）点击即回到源码态：
+  // CM 对块部件下半个区域的点击会映射到块之后，这里在捕获阶段拦截，
+  // 直接把光标放进块起始位置（选区与块相交 → 块退回源码）。
+  useEffect(() => {
+    const holder = holderRef.current
+    if (!holder) return
+    const onDown = (e: MouseEvent) => {
+      const el = (e.target as HTMLElement | null)?.closest?.('.cm-block-widget')
+      const view = viewRef.current
+      if (!el || !view) return
+      e.preventDefault()
+      e.stopPropagation()
+      view.focus()
+      view.dispatch({
+        selection: { anchor: view.posAtDOM(el as HTMLElement, 0) },
+        scrollIntoView: false,
+      })
+    }
+    holder.addEventListener('mousedown', onDown, true)
+    return () => holder.removeEventListener('mousedown', onDown, true)
+  }, [])
+
   const extensions = useMemo(
     () => [
       markdownLang(),
       EditorView.lineWrapping,
       syntaxHighlighting(mdHighlight),
       // 实时预览（edit 模式）才挂行内渲染 + 块级渲染；source 模式 = 纯源码
-      ...(editorMode === 'edit' ? [inlineMathPreview, inlineRender, blockPreview] : []),
+      ...(editorMode === 'edit' ? [inlineMathPreview, inlineRender, livePreview] : []),
       codeBlockStyler,
       cmTheme,
     ],
