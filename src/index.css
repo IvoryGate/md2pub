@@ -71,9 +71,8 @@ body,
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), inset 0 0 0 0.5px rgba(0, 0, 0, 0.04);
 }
 
-/* ── 编辑器：围栏代码块整块化（Phycat 式，紧凑版） ───────────────── */
-/* 注意：块样式不得触碰垂直 margin/padding —— CM 行号槽与正文为平行两列，
-   垂直布局变化不参与行号槽高度测量，会导致行号错位 */
+/* ── 编辑器：围栏代码块整块化（Phycat 式，紧凑版） ─────────────────
+   垂直 margin 可自由使用：行号覆盖层直接读 .cm-line 实测矩形 margins，天然同步 */
 .cm-editor .cm-line.cm-block-code {
   position: relative;
   background: rgba(255, 36, 66, 0.035);
@@ -112,24 +111,32 @@ body,
 .cm-editor .cm-h6 { margin-top: 6px; margin-bottom: 2px; }
 .cm-editor .cm-hr-line { margin-top: 10px; margin-bottom: 10px; color: #d1a3ae; }
 
-/* 行号：自绘 gutter（cm-ln-gutter）——编号钉在「首行视觉行」条带内 flex 居中。
-   cell 高度/间距由 CM 几何测量镜像，不在此处触碰 */
-.cm-editor .cm-ln-gutter .cm-gutterElement {
-  position: relative;
-  min-width: 22px;
-  padding-right: 8px;
+/* 行号：自绘覆盖层（editor-ln）——直接以 .cm-line 实测矩形定位，
+   与真实布局（含标题/围栏的 CSS margin）物理同步，不会漂移。
+   编号规则：整块单行居中于块内；软换行段落居中于首视觉行；围栏框每行各自居中 */
+.editor-ln-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
 }
-.cm-editor .cm-ln-gutter .cm-ln-num {
+.editor-ln {
   position: absolute;
   left: 0;
-  right: 0;
-  top: 0;
   display: flex;
   align-items: center;
   justify-content: flex-end;
+  padding-right: 8px;
+  box-sizing: border-box;
+  color: rgba(255, 36, 66, 0.34);
   font-family: var(--font-mono, ui-monospace, monospace);
   font-size: 10.5px;
   line-height: 1;
+  will-change: top;
+}
+.editor-ln.is-active {
+  color: rgba(220, 50, 80, 0.9);
+  font-weight: 600;
 }
 
 /* 行内 code：小 chip（延续 Phycat 主色调描边风格） */

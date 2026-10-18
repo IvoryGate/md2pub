@@ -1,14 +1,13 @@
-import { useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Pencil, ChevronLeft } from 'lucide-react'
 import CodeMirror from '@uiw/react-codemirror'
-import { EditorView } from '@codemirror/view'
+import { EditorView, type ViewUpdate } from '@codemirror/view'
 import { markdown as markdownLang } from '@codemirror/lang-markdown'
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import { tags } from '@lezer/highlight'
 import { parseDocument } from '../core/document/parse'
 import { inlineMathPreview } from './cm/inlineMath'
-import { codeBlockStyler } from './cm/codeBlock'
-import { lineNumbersGutter } from './cm/lineNumbers'
+import { codeBlockStyler, fencedLines } from './cm/codeBlock'
 import { bindSyncScroll, type ScrollBus } from './scrollSync'
 import { useStore } from '../store'
 
@@ -37,28 +36,111 @@ const mdHighlight = HighlightStyle.define([
   { tag: [tags.processingInstruction, tags.meta], color: FAINT },
 ])
 
+/** 编号列宽：内容左内边距 = NUM_W + 8 */
+const NUM_W = 44
+/** 首视觉行条带高度（12.5px 字号 × 1.7 行高），标题按级别倍增 */
+const BASE_ROW_H = 12.5 * 1.7 // 21.25px
+const HEADING_MULT = [1.55, 1.3, 1.15, 1, 1, 1] as const
+
+interface LineNum {
+  /** 源文档行号 */
+  n: number
+  /** 相对编辑器容器顶部的条带顶（px） */
+  top: number
+  /** 条带高（=首视觉行高；整块行即块高） */
+  h: number
+  active: boolean
+}
+
 const cmTheme = EditorView.theme({
   '&': { fontSize: '12.5px', color: INK, backgroundColor: 'transparent' },
   '&.cm-focused': { outline: 'none' },
   '.cm-scroller': {
     fontFamily: MONO,
     lineHeight: '1.7',
-    padding: '6px 10px 16px 2px',
+    // 左侧让出编号列（自绘 overlay），不再占用 CM gutter
+    padding: `6px 10px 16px ${NUM_W + 8}px`,
   },
   '.cm-content': { caretColor: ACCENT },
   '.cm-cursor, .cm-dropCursor': { borderLeftColor: ACCENT, borderLeftWidth: '2px' },
-  '.cm-gutters': { backgroundColor: 'transparent', border: 'none', color: 'rgba(255,36,66,0.34)' },
   '.cm-activeLine': { backgroundColor: 'rgba(0,0,0,0.03)' },
-  '.cm-activeLineGutter': {
-    backgroundColor: 'transparent',
-    color: 'rgba(220,50,80,0.85)',
-    fontWeight: '600',
-  },
   '.cm-selectionBackground, &.cm-focused .cm-selectionBackground': {
     backgroundColor: 'rgba(255,36,66,0.13) !important',
   },
   '.cm-placeholder': { color: FAINT },
 })
+
+/**
+ * 行号覆盖层：不走 CM gutter（装饰 CSS 的 margin 不进 CM 高度图，格子布局必然漂移），
+ * 而是在编辑器容器上绝对定位一枚 overlay，按对齐规则摆放编号：
+ * - 整块单行（标题/hr/围栏带内行）→ 编号在该块实测矩形内垂直居中
+ * - 软换行段落 → 编号只对第一条视觉行居中（条带高度按首行截断）
+ * - 围栏框 → 框内每行各自居中；框体外 margin（14px）由编号矩形自然跟随
+ * 几何来源是 `.cm-line` 的 getBoundingClientRect —— 与真实布局物理同步，不可能错位。
+ */
+function useLineNumbers(
+  viewRef: React.RefObject<EditorView | null>,
+  holderRef: React.RefObject<HTMLDivElement | null>,
+) {
+  const [nums, setNums] = useState<LineNum[]>([])
+  const rafRef = useRef(0)
+
+  const recompute = useCallback(() => {
+    const view = viewRef.current
+    const holder = holderRef.current
+    if (!view || !holder || !holder.isConnected) return
+    const base = holder.getBoundingClientRect().top
+    const limit = base + holder.clientHeight
+    const doc = view.state.doc
+    const fenced = fencedLines(doc)
+    const activeN = doc.lineAt(view.state.selection.main.head).number
+    const out: LineNum[] = []
+    for (const el of view.contentDOM.querySelectorAll<HTMLElement>('.cm-line')) {
+      const r = el.getBoundingClientRect()
+      if (r.bottom < base || r.top > limit) continue
+      const line = doc.lineAt(view.posAtDOM(el, 0))
+      const isFence = fenced.has(line.number)
+      const mh = isFence ? null : /^(#{1,6})(\s|$)/.exec(line.text)
+      // 标题单行 → 条带=块高；段落软换行 → 条带=首视觉行；围栏行 → 该行实测高
+      const rowH = mh
+        ? Math.min(r.height, BASE_ROW_H * HEADING_MULT[Math.min(6, mh[1].length) - 1]!)
+        : Math.min(r.height, BASE_ROW_H)
+      out.push({
+        n: line.number,
+        top: r.top - base,
+        h: rowH,
+        active: line.number === activeN,
+      })
+    }
+    setNums(out)
+  }, [viewRef, holderRef])
+
+  const schedule = useCallback(() => {
+    if (!rafRef.current) {
+      rafRef.current = requestAnimationFrame(() => {
+        rafRef.current = 0
+        recompute()
+      })
+    }
+  }, [recompute])
+
+  useEffect(() => {
+    const holder = holderRef.current
+    if (!holder) return
+    const ro = new ResizeObserver(schedule)
+    ro.observe(holder)
+    schedule()
+    return () => {
+      ro.disconnect()
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current)
+        rafRef.current = 0
+      }
+    }
+  }, [schedule, holderRef])
+
+  return { nums, schedule, viewRef }
+}
 
 /** 编辑器浮动玻璃面板（可折叠）—— CodeMirror 语法高亮 + KaTeX 行内预览 */
 export const EditorPanel = ({
@@ -72,6 +154,10 @@ export const EditorPanel = ({
   const setMarkdown = useStore((s) => s.setMarkdown)
   const doc = useMemo(() => parseDocument(markdown), [markdown])
 
+  const holderRef = useRef<HTMLDivElement | null>(null)
+  const viewRef = useRef<EditorView | null>(null)
+  const { nums, schedule } = useLineNumbers(viewRef, holderRef)
+
   const extensions = useMemo(
     () => [
       markdownLang(),
@@ -79,7 +165,6 @@ export const EditorPanel = ({
       syntaxHighlighting(mdHighlight),
       inlineMathPreview,
       codeBlockStyler,
-      lineNumbersGutter,
       cmTheme,
     ],
     [],
@@ -103,8 +188,8 @@ export const EditorPanel = ({
         </button>
       </div>
 
-      {/* 编辑区：CodeMirror 接管行号/软换行/高亮；滚动经 bus 与卡片轨道同步 */}
-      <div className="relative min-h-0 flex-1 overflow-hidden pb-2">
+      {/* 编辑区：CodeMirror + 自绘行号覆盖层；滚动经 bus 与卡片轨道同步 */}
+      <div ref={holderRef} className="relative min-h-0 flex-1 overflow-hidden pb-2">
         <CodeMirror
           value={markdown}
           onChange={setMarkdown}
@@ -116,7 +201,7 @@ export const EditorPanel = ({
             lineNumbers: false,
             foldGutter: false,
             highlightActiveLine: true,
-            highlightActiveLineGutter: true,
+            highlightActiveLineGutter: false,
             autocompletion: false,
             bracketMatching: false,
             closeBrackets: false,
@@ -124,9 +209,27 @@ export const EditorPanel = ({
             highlightSelectionMatches: false,
           }}
           onCreateEditor={(view) => {
+            viewRef.current = view
             bindSyncScroll(view.scrollDOM, 'editor', bus)
+            view.scrollDOM.addEventListener('scroll', schedule, { passive: true })
+            schedule()
+          }}
+          onUpdate={(u: ViewUpdate) => {
+            if (u.docChanged || u.viewportChanged || u.geometryChanged || u.selectionSet) schedule()
           }}
         />
+        {/* 自绘行号层：绝对定位 + pointer-events none，跟随真实 .cm-line 矩形 */}
+        <div className="editor-ln-layer">
+          {nums.map((x) => (
+            <div
+              key={x.n}
+              className={'editor-ln' + (x.active ? ' is-active' : '')}
+              style={{ top: x.top, height: x.h, width: NUM_W }}
+            >
+              {x.n}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   )
