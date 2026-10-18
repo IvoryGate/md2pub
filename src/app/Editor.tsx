@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Pencil, ChevronLeft } from 'lucide-react'
+import { Pencil, ChevronLeft, CodeXml, BookOpen } from 'lucide-react'
 import CodeMirror from '@uiw/react-codemirror'
 import { EditorView, type ViewUpdate } from '@codemirror/view'
 import { markdown as markdownLang } from '@codemirror/lang-markdown'
@@ -7,6 +7,7 @@ import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import { tags } from '@lezer/highlight'
 import { inlineMathPreview } from './cm/inlineMath'
 import { inlineRender } from './cm/inlineRender'
+import { blockPreview } from './cm/blockPreview'
 import { codeBlockStyler, fencedLines, FENCE_HEAD_PAD } from './cm/codeBlock'
 import { bindSyncScroll, type ScrollBus } from './scrollSync'
 import { ReadView } from './ReadView'
@@ -106,9 +107,21 @@ function useLineNumbers(
     const fenced = fencedLines(doc)
     const activeN = doc.lineAt(view.state.selection.main.head).number
     const out: LineNum[] = []
-    for (const el of view.contentDOM.querySelectorAll<HTMLElement>('.cm-line')) {
+    // 普通行 + 块级渲染部件（整块渲染的 mermaid/表格）：按 DOM 顺序统一遍历
+    for (const el of view.contentDOM.querySelectorAll<HTMLElement>('.cm-line, .cm-block-widget')) {
       const r = el.getBoundingClientRect()
       if (r.bottom < base || r.top > limit) continue
+      // 块级部件 → 编号对整块垂直居中（单一渲染块规则的自然延伸）
+      if (el.classList.contains('cm-block-widget')) {
+        const line = doc.lineAt(view.posAtDOM(el, 0))
+        out.push({
+          n: line.number,
+          top: r.top - base,
+          h: r.height,
+          active: line.number === activeN,
+        })
+        continue
+      }
       const line = doc.lineAt(view.posAtDOM(el, 0))
       const isFence = fenced.has(line.number)
       // 头部色带内建有 padding（带体向上生长），编号对准带内的 ```lang 文字行
@@ -140,11 +153,14 @@ function useLineNumbers(
   useEffect(() => {
     const holder = holderRef.current
     if (!holder) return
+    // 块级渲染部件（mermaid 等）异步插入 svg 后会改变几何——监听刷新事件
+    window.addEventListener('cm-ln-refresh', schedule)
     const ro = new ResizeObserver(schedule)
     ro.observe(holder)
     schedule()
     return () => {
       ro.disconnect()
+      window.removeEventListener('cm-ln-refresh', schedule)
       if (rafRef.current) {
         cancelAnimationFrame(rafRef.current)
         rafRef.current = 0
@@ -179,8 +195,8 @@ export const EditorPanel = ({
       markdownLang(),
       EditorView.lineWrapping,
       syntaxHighlighting(mdHighlight),
-      // 实时预览（edit 模式）才挂行内渲染；source 模式 = 纯源码
-      ...(editorMode === 'edit' ? [inlineMathPreview, inlineRender] : []),
+      // 实时预览（edit 模式）才挂行内渲染 + 块级渲染；source 模式 = 纯源码
+      ...(editorMode === 'edit' ? [inlineMathPreview, inlineRender, blockPreview] : []),
       codeBlockStyler,
       cmTheme,
     ],
@@ -200,8 +216,8 @@ export const EditorPanel = ({
           {fmt(stats.words)} 词 {fmt(stats.chars)} 字符
         </span>
         <div className="ml-auto flex items-center gap-2">
-          {/* 三模式切换（Obsidian 对位）：源码 / 编辑 / 阅读 */}
-          <nav className="segmented">
+          {/* 三模式切换（Obsidian 对位）：源码 `</>` / 编辑 / 阅读 */}
+          <nav className="segmented icon-only">
             {(['source', 'edit', 'read'] as const).map((m) => (
               <button
                 key={m}
@@ -215,7 +231,13 @@ export const EditorPanel = ({
                       : '阅读模式：完整渲染，不可编辑'
                 }
               >
-                {m === 'source' ? '源码' : m === 'edit' ? '编辑' : '阅读'}
+                {m === 'source' ? (
+                  <CodeXml className="h-3.5 w-3.5" strokeWidth={1.8} />
+                ) : m === 'edit' ? (
+                  <Pencil className="h-3.5 w-3.5" strokeWidth={1.8} />
+                ) : (
+                  <BookOpen className="h-3.5 w-3.5" strokeWidth={1.8} />
+                )}
               </button>
             ))}
           </nav>

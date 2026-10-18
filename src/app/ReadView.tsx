@@ -1,10 +1,8 @@
 import { useEffect, useMemo, useRef } from 'react'
-import { BookOpen, ChevronRight } from 'lucide-react'
 import { parseDocument, renderInline } from '../core/document/parse'
 import type { Block } from '../core/document/types'
 import { renderMathHtml, useDiagramSvg } from '../platforms/shared-blocks'
 import { bindSyncScroll, type ScrollBus } from './scrollSync'
-import { useStore } from '../store'
 
 /**
  * 编辑器「阅读模式」：同一文档的不可编辑完整渲染（Obsidian 阅读视图对位）。
@@ -21,7 +19,6 @@ export const ReadView = ({
 }) => {
   const doc = useMemo(() => parseDocument(markdown), [markdown])
   const scrollRef = useRef<HTMLDivElement | null>(null)
-  const setEditorMode = useStore((s) => s.setEditorMode)
   // 正文里有 H1 时，front-matter 标题不重复展示
   const docTitle = doc.blocks.some((b) => b.type === 'heading' && b.level === 1)
     ? null
@@ -37,34 +34,19 @@ export const ReadView = ({
   return (
     <div className="relative min-h-0 flex-1 overflow-hidden">
       <div ref={scrollRef} className="h-full overflow-y-auto px-6 pb-10 pt-1">
-        {/* 文档标题（来自 front-matter，正文无 H1 时才显示）；右上小箭头回编辑模式 */}
+        {/* 文档标题（来自 front-matter，正文无 H1 时才显示） */}
         {docTitle ? (
-          <div className="group relative mb-5 mt-3">
+          <div className="relative mb-5 mt-3">
             <h1 className="text-center text-[21px] font-extrabold leading-snug tracking-[0.01em] text-[#1d1d1f]">
               {docTitle}
             </h1>
             <div className="mx-auto mt-2 h-[3px] w-10 rounded-full bg-[#ff2442]/70" />
-            <button
-              className="absolute -right-2 top-0 flex h-6 w-6 items-center justify-center rounded-full text-ink-faint opacity-0 transition-opacity hover:bg-black/5 hover:text-ink-soft group-hover:opacity-100"
-              title="回到编辑模式"
-              onClick={() => setEditorMode('edit')}
-            >
-              <ChevronRight className="h-4 w-4" strokeWidth={1.8} />
-            </button>
           </div>
         ) : null}
 
         {doc.blocks.map((b, i) => (
           <ReadBlockView key={i} block={b} />
         ))}
-      </div>
-
-      {/* 阅读模式角标 */}
-      <div className="pointer-events-none absolute bottom-2.5 left-0 right-0 flex justify-center">
-        <span className="flex items-center gap-1 rounded-full bg-black/[0.05] px-2.5 py-1 text-[10px] text-ink-faint">
-          <BookOpen className="h-3 w-3" strokeWidth={1.8} />
-          阅读模式 · 不可编辑
-        </span>
       </div>
     </div>
   )

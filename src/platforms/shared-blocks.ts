@@ -26,6 +26,23 @@ const ensureMermaid = async () => {
   return mermaid
 }
 
+/** Mermaid / PlantUML → svg（失败 reject 错误信息） */
+export async function diagramSvg(kind: 'mermaid' | 'plantuml', text: string): Promise<string> {
+  if (kind === 'mermaid') {
+    const m = await ensureMermaid()
+    const { svg } = await m.render(`mmd-${Math.random().toString(36).slice(2)}`, text)
+    return svg
+  }
+  // PlantUML：走公共渲染服务 Kroki（网络依赖，MVP 够用）
+  const body = await fetch('https://kroki.io/plantuml/svg', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ diagram_source: text, diagram_type: 'plantuml' }),
+  }).then(r => r.text())
+  if (!body.includes('<svg')) throw new Error(body.slice(0, 300))
+  return body
+}
+
 export function useDiagramSvg(kind: 'mermaid' | 'plantuml', text: string) {
   const [svg, setSvg] = useState('')
   const [error, setError] = useState('')
@@ -33,30 +50,13 @@ export function useDiagramSvg(kind: 'mermaid' | 'plantuml', text: string) {
     let alive = true
     setError('')
     setSvg('')
-    if (kind === 'mermaid') {
-      ensureMermaid()
-        .then(m => m.render(`mmd-${Math.random().toString(36).slice(2)}`, text))
-        .then(({ svg }) => {
-          if (alive) setSvg(svg)
-        })
-        .catch(err => {
-          if (alive) setError(String(err?.message ?? err))
-        })
-    } else {
-      // PlantUML：走公共渲染服务 Kroki（网络依赖，MVP 够用）
-      fetch('https://kroki.io/plantuml/svg', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ diagram_source: text, diagram_type: 'plantuml' }),
+    diagramSvg(kind, text)
+      .then(svg => {
+        if (alive) setSvg(svg)
       })
-        .then(r => r.text())
-        .then(body => {
-          if (!alive) return
-          if (body.startsWith('<svg') || body.includes('<svg')) setSvg(body)
-          else setError(body.slice(0, 200))
-        })
-        .catch(err => alive && setError(String(err)))
-    }
+      .catch(err => {
+        if (alive) setError(String(err?.message ?? err))
+      })
     return () => {
       alive = false
     }
