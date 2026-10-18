@@ -1,0 +1,51 @@
+import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
+
+export const useStore = create<{
+  markdown: string
+  setMarkdown: (s: string) => void
+  themeId: string
+  setThemeId: (id: string) => void
+  size: '3:4' | '1:1' | '4:5'
+  setSize: (s: '3:4' | '1:1' | '4:5') => void
+  watermark: string
+  setWatermark: (s: string) => void
+}>()(
+  persist(
+    (set) => ({
+      markdown: DEFAULT_MD,
+      setMarkdown: (markdown) => set({ markdown }),
+      themeId: 'clean',
+      setThemeId: (themeId) => set({ themeId }),
+      size: '3:4',
+      setSize: (size) => set({ size }),
+      watermark: '@md2pub',
+      setWatermark: (watermark) => set({ watermark }),
+    }),
+    { name: 'md2pub-store' },
+  ),
+)
+
+const DEFAULT_MD = `# 3 个被低估的 Notion 数据技巧
+
+一句话介绍：这 3 个技巧让你用 Notion 数据库的效率翻倍，最后一个 90% 的人都不知道！
+
+## 1. 分组视图 + 折叠规则
+
+数据库分组其实可以按「是否完成」自动排序，未完成永远在最上面。
+
+## 2. 用公式字段做智能标签
+
+- 根据截止日期自动显示「过期 / 今天 / 剩余 3 天」
+- 颜色跟着状态变化
+- 不需要手动打标签
+
+## 3. 关联数据库做周复盘
+
+> 每周五花 10 分钟，把本周任务数据库和周记数据库关联起来。
+
+一年的复盘都能一键回溯～
+
+---
+*觉得有用的话，点赞收藏，下期分享 Notion + 日历的神仙组合愣！*
+`
