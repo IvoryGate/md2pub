@@ -1,9 +1,8 @@
 import katex from 'katex'
 import type { CSSProperties } from 'react'
-import type { Block } from '../../core/document/types'
 import { renderInline } from '../../core/document/parse'
 import { stripInline } from '../../core/document/parse'
-import type { XhsCard } from './layout'
+import type { XhsCard, XhsCardBlock } from './layout'
 import type { XhsCardTheme, XhsHeadingStyle } from './theme'
 import { XHS_FOOTER_RESERVE } from './theme'
 import { useDiagramSvg } from '../shared-blocks'
@@ -25,6 +24,7 @@ const MathBlock = ({ text, theme }: { text: string; theme: XhsCardTheme }) => {
   }
   return (
     <div
+      className="xhs-math"
       style={{
         color: theme.palette.text,
         fontSize: theme.layout.body.size * 0.9,
@@ -91,7 +91,29 @@ const decoStyle = (style: XhsHeadingStyle, theme: XhsCardTheme): CSSProperties =
 
 // ---------- 基础块 ----------
 
-export const BlockView = ({ block, theme }: { block: Block; theme: XhsCardTheme }) => {
+/** 正文段落：中英混排换行质量（CJK 禁则 + 英文整词断行 + 超长 URL 兜底） */
+const ParaView = ({ theme, text, html }: { theme: XhsCardTheme; text?: string; html?: string }) => {
+  const p = theme.palette
+  const B = theme.layout.body
+  return (
+    <div
+      className="xhs-paragraph"
+      style={{
+        color: p.text,
+        fontSize: B.size,
+        lineHeight: B.lineRatio,
+        letterSpacing: B.letterSpacing,
+        textAlign: B.align,
+        wordBreak: 'normal',
+        overflowWrap: 'break-word',
+        lineBreak: 'strict',
+      }}
+      dangerouslySetInnerHTML={{ __html: html ?? text ?? '' }}
+    />
+  )
+}
+
+export const BlockView = ({ block, theme }: { block: XhsCardBlock; theme: XhsCardTheme }) => {
   const p = theme.palette
   const L = theme.layout
   const B = L.body
@@ -124,20 +146,9 @@ export const BlockView = ({ block, theme }: { block: Block; theme: XhsCardTheme 
       )
     }
     case 'paragraph':
-      return (
-        <div
-          className="xhs-paragraph"
-          style={{
-            color: p.text,
-            fontSize: B.size,
-            lineHeight: B.lineRatio,
-            letterSpacing: B.letterSpacing,
-            textAlign: B.align,
-            wordBreak: 'break-word',
-          }}
-          dangerouslySetInnerHTML={{ __html: renderInline(block.text) }}
-        />
-      )
+      return <ParaView theme={theme} text={renderInline(block.text)} />
+    case 'paraSplit':
+      return <ParaView theme={theme} html={block.html} />
     case 'quote':
       return (
         <blockquote
@@ -208,9 +219,15 @@ export const BlockView = ({ block, theme }: { block: Block; theme: XhsCardTheme 
     case 'plantuml':
       return <PlantumlBlock text={block.text} />
     case 'list':
+    case 'listSlice': {
+      const data = block.type === 'listSlice' ? block.block : block
+      const from = block.type === 'listSlice' ? block.from : 0
+      const to = block.type === 'listSlice' ? block.to : data.items.length
+      const ordered = block.type === 'listSlice' ? data.ordered : block.ordered
+      const shown = block.type === 'listSlice' ? data.items.slice(from, to) : data.items
       return (
-        <div style={{ display: 'grid', gap: L.list.itemGap }}>
-          {block.items.map((item, i) => (
+        <div style={{ display: 'grid', gap: L.list.itemGap }} data-list>
+          {shown.map((item, i) => (
             <div
               key={i}
               style={{
@@ -228,12 +245,12 @@ export const BlockView = ({ block, theme }: { block: Block; theme: XhsCardTheme 
                   marginRight: 0,
                   color: p.accent,
                   fontWeight: 700,
-                  fontSize: B.size * (block.ordered ? 1.06 : 1),
-                  textAlign: block.ordered ? 'left' : 'center',
+                  fontSize: B.size * (ordered ? 1.06 : 1),
+                  textAlign: ordered ? 'left' : 'center',
                   whiteSpace: 'nowrap',
                 }}
               >
-                {block.ordered ? `${i + 1}.` : theme.bulletSymbol || '•'}
+                {ordered ? `${from + i + 1}.` : theme.bulletSymbol || '•'}
               </span>
               <span
                 style={{
@@ -250,6 +267,7 @@ export const BlockView = ({ block, theme }: { block: Block; theme: XhsCardTheme 
           ))}
         </div>
       )
+    }
     case 'table':
       return (
         <div style={{ overflowX: 'auto' }}>
@@ -536,8 +554,9 @@ export const CardPage = ({ card, theme, watermark }: { card: XhsCard; theme: Xhs
       {/* 页眉（话题 + 页码）——显示开关与高度由 layout.header 驱动 */}
       <CardHeader card={card} theme={theme} />
 
-      {/* 流式内容区 */}
-      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+      {/* 流式内容区：块间 gap 与分页装箱同源（paragraphSpacing）；
+          子块 flex-shrink:0 —— overflow 容器（表格/代码/公式）在内容超高时必须溢出而非被压缩 */}
+      <div className="xhs-content" style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, gap: L.body.paragraphSpacing }}>
         {card.blocks.map((b, i) => (
           <BlockView key={i} block={b} theme={theme} />
         ))}

@@ -467,3 +467,12 @@ body,
 ::selection {
   background: rgba(255, 36, 66, 0.14);
 }
+
+/* ---------- 小红书卡片：流式内容区（flex 不压缩溢出容器块） ---------- */
+[data-xhs-card] .xhs-content > * {
+  flex-shrink: 0;
+}
+/* 卡片内水平滚块隐藏纵向滚动条（KaTeX strut 溢出会撑出假竖条） */
+[data-xhs-card] .xhs-content .xhs-math {
+  overflow-y: hidden;
+}

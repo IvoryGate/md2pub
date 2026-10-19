@@ -3,12 +3,47 @@ import type { XhsCardSizeName } from './theme'
 import { XHS_CARD_SIZES } from './theme'
 
 /**
- * 小红书分页模型（流式分页，类比 LaTeX / Word）：
- * - 无手动分隔符；`---` 现在就是 markdown 原生 hr（divider）；
- * - 显式分页 = `<!-- pagebreak -->` / `<!-- newpage -->`（core 已解析为 pagebreak 块）；
- * - 自动分页 = 根据每个块在当前板式（页边距/行距/字号）下的实测高度做贪心装箱；
- * - 输出封面（首段 h1/h2 独立成卡）+ 正文卡片序列。
+ * 小红书分页模型（LaTeX 式流式分页）：
+ * - 页是「线性排版容器」：段落填不满一页时按行拆分，下一页续排，不做整块搬运；
+ * - 孤寡控制：段首至少 2 行（orphan）、段尾至少 2 行（widow），不足则整块下移；
+ * - keep-with-next：标题/（以「：」结尾的）引导句后必须跟内容，页尾不孤行；
+ * - 可拆块：段落（按行）、列表（按条目）；
+ *   不可拆块：标题 / 代码 / 公式 / mermaid / 图 / 表格 / 引用（引用通常很短）；
+ * - 显式分页 = `<!-- pagebreak -->`（core 解析为 pagebreak 块）。
  */
+
+// ---------- 分页计划（纯逻辑，DOM 无关） ----------
+
+/** 分页计划中的一个渲染单元 */
+export type FlowUnit =
+  | { kind: 'block'; index: number }
+  /** 段落行区间 [fromLine, toLine)（0 基；行数 = 预估行盒高计算） */
+  | { kind: 'text'; index: number; fromLine: number; toLine: number; cont: boolean }
+  /** 列表条目区间 [fromItem, toItem)（0 基） */
+  | { kind: 'list'; index: number; fromItem: number; toItem: number; cont: boolean }
+
+/** 度量层对每块的测量输出 */
+export interface BlockMeasures {
+  /** 块总高（含自身外边距） */
+  height: number
+  /** 文本块行盒高（= fontSize × lineHeight），只有可拆段落需要 */
+  lineHeight?: number
+  /** 列表各条目高度（含条目间 itemGap 需另给） */
+  items?: number[]
+  itemGap?: number
+}
+
+export interface FlowMetrics {
+  availableHeight: number
+  /** 块间统一间距（paragraphSpacing），与卡片渲染容器 gap 同源 */
+  blockGap: number
+}
+
+/** 卡片里的块：原块 / 列表切片（纯逻辑可复现）/ 段落 HTML 切片（DOM 捕获） */
+export type XhsCardBlock =
+  | Block
+  | { type: 'listSlice'; block: Extract<Block, { type: 'list' }>; from: number; to: number }
+  | { type: 'paraSplit'; html: string }
 
 export interface XhsCard {
   kind: 'cover' | 'content'
@@ -16,7 +51,7 @@ export interface XhsCard {
   page: number
   totalPages?: number
   meta?: Document['meta']
-  blocks: Block[]
+  blocks: XhsCardBlock[]
 }
 
 export interface XhsLayoutContext {
@@ -28,78 +63,153 @@ export interface XhsLayoutContext {
 export interface XhsCardSet {
   cards: XhsCard[]
   size: { width: number; height: number }
-  /** 测高分页产生的警告（例如单块超出整页高度） */
+  /** 排版警告（例如单块超出整页高度） */
   warnings: string[]
 }
 
-export interface FlowMetrics {
-  availableHeight: number
-  /** 块间距（paragraphSpacing） */
-  blockGap: number
-}
+// ---------- LaTeX 式贪心流式分页 ----------
 
-/**
- * 与「测量」分离：measure.ts 负责给出每个块的实测高度（含 image/mermaid/katex 的影响），
- * 本函数纯逻辑贪心装箱。
- *
- * keep-with-next（分页约束，调研自长文图设计规范）：
- * - 标题不得孤行页尾——页放不下时把结尾的「标题/引导句/引用」链一并带到下页
- * - 以「：」结尾的段落语义上引出下一块，与下一块绑定
- */
-const isKeepWithNext = (b?: Block): boolean =>
-  !!b &&
-  (b.type === 'heading' ||
-    b.type === 'quote' ||
-    (b.type === 'paragraph' && /：\s*$/.test(b.text)))
+const ORPHAN_LINES = 2
+const WIDOW_LINES = 2
 
-export function paginate(doc: Document, cards: Array<{ height: number }>, metrics: FlowMetrics): {
-  pages: Block[][]
-  warnings: string[]
-} {
+const isKeepWithNext = (b: Block): boolean =>
+  b.type === 'heading' || (b.type === 'paragraph' && /：\s*$/.test(b.text))
+
+export function paginateFlow(
+  blocks: Block[],
+  m: BlockMeasures[],
+  metrics: FlowMetrics,
+): { pages: FlowUnit[][]; warnings: string[] } {
   const { availableHeight, blockGap } = metrics
-  const pages: Block[][] = []
+  const pages: FlowUnit[][] = []
   const warnings: string[] = []
-  let current: Block[] = []
-  /** 与 current 对齐的块高（关页/下移标题时重算页占用） */
-  let curHeights: number[] = []
-  const pageUsed = () =>
-    curHeights.reduce((s, h) => s + h, 0) + (current.length > 1 ? (current.length - 1) * blockGap : 0)
+  let page: FlowUnit[] = []
+  /** 与 page 对齐的单元高度（0 间距计入 gap） */
+  let unitHeights: number[] = []
+  const gapNow = () => (page.length > 0 ? blockGap : 0)
+  const usedNow = () => unitHeights.reduce((s, h) => s + h, 0)
+  const room = () => availableHeight - usedNow() - gapNow()
+
   const flush = () => {
-    if (current.length > 0) pages.push(current)
-    current = []
-    curHeights = []
+    if (page.length > 0) pages.push(page)
+    page = []
+    unitHeights = []
+  }
+  const place = (u: FlowUnit, h: number) => {
+    if (page.length > 0) unitHeights.push(blockGap)
+    page.push(u)
+    unitHeights.push(h)
+  }
+  /** 关页以迎接一个放不下的单元；标题/引导句不孤行页尾（keep-with-next 随行） */
+  const closeForMove = () => {
+    while (page.length > 1 && page[page.length - 1]!.kind === 'block') {
+      const last = page[page.length - 1] as Extract<FlowUnit, { kind: 'block' }>
+      if (!isKeepWithNext(blocks[last.index]!)) break
+      page.pop()
+      unitHeights.pop()
+      unitHeights.pop() // 该单元的 gap
+    }
+    flush()
   }
 
-  for (let i = 0; i < doc.blocks.length; i++) {
-    const block = doc.blocks[i]!
-    const height = cards[i]?.height ?? 0
+  /** 段落填页：[from, total) 行区间从当前页尾部续排 */
+  const fillText = (index: number, from: number, total: number, cont: boolean) => {
+    const lh = m[index]!.lineHeight ?? 0
+    const rest = total - from
+    if (rest <= 0) return
+    const space = room()
+    if (rest * lh <= space) {
+      // 完整段：占高用实测高度（比 行数×行高 更准）
+      const totalH = m[index]!.height
+      const totalLines = Math.max(1, Math.round(totalH / lh))
+      place({ kind: 'text', index, fromLine: from, toLine: total, cont }, (totalH * rest) / totalLines)
+      return
+    }
+    // 本页放不下：算能容纳的行数
+    let k = Math.floor(space / lh)
+    if (page.length > 0 && k < ORPHAN_LINES) {
+      closeForMove()
+      return fillText(index, from, total, false)
+    }
+    if (page.length > 0 && rest - k < WIDOW_LINES) {
+      closeForMove()
+      return fillText(index, from, total, false)
+    }
+    // 页空（段首或续排）：孤寡惩罚豁免，尽量铺满整页（超长段落跨多页）
+    k = Math.max(1, Math.min(k, Math.floor(availableHeight / lh)))
+    place({ kind: 'text', index, fromLine: from, toLine: from + k, cont }, k * lh)
+    flush()
+    fillText(index, from + k, total, true)
+  }
 
+  /** 列表填页：条目为拆分单元，条目间另有 itemGap */
+  const fillList = (index: number, from: number, cont: boolean) => {
+    const items = m[index]!.items ?? []
+    const ig = m[index]!.itemGap ?? 0
+    const n = items.length
+    if (from >= n) return
+    const spanH = (from: number, to: number) => {
+      // items[from, to) 高度 + 条目间 gap
+      let s = items.slice(from, to).reduce((a, b) => a + b, 0)
+      if (to > from + 1) s += (to - from - 1) * ig
+      return s
+    }
+    const space = room()
+    let fit = from
+    while (fit < n && spanH(from, fit + 1) <= space) fit++
+
+    if (fit === n) {
+      place({ kind: 'list', index, fromItem: from, toItem: n, cont }, spanH(from, n))
+      return
+    }
+    // 一个条目都放不下（或空间只够孤条）：关页整搬
+    if (page.length > 0 && fit - from < 2 && n - (fit - from) >= 2) {
+      closeForMove()
+      return fillList(index, from, cont)
+    }
+    // 页空：铺满整页再续排
+    if (page.length === 0) {
+      fit = from
+      const full = availableHeight
+      while (fit < n && spanH(from, fit + 1) <= full) fit++
+      fit = Math.max(from + 1, fit)
+    }
+    place({ kind: 'list', index, fromItem: from, toItem: fit, cont }, spanH(from, fit))
+    flush()
+    fillList(index, fit, true)
+  }
+
+  for (let i = 0; i < blocks.length; i++) {
+    const block = blocks[i]!
+    const md = m[i]!
     if (block.type === 'pagebreak') {
       flush()
       continue
     }
-
-    // 单块高度超过整页可用高度：独占一页，并告警
-    if (height > availableHeight) {
+    if (block.type === 'paragraph') {
+      const lines = Math.max(1, Math.round(md.height / (md.lineHeight ?? 1)))
+      fillText(i, 0, lines, false)
+      continue
+    }
+    if (block.type === 'list' && md.items && md.items.length > 0) {
+      fillList(i, 0, false)
+      continue
+    }
+    // 原子块
+    const h = md.height
+    if (h > availableHeight) {
       flush()
       warnings.push(
         `第 ${i + 1} 块（${block.type}）高度超出卡片可用区域，单独成页仍会被裁切，请减字号/页边距或拆分内容。`,
       )
-      pages.push([block])
+      place({ kind: 'block', index: i }, h)
+      flush()
       continue
     }
-
-    // 放不下 → 关页；先把结尾的 keep-with-next 链剥下来随本块去下页（标题不孤行）
-    if (current.length > 0 && pageUsed() + height + blockGap > availableHeight) {
-      while (current.length > 1 && isKeepWithNext(current[current.length - 1])) {
-        current.pop()
-        curHeights.pop()
-      }
-      flush()
+    if (usedNow() + gapNow() + h > availableHeight) {
+      closeForMove()
     }
-
-    current.push(block)
-    curHeights.push(height)
+    place({ kind: 'block', index: i }, h)
   }
   flush()
 
@@ -107,20 +217,19 @@ export function paginate(doc: Document, cards: Array<{ height: number }>, metric
   return { pages, warnings }
 }
 
-/** 把分页结果的正文的 blocks 序列组装成卡片（封面+正文），输出卡片集合 */
+/** 把分页计划组装成卡片（封面 + 正文），输出卡片集合（split 单元由度量层解析后传入） */
 export function assembleCards(
   doc: Document,
   ctx: XhsLayoutContext,
-  _size: { width: number; height: number },
-  pages: Block[][],
+  cards: Array<{ blocks: XhsCardBlock[] }>,
   warnings: string[],
 ): XhsCardSet {
-  const cards: XhsCard[] = []
+  const out: XhsCard[] = []
   if (ctx.cover === 'auto') {
-    cards.push({ kind: 'cover', page: 0, meta: doc.meta, blocks: [] })
+    out.push({ kind: 'cover', page: 0, meta: doc.meta, blocks: [] })
   }
-  pages.forEach((blocks, i) => {
-    cards.push({ kind: 'content', page: i + 1, totalPages: pages.length, meta: doc.meta, blocks })
+  cards.forEach((p, i) => {
+    out.push({ kind: 'content', page: i + 1, totalPages: cards.length, meta: doc.meta, blocks: p.blocks })
   })
-  return { cards, warnings, size: XHS_CARD_SIZES[ctx.size] }
+  return { cards: out, warnings, size: XHS_CARD_SIZES[ctx.size] }
 }

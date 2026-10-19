@@ -5,6 +5,7 @@
 export * from './theme'
 export * from './layout'
 export { CardPage } from './CardPage'
-export { XhsMeasureLayer, buildCardSet, useMeasuredHeights } from './measure'
+export { XhsMeasureLayer } from './measure'
+export type { XhsCardSet } from './layout'
 export { exportCardPng, exportCardsZip, safeFilename } from './export'
 export { applyXhsOverrides, type XhsStyleOverrides } from './theme'

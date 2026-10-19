@@ -3,16 +3,13 @@ import { Download, Files, Sheet } from 'lucide-react'
 import { parseDocument } from '../core/document/parse'
 import {
   XHS_THEMES,
-  XHS_CARD_SIZES,
-  computeContentMetrics,
   applyXhsOverrides,
   CardPage,
   XhsMeasureLayer,
-  buildCardSet,
-  useMeasuredHeights,
   exportCardPng,
   exportCardsZip,
   safeFilename,
+  type XhsCardSet,
 } from '../platforms/xhs'
 import { bindSyncScroll, type ScrollBus } from './scrollSync'
 import { useStore } from '../store'
@@ -39,16 +36,7 @@ export const XhsPreview = ({ bus }: { bus: ScrollBus }) => {
     return applyXhsOverrides(base, overrides)
   }, [themeId, overrides])
 
-  const [heights, onHeights] = useMeasuredHeights()
-  const cardSet = useMemo(
-    () => (heights ? buildCardSet(doc, heights, theme, size, { cover: 'auto' }) : null),
-    [heights, doc, theme, size],
-  )
-
-  const contentWidth = useMemo(
-    () => computeContentMetrics(XHS_CARD_SIZES[size], theme).contentWidth,
-    [size, theme],
-  )
+  const [cardSet, setCardSet] = useState<XhsCardSet | null>(null)
 
   const baseName = safeFilename(doc.meta.title ?? 'notes')
   const totalPages = cardSet?.cards.filter(c => c.kind === 'content').length ?? 0
@@ -83,8 +71,8 @@ export const XhsPreview = ({ bus }: { bus: ScrollBus }) => {
 
   return (
     <div className="relative h-full">
-      {/* 隐藏度量层 */}
-      <XhsMeasureLayer doc={doc} theme={theme} contentWidth={contentWidth} onHeights={onHeights} />
+      {/* 隐藏度量层（采样 → 分页 → 拆分解析 → 卡片集合） */}
+      <XhsMeasureLayer doc={doc} theme={theme} sizeName={size} cover="auto" onCardSet={setCardSet} />
 
       {/* 卡片轨道（左右留白避让浮动面板） */}
       <div ref={railRef} className="h-full overflow-y-auto">
