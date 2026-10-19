@@ -102,16 +102,32 @@ export function paginateFlow(
     page.push(u)
     unitHeights.push(h)
   }
-  /** 关页以迎接一个放不下的单元；标题/引导句不孤行页尾（keep-with-next 随行） */
+  /** 被弹出待重放的 keep 链单元（unit, 放置高度） */
+  let pending: Array<[FlowUnit, number]> = []
+  /** keep 链重放到新页页首：被搬页的标题必须继续出现在下一页开头（LaTeX 语义） */
+  const replayPending = () => {
+    const chain = pending
+    pending = []
+    chain.forEach(([u, h], ci) => {
+      // 链首落在新页页首：与渲染 start 行为同源，丢掉自身段前距
+      const md = m[u.index]!
+      place(u, ci === 0 && u.kind === 'block' ? md.height - (md.topMargin ?? 0) : h)
+    })
+  }
+  /** 关页以迎接一个放不下的单元；标题/引导句不孤行页尾（keep-with-next 随行），弹出的链在新页页首重放 */
   const closeForMove = () => {
+    const popped: Array<[FlowUnit, number]> = []
     while (page.length > 1 && page[page.length - 1]!.kind === 'block') {
       const last = page[page.length - 1] as Extract<FlowUnit, { kind: 'block' }>
       if (!isKeepWithNext(blocks[last.index]!)) break
+      popped.unshift([last, unitHeights[unitHeights.length - 1]!])
       page.pop()
       unitHeights.pop()
       unitHeights.pop() // 该单元的 gap
     }
     flush()
+    pending = popped
+    replayPending()
   }
 
   /** 段落填页：[from, total) 行区间从当前页尾部续排 */

@@ -103,6 +103,9 @@ function scanTokens(tokens: Token[]): Block[] {
           const imageChild = inline?.children?.find(c => c.type === 'image')
           if (inline?.children && inline.children.filter(c => c.type !== 'text' && c.type !== 'softbreak').length === 1 && imageChild) {
             push({ type: 'image', url: imageChild.attrGet('src') ?? '', alt: stripInline(imageChild.content || '') || undefined })
+          } else if (PAGEBREAK_RE.test((inline?.content ?? '').trim())) {
+            // html:false 时，独立成行的 HTML 注释会落在段落里——还原为显式分页
+            push({ type: 'pagebreak' })
           } else {
             push({ type: 'paragraph', text: inline?.content ?? '' })
           }
