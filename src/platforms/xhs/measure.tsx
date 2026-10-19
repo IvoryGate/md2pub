@@ -90,9 +90,15 @@ export function buildCardSet(
 ): XhsCardSet {
   const dims = XHS_CARD_SIZES[sizeName]
   const { availableHeight, body } = computeContentMetrics(dims, theme)
+
+  // 封面已展示 doc 标题（meta.title 即首个 heading 的文本），正文不再重复渲染该块
+  const skipTitle = ctx.cover === 'auto' && doc.blocks[0]?.type === 'heading'
+  const bodyBlocks = skipTitle ? doc.blocks.slice(1) : doc.blocks
+  const offset = skipTitle ? 1 : 0
+
   const { pages, warnings } = paginate(
-    doc,
-    doc.blocks.map((_, i) => ({ height: heights[Number(i)] ?? 0 })),
+    { ...doc, blocks: bodyBlocks },
+    bodyBlocks.map((_, k) => ({ height: heights[offset + k] ?? 0 })),
     { availableHeight, blockGap: body.paragraphSpacing },
   )
   return assembleCards(doc, { cover: ctx.cover, size: sizeName }, dims, pages, warnings)
