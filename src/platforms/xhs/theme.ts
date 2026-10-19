@@ -94,7 +94,13 @@ export interface XhsLayout {
     showPageNum: boolean
     height: number
   }
-  watermark: { enabled: boolean; pos: 'left' | 'center' | 'right'; /** 封面是否显示（与正文页独立控制） */ cover: boolean }
+  watermark: {
+    enabled: boolean
+    pos: 'left' | 'center' | 'right'
+    /** 封面水印：独立开关 + 独立位置 */
+    cover: boolean
+    coverPos: 'left' | 'center' | 'right'
+  }
   /** 封面：显式开关（不再由首个 h1 隐式决定）。
       关闭时首个 h1 留在正文，作为章节开头档（居中胶囊条 h1 档） */
   coverOn: boolean
@@ -203,7 +209,7 @@ const baseLayout: XhsLayout = {
   image: { fullBleed: false, radius: 12, outline: true, marginY: 16 },
   divider: { gapY: 26 },
   header: { showTag: true, showPageNum: true, height: 56 },
-  watermark: { enabled: true, pos: 'left', cover: true },
+  watermark: { enabled: true, pos: 'left', cover: true, coverPos: 'left' },
   coverOn: true,
   coverStyle: 'classic',
   cover: 'center',

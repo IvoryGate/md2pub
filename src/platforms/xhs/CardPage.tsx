@@ -657,14 +657,26 @@ const CardFooter = ({ card, theme, watermark }: { card: XhsCard; theme: XhsCardT
   )
 }
 
-const Watermark = ({ theme, text, inline }: { theme: XhsCardTheme; text?: string; inline?: boolean }) => {
+const Watermark = ({
+  theme,
+  text,
+  inline,
+  pos: posOverride,
+}: {
+  theme: XhsCardTheme
+  text?: string
+  inline?: boolean
+  /** 位置覆盖（封面用独立位置）；正文由调用方按 enabled 控制 */
+  pos?: 'left' | 'center' | 'right'
+}) => {
   const L = theme.layout
   const content = (text ?? '').trim()
-  if (!L.watermark.enabled || !content) return null
+  if (!content) return null
+  const side = posOverride ?? L.watermark.pos
   const pos: Record<string, CSSProperties> = {
-    left: { left: 'auto', transform: 'none' },
-    center: { left: '50%', transform: 'translateX(-50%)' },
-    right: { right: 'auto', left: 'auto' },
+    left: { left: L.padding.left, right: 'auto', transform: 'none' },
+    center: { left: '50%', right: 'auto', transform: 'translateX(-50%)' },
+    right: { right: L.padding.right, left: 'auto', transform: 'none' },
   }
   if (inline) {
     return (
@@ -692,7 +704,7 @@ const Watermark = ({ theme, text, inline }: { theme: XhsCardTheme; text?: string
         opacity: 0.85,
         letterSpacing: 1,
         whiteSpace: 'nowrap',
-        ...pos[L.watermark.pos],
+        ...pos[side],
       }}
     >
       {content}
@@ -1092,7 +1104,7 @@ const CoverCard = ({
       }}
     >
       {body}
-      {L.watermark.cover && <Watermark theme={theme} text={watermark} />}
+      {L.watermark.cover && <Watermark theme={theme} text={watermark} pos={L.watermark.coverPos} />}
     </div>
   )
 }

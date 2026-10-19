@@ -200,12 +200,11 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
           </div>
         </Section>
 
-        {/* 页面骨架 */}
-        <Section title="页面" defaultOpen>
+        {/* 封面（独立功能块：文字 / 版式 / 水印） */}
+        <Section title="封面" defaultOpen>
           <ToggleRow label="开启封面" value={L.coverOn} onChange={(v) => patch({ coverOn: v })} />
           {L.coverOn && (
             <>
-              {/* 封面文字（与正文内容解耦；留空回退文档元数据） */}
               <div className="mt-1 space-y-1.5">
                 <CoverInput label="标题" value={coverText.title} placeholder="封面标题" multiline onChange={(v) => setCoverText({ title: v })} />
                 <p className="pl-12 text-[10.5px] leading-relaxed text-ink-faint">
@@ -216,7 +215,6 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
                 <CoverInput label="标签" value={coverText.tags} placeholder="话题标签：逗号/空格分隔，如 游戏, 出海" onChange={(v) => setCoverText({ tags: v })} />
               </div>
 
-              {/* 封面样式：两行网格（六套） */}
               <div className="mt-2 grid grid-cols-3 gap-1.5">
                 {(
                   [
@@ -251,8 +249,25 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
                   onChange={(v) => patch({ cover: v })}
                 />
               )}
+
+              <div className="mt-2 border-t border-black/[0.06] pt-2">
+                      <SegRow
+                  label="封面水印位置"
+                  value={L.watermark.coverPos}
+                  options={[
+                    { value: 'left' as const, label: '左' },
+                    { value: 'center' as const, label: '中' },
+                    { value: 'right' as const, label: '右' },
+                  ]}
+                  onChange={(v) => patch({ watermark: { coverPos: v } })}
+                />
+              </div>
             </>
           )}
+        </Section>
+
+        {/* 页面骨架（与封面完全分离） */}
+        <Section title="页面" defaultOpen>
           <SliderRow label="上边距" value={L.padding.top} min={40} max={200} onChange={(v) => patch({ padding: { top: v } })} />
           <SliderRow label="下边距" value={L.padding.bottom} min={40} max={200} onChange={(v) => patch({ padding: { bottom: v } })} />
           <SliderRow label="左边距" value={L.padding.left} min={40} max={200} onChange={(v) => patch({ padding: { left: v } })} />
@@ -357,7 +372,6 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
         {/* 水印 */}
         <Section title="水印">
           <ToggleRow label="正文显示水印" value={L.watermark.enabled} onChange={(v) => patch({ watermark: { enabled: v } })} />
-          <ToggleRow label="封面显示水印" value={L.watermark.cover} onChange={(v) => patch({ watermark: { cover: v } })} />
           <SegRow
             label="位置" value={L.watermark.pos}
             options={[
