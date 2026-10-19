@@ -76,7 +76,8 @@ const dotsIconStyle = (color: string, icon: 'h3' | 'h4' = 'h3'): CSSProperties =
   display: 'inline-block',
   width: '1.2em',
   height: '1.2em',
-  verticalAlign: 'middle',
+  // 墨迹中心校准：提升量 = 墨迹中心(≈0.364em) − 图标半高(0.6em) = −0.235em（YaHei 实测拟合）
+  verticalAlign: '-0.235em',
   marginLeft: '0.38em',
   backgroundColor: color,
   opacity: 0.5,
@@ -191,33 +192,34 @@ export const BlockView = ({
         )
       }
       if (st.decoration === 'twin') {
-        // Phycat h2「双子塔」：主色长条 + 辅紫短条，都与首行文字垂直居中
-        const midTop = `${(B.lineRatio * 0.82) / 2}em` // 标题首行行盒的垂直中点
+        // Phycat h2「双子塔」：装饰为行内元素 + 精确 vertical-align 长度。
+        // 提升量 = 墨迹中心（canvas 实测 YaHei：CJK≈0.35em/拉丁≈0.38em，取均值 0.364em）
+        // − 装饰半高，em 常量随字号比缩放；悬挂缩进保证首行条贴左缘、折行对齐
         return (
-          <div style={{ position: 'relative', ...textStyle, paddingLeft: '0.85em' }}>
+          <div style={{ ...textStyle, paddingLeft: '0.85em', textIndent: '-0.85em' }}>
             <i
               style={{
-                position: 'absolute',
-                left: 0,
-                top: midTop,
-                transform: 'translateY(-50%)',
-                width: '0.21em',
+                display: 'inline-block',
+                width: '0.213em',
                 height: '1em',
-                borderRadius: '0.11em',
+                borderRadius: '0.107em',
                 background: p.accent,
+                verticalAlign: '-0.136em',
+                marginRight: '0.128em',
+                textIndent: 0,
               }}
             />
             <i
               style={{
-                position: 'absolute',
-                left: '0.34em',
-                top: midTop,
-                transform: 'translateY(-50%)',
+                display: 'inline-block',
                 width: '0.085em',
                 height: '0.6em',
                 borderRadius: '0.09em',
                 background: p.italic,
                 opacity: 0.6,
+                verticalAlign: '0.064em',
+                marginRight: '0.427em',
+                textIndent: 0,
               }}
             />
             {block.text}
@@ -225,27 +227,29 @@ export const BlockView = ({
         )
       }
       if (st.decoration === 'dots') {
-        // Phycat h3/h4：细竖条 + 文字 + 尾部小圆点图标（文字居中在竖条与圆点之间）
+        // Phycat h3/h4：细竖条 + 文字 + 尾部小圆点图标（同上墨迹中心校准）
         const isH4 = key === 'h4'
-        const midTop = `${(B.lineRatio * 0.82) / 2}em`
-        return (
-          <div style={{ position: 'relative', ...textStyle, paddingLeft: isH4 ? '0.85em' : '0.72em' }}>
-            {!isH4 && (
-              <i
-                style={{
-                  position: 'absolute',
-                  left: 0,
-                  top: midTop,
-                  transform: 'translateY(-50%)',
-                  width: '0.19em',
-                  height: '1em',
-                  borderRadius: '0.1em',
-                  background: p.accent,
-                }}
-              />
-            )}
+        return isH4 ? (
+          <div style={{ ...textStyle }}>
             {block.text}
-            <i style={dotsIconStyle(p.accent, isH4 ? 'h4' : 'h3')} />
+            <i style={dotsIconStyle(p.accent, 'h4')} />
+          </div>
+        ) : (
+          <div style={{ ...textStyle, paddingLeft: '0.71em', textIndent: '-0.71em' }}>
+            <i
+              style={{
+                display: 'inline-block',
+                width: '0.19em',
+                height: '1em',
+                borderRadius: '0.1em',
+                background: p.accent,
+                verticalAlign: '-0.134em',
+                marginRight: '0.52em',
+                textIndent: 0,
+              }}
+            />
+            {block.text}
+            <i style={dotsIconStyle(p.accent, 'h3')} />
           </div>
         )
       }
