@@ -97,13 +97,15 @@ const splitHighlightedLines = (html: string): string[] => {
   return lines
 }
 
-/** 代码文本 → 逐行高亮 HTML（空行 → &nbsp; 占位保住行高） */
+/** 代码文本 → 逐行高亮 HTML（空行 → &nbsp; 占位保住行高；
+ *  围栏块末尾自带换行，先剥掉一层避免幽灵空行撑出多余行号） */
 export const highlightCodeLines = (lang: string, text: string): string[] => {
   const language = hljs.getLanguage(lang) ? lang : 'plaintext'
+  const src = text.endsWith('\n') ? text.slice(0, -1) : text
   try {
-    const res = hljs.highlight(text, { language, ignoreIllegals: true })
+    const res = hljs.highlight(src, { language, ignoreIllegals: true })
     return splitHighlightedLines(res.value).map((s) => s || '&nbsp;')
   } catch {
-    return text.split('\n').map((ln) => esc(ln) || '&nbsp;')
+    return src.split('\n').map((ln) => esc(ln) || '&nbsp;')
   }
 }

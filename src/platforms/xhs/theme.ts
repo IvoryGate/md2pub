@@ -27,10 +27,10 @@ export interface XhsPadding {
   left: number
 }
 
-export type HeadingDecoration = 'none' | 'bar' | 'underline'
-export type HeadingLevel = 'h2' | 'h3' | 'h4'
+export type HeadingDecoration = 'none' | 'bar' | 'underline' | 'twin'
+export type HeadingLevel = 'h1' | 'h2' | 'h3' | 'h4'
 
-/** 分级标题样式（h1 归封面与文档标题，h5/h6 合并进 h4 的比例档） */
+/** 分级标题样式（首个 h1 归封面；正文中的 h1 视为章节开头档，h5/h6 合并进 h4 的比例档） */
 export interface XhsHeadingStyle {
   /** 相对正文字号的比例 */
   sizeRatio: number
@@ -105,6 +105,10 @@ export interface XhsPalette {
   quoteBg: string
   codeBg: string
   codeFg: string
+  /** 行内加粗（Phycat light-deep 玫红） */
+  strong: string
+  /** 行内斜体（Phycat secondary 紫） */
+  italic: string
 }
 
 export interface XhsCardTheme {
@@ -135,6 +139,8 @@ const baseLayout: XhsLayout = {
     // 推导：调研规范（17px 正文）标题「上28/下14」 → ×(38/17) ≈ 上62/下31；
     // 卡片内容区为 flex 列 + gap（paragraphSpacing=26），段前/段后与 gap 叠加生效，
     // 因此 spaceBefore/After = 目标视觉间距 − paragraphSpacing（保持纯数据、与内容无关）
+    // h1 = 章节开头档（封面之后又出现的 h1），Phycat 双竖条装饰，字号略高于 h2
+    h1: { sizeRatio: 1.55, weight: 700, align: 'left', spaceBefore: 40, spaceAfter: 10, decoration: 'twin' },
     h2: { sizeRatio: 1.5, weight: 700, align: 'left', spaceBefore: 36, spaceAfter: 6, decoration: 'bar' },
     h3: { sizeRatio: 1.15, weight: 700, align: 'left', spaceBefore: 22, spaceAfter: 6, decoration: 'none' },
     h4: { sizeRatio: 1.0, weight: 600, align: 'left', spaceBefore: 14, spaceAfter: 6, decoration: 'none' },
@@ -162,9 +168,11 @@ export const XHS_THEMES: XhsCardTheme[] = [
       heading: '#1f1f1f',
       accent: '#ff2e4d',
       muted: '#9a9a94',
-      quoteBg: '#f2efe8',
+      quoteBg: '#fdf2f4',
       codeBg: '#2f2f2f',
       codeFg: '#f5f2ea',
+      strong: '#e91e63',
+      italic: '#bd93f9',
     },
     radius: 24,
     bulletSymbol: '•',
@@ -194,6 +202,8 @@ export const XHS_THEMES: XhsCardTheme[] = [
       quoteBg: '#ece4d4',
       codeBg: '#3b3025',
       codeFg: '#f0e8d8',
+      strong: '#a3512a',
+      italic: '#a3779d',
     },
     radius: 8,
     bulletSymbol: '◦',
@@ -215,6 +225,8 @@ export const XHS_THEMES: XhsCardTheme[] = [
       quoteBg: '#232631',
       codeBg: '#262a36',
       codeFg: '#e6eaf2',
+      strong: '#ff7096',
+      italic: '#c9b8f5',
     },
     radius: 24,
     bulletSymbol: '▸',

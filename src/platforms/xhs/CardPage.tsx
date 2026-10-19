@@ -83,10 +83,23 @@ const decoStyle = (style: XhsHeadingStyle, theme: XhsCardTheme): CSSProperties =
         textDecorationThickness: 6,
         textUnderlineOffset: 10,
       }
+    /* twin：Phycat h1 双竖条（两根真实 <i> 条，在 heading 分支里渲染），此处只让位 */
+    case 'twin':
+      return { paddingLeft: 40 }
     default:
       return {}
   }
 }
+
+/** 卡片根上挂 CSS 变量：行内元素着色（strong/em/行内代码/链接）由 index.css 消费 */
+export const xhsCssVars = (theme: XhsCardTheme): CSSProperties =>
+  ({
+    '--xhs-accent': theme.palette.accent,
+    '--xhs-strong': theme.palette.strong,
+    '--xhs-italic': theme.palette.italic,
+    '--xhs-italic-wave': `${theme.palette.italic}66`,
+    '--xhs-heading': theme.palette.heading,
+  }) as CSSProperties
 
 // ---------- 基础块 ----------
 
@@ -128,27 +141,49 @@ export const BlockView = ({
 
   switch (block.type) {
     case 'heading': {
-      // h1 归封面/文档标题；h2~h4 分级取样式，h5/h6 并入 h4 档
-      const key: 'h2' | 'h3' | 'h4' = block.level === 2 ? 'h2' : block.level === 3 ? 'h3' : 'h4'
+      // 首个 h1 归封面；正文中的 h1 = 章节开头档（Phycat 双竖条），h5/h6 并入 h4 档
+      const key = block.level === 1 ? 'h1' : block.level === 2 ? 'h2' : block.level === 3 ? 'h3' : 'h4'
       const st = L.headings[key]
       const decor = decoStyle(st, theme)
+      const textStyle: CSSProperties = {
+        color: p.heading,
+        fontSize: B.size * st.sizeRatio,
+        lineHeight: B.lineRatio * 0.82,
+        letterSpacing: B.letterSpacing,
+        fontWeight: st.weight,
+        textAlign: st.align,
+        margin: 0,
+        marginTop: start ? 0 : st.spaceBefore,
+        marginBottom: st.spaceAfter,
+        whiteSpace: 'pre-wrap',
+        wordBreak: 'break-word',
+      }
+      if (st.decoration === 'twin') {
+        // Phycat h1：两根圆角竖条错位成对（辅紫色半透明在后、主题色在前）
+        const barW = 24
+        const barH = 52
+        const barStyle = (left: number, dy: number, color: string, opacity = 1): CSSProperties => ({
+          position: 'absolute',
+          left,
+          top: '46%',
+          marginTop: dy,
+          transform: 'translateY(-50%)',
+          width: barW,
+          height: barH,
+          borderRadius: 14,
+          background: color,
+          opacity,
+        })
+        return (
+          <div style={{ position: 'relative', ...decor, ...textStyle }}>
+            <i style={barStyle(6, -14, p.italic, 0.45)} />
+            <i style={barStyle(20, 12, p.accent)} />
+            {block.text}
+          </div>
+        )
+      }
       return (
-        <h2
-          style={{
-            ...decor,
-            color: p.heading,
-            fontSize: B.size * st.sizeRatio,
-            lineHeight: B.lineRatio * 0.82,
-            letterSpacing: B.letterSpacing,
-            fontWeight: st.weight,
-            textAlign: st.align,
-            margin: 0,
-            marginTop: start ? 0 : st.spaceBefore,
-            marginBottom: st.spaceAfter,
-            whiteSpace: 'pre-wrap',
-            wordBreak: 'break-word',
-          }}
-        >
+        <h2 style={{ ...decor, ...textStyle }}>
           {block.text}
         </h2>
       )
@@ -162,19 +197,37 @@ export const BlockView = ({
         <blockquote
           style={{
             margin: 0,
-            padding: `${L.quote.pad * 0.7}px ${L.quote.pad}px`,
+            padding: `${Math.round(L.quote.pad * 0.75)}px ${Math.round(L.quote.pad * 0.9)}px`,
             background: p.quoteBg,
             borderRadius: L.quote.radius,
-            borderLeft: `8px solid ${p.accent}`,
+            border: `1px solid ${p.italic}4d`,
             color: p.text,
             fontSize: B.size * 0.95,
             lineHeight: B.lineRatio,
             letterSpacing: B.letterSpacing,
+            display: 'flex',
+            gap: 18,
+            alignItems: 'flex-start',
           }}
         >
-          {block.text.split('\n').map((line, i) => (
-            <div key={i} dangerouslySetInnerHTML={{ __html: renderInline(line) }} />
-          ))}
+          <i
+            style={{
+              fontStyle: 'normal',
+              fontSize: B.size * 0.62,
+              lineHeight: 1.2,
+              filter: 'grayscale(1)',
+              opacity: 0.8,
+              transform: 'rotate(30deg)',
+              flexShrink: 0,
+            }}
+          >
+            💡
+          </i>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            {block.text.split('\n').map((line, i) => (
+              <div key={i} dangerouslySetInnerHTML={{ __html: renderInline(line) }} />
+            ))}
+          </div>
         </blockquote>
       )
     case 'code': {
@@ -206,14 +259,14 @@ export const BlockView = ({
             >
               {block.lang}
             </span>
-            <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: fs * 0.5 }}>
               {['#ff5f57', '#febc2e', '#28c840'].map(c => (
                 <i
                   key={c}
                   style={{
                     display: 'block',
-                    width: 8,
-                    height: 8,
+                    width: fs * 0.8,
+                    height: fs * 0.8,
                     borderRadius: '50%',
                     background: c,
                     boxShadow: 'inset 0 0 0 0.5px rgba(0,0,0,0.14)',
@@ -252,7 +305,7 @@ export const BlockView = ({
                   style={{
                     paddingRight: 14,
                     textAlign: 'right',
-                    fontSize: fs * 0.78,
+                    fontSize: fs * 0.88,
                     color: `${accent}57`,
                     whiteSpace: 'pre',
                     userSelect: 'none',
@@ -303,7 +356,7 @@ export const BlockView = ({
                   marginRight: 0,
                   color: p.accent,
                   fontWeight: 700,
-                  fontSize: B.size * (ordered ? 1.06 : 1),
+                  fontSize: B.size * (ordered ? 1.12 : 1.26),
                   textAlign: ordered ? 'left' : 'center',
                   whiteSpace: 'nowrap',
                 }}
@@ -328,14 +381,21 @@ export const BlockView = ({
     }
     case 'table':
       return (
-        <div style={{ overflowX: 'auto' }}>
+        <div
+          style={{
+            overflowX: 'auto',
+            borderRadius: 10,
+            border: `1px solid ${p.muted}2e`,
+            background: '#ffffff40',
+          }}
+        >
           <table
             style={{
               borderCollapse: 'collapse',
               width: '100%',
               fontSize: B.size * L.table.sizeRatio,
               fontFamily: theme.fontFamily,
-              lineHeight: 1.5,
+              lineHeight: 1.8,
             }}
           >
             <thead>
@@ -346,12 +406,11 @@ export const BlockView = ({
                     style={{
                       textAlign: 'left',
                       padding: `${L.table.cellPad * 0.85}px ${L.table.cellPad}px`,
-                      background: p.quoteBg,
+                      background: `${p.accent}0d`,
+                      borderBottom: `1px solid ${p.accent}26`,
                       color: p.heading,
                       fontWeight: 700,
                       whiteSpace: 'nowrap',
-                      borderTopLeftRadius: i === 0 ? 10 : 0,
-                      borderTopRightRadius: i === block.head.length - 1 ? 10 : 0,
                     }}
                     dangerouslySetInnerHTML={{ __html: renderInline(h) }}
                   />
@@ -360,7 +419,7 @@ export const BlockView = ({
             </thead>
             <tbody>
               {block.rows.map((r, ri) => (
-                <tr key={ri} style={{ borderTop: `1px solid ${p.muted}33` }}>
+                <tr key={ri} style={{ borderTop: `1px solid ${p.muted}1f` }}>
                   {r.map((c, ci) => (
                     <td
                       key={ci}
@@ -390,14 +449,38 @@ export const BlockView = ({
       return (
         <div
           style={{
-            height: 2,
+            position: 'relative',
+            height: 22,
             marginTop: start ? 0 : L.divider.gapY,
             marginBottom: L.divider.gapY,
-            background: p.muted,
-            opacity: 0.35,
-            borderRadius: 2,
           }}
-        />
+        >
+          {/* Phycat hr：两端渐隐的主色细线 + 中央 45° 菱形 */}
+          <div
+            style={{
+              position: 'absolute',
+              top: '50%',
+              left: 0,
+              right: 0,
+              height: 1,
+              background: `linear-gradient(90deg, transparent, ${p.accent}, transparent)`,
+              opacity: 0.45,
+            }}
+          />
+          <i
+            style={{
+              position: 'absolute',
+              left: '50%',
+              top: '50%',
+              transform: 'translate(-50%, -50%) rotate(45deg)',
+              width: 16,
+              height: 16,
+              border: `3px solid ${p.accent}`,
+              background: p.bg,
+              boxSizing: 'border-box',
+            }}
+          />
+        </div>
       )
     case 'pagebreak':
       return null
@@ -543,6 +626,7 @@ const CoverCard = ({ card, theme, watermark }: { card: XhsCard; theme: XhsCardTh
         paddingBottom: L.padding.bottom,
         fontFamily: theme.fontFamily,
         color: p.text,
+        ...xhsCssVars(theme),
         boxSizing: 'border-box',
         overflow: 'hidden',
         position: 'relative',
@@ -606,6 +690,7 @@ export const CardPage = ({ card, theme, watermark }: { card: XhsCard; theme: Xhs
         paddingLeft: L.padding.left,
         paddingRight: L.padding.right,
         paddingBottom: L.padding.bottom,
+        ...xhsCssVars(theme),
         display: 'flex',
         flexDirection: 'column',
         position: 'relative',

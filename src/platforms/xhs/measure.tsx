@@ -10,7 +10,7 @@ import {
   type XhsCardBlock,
   type XhsCardSet,
 } from './layout'
-import { BlockView } from './CardPage'
+import { BlockView, xhsCssVars } from './CardPage'
 
 /**
  * 度量与流式分页入口。
@@ -146,7 +146,16 @@ export const XhsMeasureLayer = ({ doc, theme, sizeName, cover, onCardSet }: Meas
   }, [doc, theme, sizeName, cover])
 
   return (
-    <div ref={rootRef} style={{ ...HIDDEN_STYLE, fontFamily: theme.fontFamily, color: theme.palette.text }}>
+    <div
+      ref={rootRef}
+      data-xhs-theme={theme.id}
+      style={{
+        ...HIDDEN_STYLE,
+        fontFamily: theme.fontFamily,
+        color: theme.palette.text,
+        ...xhsCssVars(theme),
+      }}
+    >
       {doc.blocks.map((block, i) => {
         if (block.type === 'pagebreak')
           return <div key={i} data-skip-meas="1" style={{ height: 0, width: contentWidth }} />

@@ -477,6 +477,49 @@ body,
   overflow-y: hidden;
 }
 
+/* ---------- 小红书卡片：Phycat 同源行内元素样式 ----------
+   颜色取自卡片根上挂的 --xhs-* 变量（theme.palette 派生），度量层与卡片同挂 → 实测高度同源；
+   尺寸按卡片版面（正文 38px 基准）放大，不取 Phycat 的像素值 */
+
+/* 加粗：Phycat light-deep 玫红 */
+[data-xhs-theme] strong {
+  color: var(--xhs-strong);
+}
+
+/* 斜体：Phycat secondary 紫 + 点状波浪下划线（tile 38×5，随正文放大） */
+[data-xhs-theme] em {
+  color: var(--xhs-italic);
+  padding-bottom: 5px;
+  background: radial-gradient(
+      circle at 9px -17.5px,
+      transparent 18px,
+      var(--xhs-italic-wave) 18.4px,
+      transparent 19px
+    )
+    0 100% / 38px 5px repeat-x;
+}
+
+/* 行内代码：主色药丸（Phycat inline-code 配方按正文比例放大） */
+[data-xhs-theme] code {
+  font-family: 'JetBrains Mono', Consolas, monospace;
+  font-size: 0.9em;
+  background: color-mix(in srgb, var(--xhs-accent), transparent 90%);
+  color: var(--xhs-accent);
+  border: 1px solid color-mix(in srgb, var(--xhs-accent), transparent 70%);
+  border-radius: 8px;
+  padding: 1px 12px;
+}
+
+/* 链接：主色 + 低透明下划线 */
+[data-xhs-theme] a {
+  color: var(--xhs-accent);
+  font-weight: 500;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--xhs-accent), transparent 60%);
+  text-underline-offset: 7px;
+  text-decoration-thickness: 2px;
+}
+
 /* ---------- 小红书卡片：代码块（编辑模式同款部件）语法配色 ----------
    饰带（边框/色带/行号）由 CardPage 内联从主题 accent 派生；
    此处只提供 highlight.js token 的 Sakura 光色板（与 .cm-code-widget 同源），
