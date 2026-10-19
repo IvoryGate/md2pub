@@ -180,8 +180,10 @@ const baseLayout: XhsLayout = {
     // 推导：调研规范（17px 正文）标题「上28/下14」 → ×(34/17) = 2.0 → 上56/下28；
     // 卡片内容区为 flex 列 + gap（paragraphSpacing=22），段前/段后与 gap 叠加生效，
     // 因此 spaceBefore/After = 目标视觉间距 − paragraphSpacing（保持纯数据、与内容无关）
-    // h1 = 章节开头档（封面之后又出现的 h1）：Phycat h1 居中 + 底部渐变胶囊条
-    h1: { sizeRatio: 1.55, weight: 700, align: 'center', spaceBefore: 34, spaceAfter: 6, decoration: 'pill' },
+    // h1 = 章节开头档（封面之后又出现的 h1）：Phycat h1 居中 + 底部渐变胶囊条。
+    // 空间层级：段前 76（56+22 gap）、段后 38（16+22）——作为「章」必须比 h2 的
+    // 56/28 明显更透气；h1 若落在页首，段前距由渲染层丢弃（页边距已提供顶部空气）
+    h1: { sizeRatio: 1.55, weight: 700, align: 'center', spaceBefore: 54, spaceAfter: 16, decoration: 'pill' },
     // h2 = Phycat「双子塔」：主色长条 + 辅紫短条下移错位（×2.0 卡片尺度）
     h2: { sizeRatio: 1.5, weight: 700, align: 'left', spaceBefore: 34, spaceAfter: 6, decoration: 'twin' },
     // h3 = Phycat h3：细竖条 + 尾部浅粉三点图标（SVG mask）
