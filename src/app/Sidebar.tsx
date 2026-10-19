@@ -183,7 +183,7 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
           <SliderRow label="左边距" value={L.padding.left} min={40} max={200} onChange={(v) => patch({ padding: { left: v } })} />
           <SliderRow label="右边距" value={L.padding.right} min={40} max={200} onChange={(v) => patch({ padding: { right: v } })} />
           <ToggleRow label="页眉话题标签" value={L.header.showTag} onChange={(v) => patch({ header: { showTag: v } })} />
-          <ToggleRow label="页眉页码" value={L.header.showPageNum} onChange={(v) => patch({ header: { showPageNum: v } })} />
+          <ToggleRow label="页码（右下）" value={L.header.showPageNum} onChange={(v) => patch({ header: { showPageNum: v } })} />
           <SliderRow label="页眉高度" value={L.header.height} min={40} max={88} onChange={(v) => patch({ header: { height: v } })} />
         </Section>
 

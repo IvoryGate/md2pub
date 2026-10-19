@@ -595,8 +595,8 @@ const imageStyle = (
 const CardHeader = ({ card, theme }: { card: XhsCard; theme: XhsCardTheme }) => {
   const L = theme.layout
   const p = theme.palette
-  if (!L.header.showTag && !L.header.showPageNum) return null
-  // 页眉住在上边距带内（垂直居中，不占正文高度）；边距过窄时收缩自身而不侵入版心
+  if (!L.header.showTag) return null
+  // 页眉只保留话题标签（左）；页码移至下边距带右下角（CardFooter）
   const bandHeight = Math.max(24, L.padding.top - 8)
   const height = Math.min(L.header.height, bandHeight)
   return (
@@ -608,26 +608,56 @@ const CardHeader = ({ card, theme }: { card: XhsCard; theme: XhsCardTheme }) => 
         right: L.padding.right,
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'space-between',
         height,
         pointerEvents: 'none',
       }}
     >
       <div style={{ color: p.accent, fontSize: 28, letterSpacing: 5, fontWeight: 600 }}>
-        {L.header.showTag && card.meta?.tags[0] ? `#${card.meta.tags[0]}#` : ''}
-      </div>
-      <div style={{ color: p.muted, fontSize: 28, letterSpacing: 2 }}>
-        {L.header.showPageNum ? (
-          <>
-            {card.page} <span style={{ opacity: 0.5 }}>/ {card.totalPages ?? card.page}</span>
-          </>
-        ) : null}
+        {card.meta?.tags[0] ? `#${card.meta.tags[0]}#` : ''}
       </div>
     </div>
   )
 }
 
-const Watermark = ({ theme, text }: { theme: XhsCardTheme; text?: string }) => {
+const CardFooter = ({ card, theme, watermark }: { card: XhsCard; theme: XhsCardTheme; watermark?: string }) => {
+  const L = theme.layout
+  const p = theme.palette
+  const showPage = L.header.showPageNum
+  const showMark = L.watermark.enabled && (watermark ?? '').trim() !== ''
+  if (!showPage && !showMark) return null
+  const band = Math.max(12, Math.round((L.padding.bottom - 32) / 2))
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        left: L.padding.left,
+        right: L.padding.right,
+        bottom: band,
+        height: 32,
+        display: 'flex',
+        alignItems: 'center',
+        pointerEvents: 'none',
+      }}
+    >
+      {showMark && L.watermark.pos === 'left' && <Watermark theme={theme} text={watermark} inline />}
+      {showMark && L.watermark.pos === 'center' && (
+        <div style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)' }}>
+          <Watermark theme={theme} text={watermark} inline />
+        </div>
+      )}
+      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 24 }}>
+        {showMark && L.watermark.pos === 'right' && <Watermark theme={theme} text={watermark} inline />}
+        {showPage && (
+          <span style={{ color: p.muted, opacity: 0.85, fontSize: 26, letterSpacing: 2, whiteSpace: 'nowrap' }}>
+            {card.page} <span style={{ opacity: 0.5 }}>/ {card.totalPages ?? card.page}</span>
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
+const Watermark = ({ theme, text, inline }: { theme: XhsCardTheme; text?: string; inline?: boolean }) => {
   const L = theme.layout
   const content = (text ?? '').trim()
   if (!L.watermark.enabled || !content) return null
@@ -635,6 +665,21 @@ const Watermark = ({ theme, text }: { theme: XhsCardTheme; text?: string }) => {
     left: { left: 'auto', transform: 'none' },
     center: { left: '50%', transform: 'translateX(-50%)' },
     right: { right: 'auto', left: 'auto' },
+  }
+  if (inline) {
+    return (
+      <span
+        style={{
+          fontSize: 26,
+          color: theme.palette.muted,
+          opacity: 0.85,
+          letterSpacing: 1,
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {content}
+      </span>
+    )
   }
   return (
     <div
@@ -794,7 +839,7 @@ export const CardPage = ({ card, theme, watermark }: { card: XhsCard; theme: Xhs
         overflow: 'hidden',
       }}
     >
-      {/* 页眉（话题 + 页码）——显示开关与高度由 layout.header 驱动 */}
+      {/* 页眉（话题标签）——显示开关与高度由 layout.header 驱动 */}
       <CardHeader card={card} theme={theme} />
 
       {/* 流式内容区：块间 gap 与分页装箱同源（paragraphSpacing）；
@@ -807,7 +852,8 @@ export const CardPage = ({ card, theme, watermark }: { card: XhsCard; theme: Xhs
         </TypesetWidthCtx.Provider>
       </div>
 
-      {L.watermark.enabled && <Watermark theme={theme} text={watermark} />}
+      {/* 页脚（下边距带）：水印 + 页码（右下） */}
+      <CardFooter card={card} theme={theme} watermark={watermark} />
     </div>
   )
 }
