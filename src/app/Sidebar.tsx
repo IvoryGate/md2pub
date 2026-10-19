@@ -8,6 +8,12 @@ import {
   type XhsCardTheme,
   type HeadingDecoration,
   type ChromePos,
+  CLASSICAL_COLORS,
+  paletteOf,
+  derivePalette,
+  contrastOf,
+  type ColorScheme,
+  type PaperTone,
 } from '../platforms/xhs'
 import { Check, ChevronDown, RotateCcw, SlidersHorizontal, Trash2, Plus, X } from 'lucide-react'
 import { useStore } from '../store'
@@ -161,6 +167,25 @@ const PosGrid = ({ value, onChange }: { value: ChromePos; onChange: (v: ChromePo
   </div>
 )
 
+const ColorRow = ({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) => (
+  <div className="flex h-6 items-center gap-1.5">
+    <span className="w-11 shrink-0 text-[10px] text-ink-soft">{label}</span>
+    <input
+      type="color"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="h-5 w-5 shrink-0 cursor-pointer rounded-[4px] border border-black/[0.12] bg-transparent p-0"
+    />
+    <input
+      className="h-6 min-w-0 flex-1 rounded-md bg-black/[0.045] px-1.5 font-mono text-[10px] uppercase tracking-wide text-ink-soft outline-none focus:bg-white focus:ring-1 focus:ring-black/[0.14]"
+      value={value.toUpperCase()}
+      onChange={(e) => {
+        if (/^#[0-9a-f]{6}$/i.test(e.target.value)) onChange(e.target.value)
+      }}
+    />
+  </div>
+)
+
 type HAlign = 'left' | 'center' | 'right'
 /** 装饰成套：每种装饰声明适用的对齐方式，面板按当前对齐过滤 */
 const DECORATIONS: Array<{ value: HeadingDecoration; label: string; aligns: HAlign[] }> = [
@@ -175,7 +200,7 @@ const DECORATIONS: Array<{ value: HeadingDecoration; label: string; aligns: HAli
 ]
 const alignDefaultDeco = (a: HAlign): HeadingDecoration => (a === 'left' ? 'bar' : a === 'right' ? 'bar-right' : 'pill')
 
-type TabKey = 'basic' | 'cover' | 'advanced'
+type TabKey = 'basic' | 'cover' | 'color' | 'advanced'
 
 export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
   const {
@@ -183,11 +208,17 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
     watermark, setWatermark, coverText, setCoverText,
     customPresets, savePreset, deletePreset, applyPreset,
   } = useStore()
-  const L: XhsLayout = applyXhsOverrides(baseTheme, overrides).layout
+  const theme = applyXhsOverrides(baseTheme, overrides)
+  const L: XhsLayout = theme.layout
+  const P = theme.palette
   const [tab, setTab] = useState<TabKey>('basic')
   const [headingTab, setHeadingTab] = useState<'h1' | 'h2' | 'h3' | 'h4'>('h2')
   const [presetName, setPresetName] = useState('')
   const [savingPreset, setSavingPreset] = useState(false)
+  const [seed, setSeed] = useState(P.accent)
+  const [scheme, setScheme] = useState<ColorScheme>('analogous')
+  const [paper, setPaper] = useState<PaperTone>('warm')
+  const applyColor = (s = seed, sc = scheme, pp = paper) => patch({ palette: derivePalette(s, sc, pp) })
   const patch = (p: XhsStyleOverrides) => patchLayout(p)
   const H = L.headings[headingTab]
 
@@ -242,6 +273,7 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
           [
             ['basic', '基础'],
             ['cover', '封面'],
+            ['color', '颜色'],
             ['advanced', '高级'],
           ] as const
         ).map(([k, label]) => (
@@ -622,6 +654,142 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
                   <TextInput value={watermark} placeholder="@你的账号" onChange={setWatermark} />
                 </Field>
               </div>
+            </Section>
+          </>
+        )}
+
+        {tab === 'color' && (
+          <>
+            <Section title="古典配色" defaultOpen>
+              <div className="grid grid-cols-2 gap-1">
+                {CLASSICAL_COLORS.map((preset) => {
+                  const pal = paletteOf(preset)
+                  return (
+                    <button
+                      key={preset.id}
+                      onClick={() => {
+                        setSeed(preset.seed)
+                        setScheme(preset.scheme)
+                        setPaper(preset.paper)
+                        patch({ palette: pal })
+                      }}
+                      className="flex h-8 items-center gap-1.5 rounded-md border border-transparent px-1.5 text-left transition-colors hover:border-black/[0.08] hover:bg-black/[0.03]"
+                    >
+                      <span className="flex shrink-0 -space-x-1">
+                        {[pal.bg, pal.accent, pal.strong].map((c, i) => (
+                          <i key={i} className="h-3.5 w-3.5 rounded-full ring-1 ring-black/10" style={{ background: c }} />
+                        ))}
+                      </span>
+                      <span className="truncate text-[10.5px] text-ink-soft">{preset.name}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </Section>
+
+            <Section title="配色关系" defaultOpen>
+              <Field label="主色（种子）">
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="color"
+                    value={seed}
+                    onChange={(e) => {
+                      setSeed(e.target.value)
+                      applyColor(e.target.value)
+                    }}
+                    className="h-6 w-6 cursor-pointer rounded-[4px] border border-black/[0.12] bg-transparent p-0"
+                  />
+                  <input
+                    className="h-6 min-w-0 flex-1 rounded-md bg-black/[0.045] px-2 font-mono text-[10.5px] uppercase text-ink outline-none focus:bg-white focus:ring-1 focus:ring-black/[0.14]"
+                    value={seed.toUpperCase()}
+                    onChange={(e) => {
+                      if (/^#[0-9a-f]{6}$/i.test(e.target.value)) {
+                        setSeed(e.target.value)
+                        applyColor(e.target.value)
+                      }
+                    }}
+                  />
+                </div>
+              </Field>
+              <div className="mt-1.5">
+                <Field label="色相关系">
+                  <Seg
+                    value={scheme}
+                    options={[
+                      { value: 'mono' as const, label: '单色' },
+                      { value: 'analogous' as const, label: '类似' },
+                      { value: 'complement' as const, label: '互补' },
+                      { value: 'split' as const, label: '分裂' },
+                      { value: 'triadic' as const, label: '三分' },
+                    ]}
+                    onChange={(v) => {
+                      setScheme(v)
+                      applyColor(seed, v)
+                    }}
+                  />
+                </Field>
+              </div>
+              <div className="mt-1.5">
+                <Field label="纸色温度">
+                  <Seg
+                    value={paper}
+                    options={[
+                      { value: 'warm' as const, label: '暖纸' },
+                      { value: 'cool' as const, label: '冷纸' },
+                    ]}
+                    onChange={(v) => {
+                      setPaper(v)
+                      applyColor(seed, scheme, v)
+                    }}
+                  />
+                </Field>
+              </div>
+              <p className="mt-1.5 text-[9px] leading-relaxed text-ink-faint">
+                色轮定关系（OKLCH 等感知步长）；明度建层级、彩度反向补偿；文字对比度自动校验。
+              </p>
+            </Section>
+
+            <Section title="角色色" defaultOpen>
+              <div className="space-y-1">
+                <ColorRow label="纸色" value={P.bg} onChange={(v) => patch({ palette: { bg: v } })} />
+                <ColorRow label="正文" value={P.text} onChange={(v) => patch({ palette: { text: v } })} />
+                <ColorRow label="标题" value={P.heading} onChange={(v) => patch({ palette: { heading: v } })} />
+                <ColorRow label="次要" value={P.muted} onChange={(v) => patch({ palette: { muted: v } })} />
+                <ColorRow label="强调" value={P.accent} onChange={(v) => patch({ palette: { accent: v } })} />
+                <ColorRow label="加粗" value={P.strong} onChange={(v) => patch({ palette: { strong: v } })} />
+                <ColorRow label="斜体" value={P.italic} onChange={(v) => patch({ palette: { italic: v } })} />
+                <ColorRow label="引用底" value={P.quoteBg} onChange={(v) => patch({ palette: { quoteBg: v } })} />
+                <ColorRow label="代码底" value={P.codeBg} onChange={(v) => patch({ palette: { codeBg: v } })} />
+                <ColorRow label="代码字" value={P.codeFg} onChange={(v) => patch({ palette: { codeFg: v } })} />
+              </div>
+              <button
+                className="mt-2 flex h-6 w-full items-center justify-center rounded-md border border-dashed border-black/[0.14] text-[10px] text-ink-soft transition-colors hover:border-black/[0.24] hover:text-ink"
+                onClick={() => patch({ palette: undefined })}
+              >
+                恢复主题配色
+              </button>
+            </Section>
+
+            <Section title="可读性" defaultOpen>
+              {(
+                [
+                  ['正文 / 纸', P.text, P.bg, 4.5],
+                  ['标题 / 纸', P.heading, P.bg, 4.5],
+                  ['强调 / 纸', P.accent, P.bg, 3],
+                  ['次要 / 纸', P.muted, P.bg, 3],
+                ] as Array<[string, string, string, number]>
+              ).map(([label, fg, bg, need]) => {
+                const ratio = contrastOf(fg, bg)
+                const ok = ratio >= need
+                return (
+                  <div key={label} className="flex h-6 items-center justify-between text-[10.5px]">
+                    <span className="text-ink-soft">{label}</span>
+                    <span className={ok ? 'font-medium text-[#3a7d44]' : 'font-medium text-[#b45309]'}>
+                      {ratio.toFixed(1)}:1 {ok ? 'AA' : '偏低'}
+                    </span>
+                  </div>
+                )
+              })}
             </Section>
           </>
         )}

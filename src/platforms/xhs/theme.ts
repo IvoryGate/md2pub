@@ -324,7 +324,10 @@ export type DeepPartial<T> = {
 }
 
 /** 面板对主题的微调 = 对当前主题版式的深合并覆盖（保持纯数据） */
-export type XhsStyleOverrides = DeepPartial<XhsLayout>
+export type XhsStyleOverrides = DeepPartial<XhsLayout> & {
+  /** 色板覆盖（角色级；留空则跟随主题预设） */
+  palette?: Partial<XhsPalette>
+}
 
 /** 递归深合并（数组/原始值直接覆盖）。store patch 与主题合成共用 */
 export function deepMerge<T>(target: T, patch?: DeepPartial<T>): T {
@@ -342,7 +345,12 @@ export function deepMerge<T>(target: T, patch?: DeepPartial<T>): T {
 }
 
 export function applyXhsOverrides(base: XhsCardTheme, overrides: XhsStyleOverrides): XhsCardTheme {
-  return { ...base, layout: deepMerge(base.layout, overrides) }
+  const { palette, ...layoutOverrides } = (overrides ?? {}) as XhsStyleOverrides
+  return {
+    ...base,
+    layout: deepMerge(base.layout, layoutOverrides as DeepPartial<XhsLayout>),
+    palette: { ...base.palette, ...(palette ?? {}) },
+  }
 }
 
 
