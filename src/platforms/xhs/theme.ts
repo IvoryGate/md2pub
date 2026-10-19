@@ -27,7 +27,7 @@ export interface XhsPadding {
   left: number
 }
 
-export type HeadingDecoration = 'none' | 'bar' | 'underline' | 'twin'
+export type HeadingDecoration = 'none' | 'bar' | 'underline' | 'twin' | 'dots' | 'pill'
 export type HeadingLevel = 'h1' | 'h2' | 'h3' | 'h4'
 
 /** 分级标题样式（首个 h1 归封面；正文中的 h1 视为章节开头档，h5/h6 合并进 h4 的比例档） */
@@ -139,11 +139,13 @@ const baseLayout: XhsLayout = {
     // 推导：调研规范（17px 正文）标题「上28/下14」 → ×(38/17) ≈ 上62/下31；
     // 卡片内容区为 flex 列 + gap（paragraphSpacing=26），段前/段后与 gap 叠加生效，
     // 因此 spaceBefore/After = 目标视觉间距 − paragraphSpacing（保持纯数据、与内容无关）
-    // h1 = 章节开头档（封面之后又出现的 h1），Phycat 双竖条装饰，字号略高于 h2
-    h1: { sizeRatio: 1.55, weight: 700, align: 'left', spaceBefore: 40, spaceAfter: 10, decoration: 'twin' },
-    h2: { sizeRatio: 1.5, weight: 700, align: 'left', spaceBefore: 36, spaceAfter: 6, decoration: 'bar' },
-    h3: { sizeRatio: 1.15, weight: 700, align: 'left', spaceBefore: 22, spaceAfter: 6, decoration: 'none' },
-    h4: { sizeRatio: 1.0, weight: 600, align: 'left', spaceBefore: 14, spaceAfter: 6, decoration: 'none' },
+    // h1 = 章节开头档（封面之后又出现的 h1）：Phycat h1 居中 + 底部渐变胶囊条
+    h1: { sizeRatio: 1.55, weight: 700, align: 'center', spaceBefore: 40, spaceAfter: 10, decoration: 'pill' },
+    // h2 = Phycat「双子塔」：主色长条 + 辅紫短条下移错位（×2.4 卡片尺度）
+    h2: { sizeRatio: 1.5, weight: 700, align: 'left', spaceBefore: 36, spaceAfter: 6, decoration: 'twin' },
+    // h3 = Phycat h3：细竖条 + 尾部浅粉三点图标（SVG mask）
+    h3: { sizeRatio: 1.15, weight: 700, align: 'left', spaceBefore: 22, spaceAfter: 6, decoration: 'dots' },
+    h4: { sizeRatio: 1.0, weight: 600, align: 'left', spaceBefore: 14, spaceAfter: 6, decoration: 'dots' },
   },
   list: { indent: 48, itemGap: 14 },
   quote: { pad: 24, radius: 12 },

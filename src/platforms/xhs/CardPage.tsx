@@ -67,6 +67,23 @@ const PlantumlBlock = ({ text }: { text: string }) => {
 
 // ---------- 标题（分级装饰） ----------
 
+/** Phycat 标题尾部小圆点图标（h3 = 三点 L 形，h4 = 2×2 四点），亮色板 #ffb7cd@0.5 的主题版 */
+const HEAD_DOTS_SVG: Record<string, string> = {
+  h3: `<svg viewBox='0 0 32 32' xmlns='http://www.w3.org/2000/svg'><path d='M4.571 25.143c-1.257 0-2.286 1.029-2.286 2.286s1.029 2.286 2.286 2.286 2.286-1.029 2.286-2.286-1.029-2.286-2.286-2.286zM4.571 18.286c-1.257 0-2.286 1.029-2.286 2.286s1.029 2.286 2.286 2.286 2.286-1.029 2.286-2.286-1.029-2.286-2.286-2.286zM11.429 25.143c-1.257 0-2.286 1.029-2.286 2.286s1.029 2.286 2.286 2.286 2.286-1.029 2.286-2.286-1.029-2.286-2.286-2.286z'/></svg>`,
+  h4: `<svg viewBox='0 0 32 32' xmlns='http://www.w3.org/2000/svg'><path d='M4.571 25.143c-1.257 0-2.286 1.029-2.286 2.286s1.029 2.286 2.286 2.286 2.286-1.029 2.286-2.286-1.029-2.286-2.286-2.286zM4.571 18.286c-1.257 0-2.286 1.029-2.286 2.286s1.029 2.286 2.286 2.286 2.286-1.029 2.286-2.286-1.029-2.286-2.286-2.286zM11.429 25.143c-1.257 0-2.286 1.029-2.286 2.286s1.029 2.286 2.286 2.286 2.286-1.029 2.286-2.286-1.029-2.286-2.286-2.286zM11.429 22.857c1.257 0 2.286-1.029 2.286-2.286s-1.029-2.286-2.286-2.286-2.286 1.029-2.286 2.286 1.029 2.286 2.286 2.286z'/></svg>`,
+}
+const dotsIconStyle = (color: string, icon: 'h3' | 'h4' = 'h3'): CSSProperties => ({
+  display: 'inline-block',
+  width: '1.2em',
+  height: '1.2em',
+  verticalAlign: 'top',
+  marginLeft: 16,
+  backgroundColor: color,
+  opacity: 0.5,
+  WebkitMask: `url("data:image/svg+xml;utf8,${HEAD_DOTS_SVG[icon]!}") no-repeat center / contain`,
+  mask: `url("data:image/svg+xml;utf8,${HEAD_DOTS_SVG[icon]!}") no-repeat center / contain`,
+})
+
 const decoStyle = (style: XhsHeadingStyle, theme: XhsCardTheme): CSSProperties => {
   const p = theme.palette
   switch (style.decoration) {
@@ -83,9 +100,7 @@ const decoStyle = (style: XhsHeadingStyle, theme: XhsCardTheme): CSSProperties =
         textDecorationThickness: 6,
         textUnderlineOffset: 10,
       }
-    /* twin：Phycat h1 双竖条（两根真实 <i> 条，在 heading 分支里渲染），此处只让位 */
-    case 'twin':
-      return { paddingLeft: 40 }
+    /* twin / dots / pill 需要真实 DOM（双条/圆点图标/胶囊条），在 heading 分支里处理 */
     default:
       return {}
   }
@@ -141,7 +156,7 @@ export const BlockView = ({
 
   switch (block.type) {
     case 'heading': {
-      // 首个 h1 归封面；正文中的 h1 = 章节开头档（Phycat 双竖条），h5/h6 并入 h4 档
+      // 首个 h1 归封面；正文中的 h1 = 章节开头档，h5/h6 并入 h4 档
       const key = block.level === 1 ? 'h1' : block.level === 2 ? 'h2' : block.level === 3 ? 'h3' : 'h4'
       const st = L.headings[key]
       const decor = decoStyle(st, theme)
@@ -158,26 +173,74 @@ export const BlockView = ({
         whiteSpace: 'pre-wrap',
         wordBreak: 'break-word',
       }
-      if (st.decoration === 'twin') {
-        // Phycat h1：两根圆角竖条错位成对（辅紫色半透明在后、主题色在前）
-        const barW = 24
-        const barH = 52
-        const barStyle = (left: number, dy: number, color: string, opacity = 1): CSSProperties => ({
-          position: 'absolute',
-          left,
-          top: '46%',
-          marginTop: dy,
-          transform: 'translateY(-50%)',
-          width: barW,
-          height: barH,
-          borderRadius: 14,
-          background: color,
-          opacity,
-        })
+      if (st.decoration === 'pill') {
+        // Phycat h1：居中大标题 + 底部居中渐变胶囊条（padding-bottom 12px×2.4）
         return (
-          <div style={{ position: 'relative', ...decor, ...textStyle }}>
-            <i style={barStyle(6, -14, p.italic, 0.45)} />
-            <i style={barStyle(20, 12, p.accent)} />
+          <div style={{ ...textStyle, ...decor, paddingBottom: 26 }}>
+            <div>{block.text}</div>
+            <div
+              style={{
+                width: 96,
+                height: 10,
+                borderRadius: 10,
+                margin: '14px auto 0',
+                background: `linear-gradient(90deg, ${p.accent}66, ${p.accent}, ${p.accent}66)`,
+              }}
+            />
+          </div>
+        )
+      }
+      if (st.decoration === 'twin') {
+        // Phycat h2「双子塔」：主色长条 1em + 辅紫短条 0.6em 下移错位
+        return (
+          <div style={{ position: 'relative', ...textStyle, ...decor, paddingLeft: 48 }}>
+            <i
+              style={{
+                position: 'absolute',
+                left: 0,
+                top: '0.1em',
+                width: 12,
+                height: '1em',
+                borderRadius: 10,
+                background: p.accent,
+              }}
+            />
+            <i
+              style={{
+                position: 'absolute',
+                left: 20,
+                top: '0.4em',
+                width: 5,
+                height: '0.6em',
+                borderRadius: 5,
+                background: p.italic,
+                opacity: 0.6,
+              }}
+            />
+            {block.text}
+          </div>
+        )
+      }
+      if (st.decoration === 'dots') {
+        // Phycat h3：细竖条 + 尾部浅色三点图标；h4：无条 + 2×2 四点图标（原版 SVG mask）
+        const isH4 = key === 'h4'
+        return (
+          <div style={{ position: 'relative', ...textStyle, ...decor, paddingLeft: isH4 ? 48 : 36 }}>
+            {!isH4 && (
+              <i
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  width: 10,
+                  height: '1em',
+                  borderRadius: 5,
+                  background: p.accent,
+                }}
+              />
+            )}
+            <i style={dotsIconStyle(p.accent, isH4 ? 'h4' : 'h3')} />
             {block.text}
           </div>
         )
