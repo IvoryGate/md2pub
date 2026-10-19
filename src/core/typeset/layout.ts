@@ -144,11 +144,12 @@ export function layout(tokens: Token[], targetWidth: number, em: number, cfg: So
         // 挤压池吸收超宽（正 slack 无法被挤压消化，只能靠断点选择消解）
         const poolPx = poolOf(ci, cj)
         const residual = d + Math.min(Math.max(0, -d), poolPx)
+        const overflowTol = cfg.overflowTolEm * em
         let c = 0
         if (j >= n) {
           // 段尾行：长度无要求（短句自然），但**必须装得下**——漏掉这条，
           // DP 会把整段塞进「末行」（代价 0）导致整段一行溢出。
-          if (residual < -2) {
+          if (residual < -overflowTol) {
             if (!overflowFree) continue
             c += slackR(-residual) * 100 + 1e6
           } else if (bw < targetWidth * 0.18) c += 8 /* 避免一字尾 */
@@ -156,9 +157,11 @@ export function layout(tokens: Token[], targetWidth: number, em: number, cfg: So
           c = slackR(residual > 0 ? residual : 0)
           if (residual > cfg.slackSoftEm * em) c += 3 * slackR(residual - cfg.slackSoftEm * em)
           if (residual > cfg.slackTolEm * em) c += 10 * slackR(residual - cfg.slackTolEm * em)
+          // 明显空洞（>0.55em）二次重罚：只要存在可行断点就一定消灭
+          if (residual > 0.55 * em) c += 12 * slackR(residual - 0.55 * em)
           // 强拆点出现在断点边缘才罚（词内保留不受罚）
           if (tokens[j - 1]!.intra || tokens[j]!.intra) c += 1e4
-          if (residual < -2) {
+          if (residual < -overflowTol) {
             if (!overflowFree) continue
             c += slackR(-residual) * 100 + 1e6
           }

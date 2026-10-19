@@ -42,6 +42,33 @@ const ensureFontsReady = () => {
   return readyPromise
 }
 
+/* 文楷按 unicode-range 分片：字体子集在排版后仍可能继续加载，
+   Chrome 会补齐字形但不会自动重排——必须监听 loadingdone 后重算。
+   否则引擎用回退字形量宽（每行误差 ~1px×字数），渲染端就会出现「明明放得下却换行」。 */
+let fontEpoch = 0
+const fontSubs = new Set<() => void>()
+const notifyFontsChanged = () => {
+  resetMeasureCache()
+  cache.clear()
+  fontEpoch++
+  fontSubs.forEach(f => f())
+}
+if (typeof document !== 'undefined' && 'fonts' in document) {
+  document.fonts.addEventListener('loadingdone', notifyFontsChanged)
+}
+
+const useFontEpoch = () => {
+  const [epoch, setEpoch] = useState(fontEpoch)
+  useEffect(() => {
+    const bump = () => setEpoch(fontEpoch)
+    fontSubs.add(bump)
+    return () => {
+      fontSubs.delete(bump)
+    }
+  }, [])
+  return epoch
+}
+
 const useTypesetReady = () => {
   const [ready, setReady] = useState(readyState)
   useEffect(() => {
@@ -161,14 +188,51 @@ export interface KPParagraphProps {
 /**
  * KP 排版段落。就绪前（字体未载/宽度未知）以浏览器流式排版兜底渲染，同帧无感切换。
  */
+/** 段落容器样式（KPParagraph 与固定行切片共用） */
+const paragraphStyle = (theme: KPParagraphProps['theme']): CSSProperties => {
+  const B = theme.layout.body
+  return {
+    color: theme.palette.text,
+    fontSize: B.size,
+    lineHeight: B.lineRatio,
+    letterSpacing: B.letterSpacing,
+    textAlign: 'left',
+    wordBreak: 'normal',
+    overflowWrap: 'break-word',
+    lineBreak: 'strict',
+  }
+}
+
+/** 分页切片：行已由引擎排好（measure 层按行 div 逐行捕获），直接落地渲染。
+    不再把切片 HTML 交给引擎二次断行——避免字符级边界偏差（曾把行尾一字切到下一页）。 */
+export const KPFixedLines = ({ theme, lines }: { theme: KPParagraphProps['theme']; lines: string[] }) => (
+  <div
+    className="xhs-paragraph xhs-kp"
+    style={{ ...paragraphStyle(theme), ...({ textAutospace: 'no-autospace', textSpacingTrim: 'space-all' } as CSSProperties) }}
+  >
+    {lines.map((html, i) => (
+      <div key={i} className="xhs-kp-line" style={{ whiteSpace: 'nowrap' }} dangerouslySetInnerHTML={{ __html: html }} />
+    ))}
+  </div>
+)
+
 export const KPParagraph = ({ theme, text, html, className }: KPParagraphProps) => {
   const ready = useTypesetReady()
   const width = useContext(TypesetWidthCtx)
-  const p = theme.palette
   const B = theme.layout.body
 
   const source = html ?? (text ? `<span>${text}</span>` : '')
   const runs = useMemo(() => runPad(runsFromInlineHtml(source)), [source])
+  const epoch = useFontEpoch()
+
+  // 用本段实际字形触发字体分片加载；加载完成会触发 loadingdone → 重排
+  useEffect(() => {
+    const plain = source.replace(/<[^>]+>/g, '').slice(0, 400)
+    if (!plain || typeof document === 'undefined' || !('fonts' in document)) return
+    ;[400, 700, 500].forEach(w => {
+      document.fonts.load(`${w} 34px "LXGW WenKai"`, plain).catch(() => {})
+    })
+  }, [source])
 
   const lines = useMemo(() => {
     if (!ready || width <= 0) return null
@@ -182,18 +246,9 @@ export const KPParagraph = ({ theme, text, html, className }: KPParagraphProps) 
         return res.lines
       },
     )
-  }, [ready, width, runs, B.size, B.letterSpacing, theme.fontFamily, theme.id, source])
+  }, [ready, width, runs, B.size, B.letterSpacing, theme.fontFamily, theme.id, source, epoch])
 
-  const wrapperStyle: CSSProperties = {
-    color: p.text,
-    fontSize: B.size,
-    lineHeight: B.lineRatio,
-    letterSpacing: B.letterSpacing,
-    textAlign: 'left',
-    wordBreak: 'normal',
-    overflowWrap: 'break-word',
-    lineBreak: 'strict',
-  }
+  const wrapperStyle: CSSProperties = paragraphStyle(theme)
 
   if (!lines) {
     // 引擎未就绪：浏览器流式排版兜底（与正式渲染同字体同字号，行数一致后再切换）

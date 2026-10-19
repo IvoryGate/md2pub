@@ -121,8 +121,15 @@ export const XhsMeasureLayer = ({ doc, theme, sizeName, cover, onCardSet }: Meas
       if (u.fromLine === 0 && u.toLine >= full) return bodyBlocks[u.index]!
       const wrap = wrapperOf[offset + u.index]!
       const para = (wrap.firstElementChild as HTMLElement) ?? wrap
+      // KP 引擎段落：每行是显式 div，按行切片（与度量层逐行同源，零字符级误差）
+      const lineEls = Array.from(para.querySelectorAll(':scope > .xhs-kp-line'))
+      if (lineEls.length > 0) {
+        const lines = lineEls.slice(u.fromLine, u.toLine).map(el => el.innerHTML)
+        return { type: 'paraSplit', lines }
+      }
+      // 回退（浏览器流式排版）：字符级切片，整体作为一行数组
       const html = extractLines(para, u.fromLine, u.toLine, measures[offset + u.index]!.lineHeight ?? paraLineHeight)
-      return { type: 'paraSplit', html }
+      return { type: 'paraSplit', lines: [html] }
     }
     const cards = pages.map(p => ({
       blocks: p.map(u => extract(u)),

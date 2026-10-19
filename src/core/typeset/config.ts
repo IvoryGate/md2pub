@@ -13,6 +13,9 @@ export interface TypesetConfig {
   slackSoftEm: number
   /** 单行可容忍的最大 slack（em）：超过再叠重罚（长西文词兜底仍可达） */
   slackTolEm: number
+  /** 溢出容差（em）：允许行宽略超版心（落在页边距里，不可见），
+      用于化解「差一点点就能放下」的禁则空洞 */
+  overflowTolEm: number
 }
 
 export const DEFAULT_CONFIG: TypesetConfig = {
@@ -21,4 +24,5 @@ export const DEFAULT_CONFIG: TypesetConfig = {
   autospaceEm: 0.25,
   slackSoftEm: 0.38,
   slackTolEm: 0.85,
+  overflowTolEm: 0.25,
 }

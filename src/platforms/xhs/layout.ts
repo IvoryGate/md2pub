@@ -45,7 +45,7 @@ export interface FlowMetrics {
 export type XhsCardBlock =
   | Block
   | { type: 'listSlice'; block: Extract<Block, { type: 'list' }>; from: number; to: number }
-  | { type: 'paraSplit'; html: string }
+  | { type: 'paraSplit'; lines: string[] }
 
 export interface XhsCard {
   kind: 'cover' | 'content'

@@ -1,6 +1,6 @@
 import katex from 'katex'
 import { Fragment, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
-import { KPParagraph, TypesetWidthCtx } from './kp'
+import { KPFixedLines, KPParagraph, TypesetWidthCtx } from './kp'
 import { renderInline, stripInline } from '../../core/document/parse'
 import { highlightCodeLines } from '../../core/highlight'
 import { advanceWidth } from '../../core/typeset'
@@ -247,7 +247,7 @@ export const BlockView = ({
     case 'paragraph':
       return <KPParagraph theme={theme} text={renderInline(block.text)} />
     case 'paraSplit':
-      return <KPParagraph theme={theme} html={block.html} />
+      return <KPFixedLines theme={theme} lines={block.lines} />
     case 'quote':
       return (
         <blockquote

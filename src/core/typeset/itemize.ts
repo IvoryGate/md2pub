@@ -47,9 +47,9 @@ export interface Token {
 }
 
 /* 全角闭合标点（可行末半字悬挂；行首禁则） */
-const CLOSE_FW = new Set('。，、；：？！）】》」』…％‰'.split(''))
+const CLOSE_FW = new Set('。，、；：？！）】》」』…％‰”’'.split(''))
 /* 全角起始标点（可行首半字悬挂；行末禁则） */
-const OPEN_FW = new Set('（《「『〔'.split(''))
+const OPEN_FW = new Set('（《「『〔“‘'.split(''))
 /* ASCII 半角标点：行首禁则、不悬挂 */
 const ASCII_CLOSE = new Set('.,;:!?)]}'.split(''))
 const ASCII_OPEN = new Set('([{'.split(''))
@@ -91,6 +91,18 @@ export function itemize(runs: TypesetRun[], font: (kind: RunKind) => TypesetFont
     let i = 0
     while (i < text.length) {
       const ch = text[i]!
+      if (ch === ' ') {
+        // 不换行空格：两侧都不断行，渲染仍占一个空格宽
+        raw.push([ri, { text: ch, w: advanceWidth(ch, f), run: ri, canStart: false, canEnd: false }])
+        i++
+        continue
+      }
+      if (ch === '\u00A0') {
+        // 不换行空格：两侧都不可断，渲染仍占一个空格宽
+        raw.push([ri, { text: ch, w: advanceWidth(ch, f), run: ri, canStart: false, canEnd: false }])
+        i++
+        continue
+      }
       if (isSpace(ch)) {
         raw.push([ri, { text: ch, w: advanceWidth(ch, f), run: ri, canStart: false, canEnd: true, blank: true }])
         i++
@@ -116,6 +128,12 @@ export function itemize(runs: TypesetRun[], font: (kind: RunKind) => TypesetFont
         i++
         continue
       }
+      if (ch === '—') {
+        // 破折号成对（——）：不起行；断点只能在整对之后
+        raw.push([ri, { text: ch, w: advanceWidth(ch, f), run: ri, canStart: false, canEnd: true }])
+        i++
+        continue
+      }
       if (isCJK(ch)) {
         raw.push([ri, { text: ch, w: advanceWidth(ch, f), run: ri, canStart: true, canEnd: true }])
         i++
@@ -126,15 +144,22 @@ export function itemize(runs: TypesetRun[], font: (kind: RunKind) => TypesetFont
       let word = ''
       while (j < text.length) {
         const c2 = text[j]!
+        // 数字内部的分隔符优先：小数 44.4 / 千分位 1,000 / 时间 10:30 不可拆
+        // （必须在 isClose 之前判定——'.' ',' ':' 同时是 ASCII 闭合标点）
+        const digitPair = /[0-9]/.test(text[j - 1] ?? '') && /[0-9]/.test(text[j + 1] ?? '')
+        if ((c2 === '.' || c2 === ',' || c2 === ':') && digitPair) {
+          word += c2
+          j++
+          continue
+        }
         if (isSpace(c2) || isClose(c2) || isOpen(c2) || isCJK(c2)) break
-        if (c2 === '.' && !(/[0-9]/.test(text[j - 1] ?? '') && /[0-9]/.test(text[j + 1] ?? ''))) break
         if (!isWordChar(c2)) break
         word += c2
         j++
       }
       if (word) {
         const w = advanceWidth(word, f)
-        if (w > em * 3.5 && word.length > 6) {
+        if (w > em * 3.5 && word.length > 18) {
           // 超长词（URL 兜底）：切成片，每片允许前后强拆（重罚仅由 DP 的 intra demerits 施加）
           const per = Math.ceil(word.length / Math.ceil(w / (em * 1.2)))
           for (let k = 0; k < word.length; k += per) {
@@ -155,8 +180,10 @@ export function itemize(runs: TypesetRun[], font: (kind: RunKind) => TypesetFont
         }
         i = j
       } else {
-        // 未知字符：宽度和普通 token 同权
-        raw.push([ri, { text: ch, w: advanceWidth(ch, f), run: ri, canStart: true, canEnd: true }])
+        // 单位/百分号后缀：绝不允许起行（44.4% 必须整体留在上一行）
+        const noLineStart = '%％‰‱℃°′″·×÷±≈≠≤≥→←'
+        const glued = noLineStart.includes(ch)
+        raw.push([ri, { text: ch, w: advanceWidth(ch, f), run: ri, canStart: !glued, canEnd: true }])
         i++
       }
     }
