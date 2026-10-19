@@ -41,6 +41,8 @@ export interface XhsHeadingStyle {
   spaceBefore: number
   spaceAfter: number
   decoration: HeadingDecoration
+  /** 字距 px（缺省跟随正文） */
+  tracking?: number
 }
 
 /** 完整版式卡：页面骨架 + 各元素元素的布局参数（不含颜色） */
@@ -108,6 +110,8 @@ export interface XhsLayout {
   coverStyle: 'classic' | 'vertical' | 'big' | 'editorial' | 'jacket' | 'index'
   /** 经典封面版式位置 */
   cover: 'top' | 'center' | 'bottom'
+  /** 封面标题整体缩放（0.8–1.3，1 = 版式基准） */
+  coverTitleScale: number
 }
 
 export interface XhsPalette {
@@ -213,6 +217,7 @@ const baseLayout: XhsLayout = {
   coverOn: true,
   coverStyle: 'classic',
   cover: 'center',
+  coverTitleScale: 1,
 }
 
 export const XHS_THEMES: XhsCardTheme[] = [

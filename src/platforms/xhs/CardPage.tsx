@@ -150,7 +150,7 @@ export const BlockView = ({
         color: p.heading,
         fontSize: B.size * st.sizeRatio,
         lineHeight: B.lineRatio * 0.82,
-        letterSpacing: B.letterSpacing,
+        letterSpacing: st.tracking ?? B.letterSpacing,
         fontWeight: st.weight,
         textAlign: st.align,
         margin: 0,
@@ -799,9 +799,10 @@ const CoverCard = ({
     .map(s => s.trim())
     .filter(Boolean)
   const titleLines = manualLines.length > 1 ? manualLines : splitCoverLines(titleText, [...titleText].length > 10 ? 2 : 1)
+  const scale = L.coverTitleScale ?? 1
   const maxLineLen = Math.max(1, ...titleLines.map(l => [...l].length))
   /** 字号上限：保证最长一行放得下（宽 / 最长行字数），再受展示级基准封顶 */
-  const fitCoverSize = (base: number, width = 904) => Math.min(Math.round(base), Math.round(width / maxLineLen))
+  const fitCoverSize = (base: number, width = 904) => Math.min(Math.round(base * scale), Math.round((width / maxLineLen) * scale))
 
   const hair = `${p.text}24`
   const ink = p.heading
