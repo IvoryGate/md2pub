@@ -267,7 +267,7 @@ export const BlockView = ({
       return (
         <blockquote
           style={{
-            margin: 0,
+            margin: `${L.blocks.marginY}px 0`,
             padding: `${Math.round(L.quote.pad * 0.75)}px ${Math.round(L.quote.pad * 0.9)}px`,
             background: p.quoteBg,
             borderRadius: L.quote.radius,
@@ -351,6 +351,7 @@ export const BlockView = ({
         <div
           className="xhs-code"
           style={{
+            margin: `${L.blocks.marginY}px 0`,
             border: `1px solid ${accent}3d`,
             borderRadius: L.code.radius,
             overflow: 'hidden',
@@ -397,9 +398,17 @@ export const BlockView = ({
     case 'math':
       return <MathBlock text={block.text} theme={theme} />
     case 'mermaid':
-      return <MermaidBlock text={block.text} />
+      return (
+        <figure style={{ margin: `${L.blocks.marginY}px 0` }}>
+          <MermaidBlock text={block.text} />
+        </figure>
+      )
     case 'plantuml':
-      return <PlantumlBlock text={block.text} />
+      return (
+        <figure style={{ margin: `${L.blocks.marginY}px 0` }}>
+          <PlantumlBlock text={block.text} />
+        </figure>
+      )
     case 'list':
     case 'listSlice': {
       const data = block.type === 'listSlice' ? block.block : block
@@ -454,6 +463,7 @@ export const BlockView = ({
       return (
         <div
           style={{
+            margin: `${L.blocks.marginY}px 0`,
             overflowX: 'auto',
             borderRadius: 10,
             border: `1px solid ${p.muted}2e`,

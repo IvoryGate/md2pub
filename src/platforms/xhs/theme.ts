@@ -67,6 +67,9 @@ export interface XhsLayout {
     itemGap: number
   }
   quote: { pad: number; radius: number }
+  /** 图表类块（引用/代码/表格/mermaid/PlantUML）与上下文的独立呼吸位：
+      卡片是成品图，浮体元素需要比段落更宽的前后间隔，不能混用统一 gap */
+  blocks: { /** 前后留白 px（与内容区 flex gap 叠加生效） */ marginY: number }
   code: {
     /** 代码字号 = 正文 × 比例 */
     sizeRatio: number
@@ -131,30 +134,35 @@ const FONT_SERIF = '"Source Han Serif SC", "Noto Serif SC", SimSun, serif'
 const baseLayout: XhsLayout = {
   padding: { top: 96, right: 88, bottom: 96, left: 88 },
   body: {
-    size: 38,
-    lineRatio: 1.75,
+    /** 正文字号 px（1080 宽卡片推荐 30~38） */
+    size: 34,
+    /** 行高 / 字号 比 */
+    lineRatio: 1.7,
+    /** 字间距 px */
     letterSpacing: 0.5,
-    paragraphSpacing: 26,
+    /** 段间距 px（块间统一 gap，分页装箱同源） */
+    paragraphSpacing: 22,
     align: 'left',
   },
   headings: {
-    // 推导：调研规范（17px 正文）标题「上28/下14」 → ×(38/17) ≈ 上62/下31；
-    // 卡片内容区为 flex 列 + gap（paragraphSpacing=26），段前/段后与 gap 叠加生效，
+    // 推导：调研规范（17px 正文）标题「上28/下14」 → ×(34/17) = 2.0 → 上56/下28；
+    // 卡片内容区为 flex 列 + gap（paragraphSpacing=22），段前/段后与 gap 叠加生效，
     // 因此 spaceBefore/After = 目标视觉间距 − paragraphSpacing（保持纯数据、与内容无关）
     // h1 = 章节开头档（封面之后又出现的 h1）：Phycat h1 居中 + 底部渐变胶囊条
-    h1: { sizeRatio: 1.55, weight: 700, align: 'center', spaceBefore: 40, spaceAfter: 10, decoration: 'pill' },
-    // h2 = Phycat「双子塔」：主色长条 + 辅紫短条下移错位（×2.4 卡片尺度）
-    h2: { sizeRatio: 1.5, weight: 700, align: 'left', spaceBefore: 36, spaceAfter: 6, decoration: 'twin' },
+    h1: { sizeRatio: 1.55, weight: 700, align: 'center', spaceBefore: 34, spaceAfter: 6, decoration: 'pill' },
+    // h2 = Phycat「双子塔」：主色长条 + 辅紫短条下移错位（×2.0 卡片尺度）
+    h2: { sizeRatio: 1.5, weight: 700, align: 'left', spaceBefore: 34, spaceAfter: 6, decoration: 'twin' },
     // h3 = Phycat h3：细竖条 + 尾部浅粉三点图标（SVG mask）
-    h3: { sizeRatio: 1.15, weight: 700, align: 'left', spaceBefore: 22, spaceAfter: 6, decoration: 'dots' },
+    h3: { sizeRatio: 1.15, weight: 700, align: 'left', spaceBefore: 26, spaceAfter: 6, decoration: 'dots' },
     h4: { sizeRatio: 1.0, weight: 600, align: 'left', spaceBefore: 14, spaceAfter: 6, decoration: 'dots' },
   },
-  list: { indent: 48, itemGap: 14 },
+  list: { indent: 44, itemGap: 12 },
   quote: { pad: 24, radius: 12 },
-  code: { sizeRatio: 0.66, pad: 28, radius: 16, showLang: true },
+  blocks: { marginY: 16 },
+  code: { sizeRatio: 0.62, pad: 25, radius: 16, showLang: true },
   table: { sizeRatio: 0.62, cellPad: 14 },
   image: { fullBleed: false, radius: 12, outline: true, marginY: 16 },
-  divider: { gapY: 28 },
+  divider: { gapY: 26 },
   header: { showTag: true, showPageNum: true, height: 56 },
   watermark: { enabled: true, pos: 'left' },
   cover: 'top',
