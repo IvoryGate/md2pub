@@ -126,6 +126,8 @@ export interface XhsLayout {
   coverTitleSize?: number
   /** 分页策略：全局最优（DP）/ 顺序贪心 */
   pagination: 'optimal' | 'greedy'
+  /** 纸面颗粒质感（极轻的网点，导出可见） */
+  paperTexture: boolean
 }
 
 export interface XhsPalette {
@@ -232,6 +234,7 @@ const baseLayout: XhsLayout = {
   coverStyle: 'classic',
   cover: 'center',
   pagination: 'optimal',
+  paperTexture: false,
 }
 
 export const XHS_THEMES: XhsCardTheme[] = [

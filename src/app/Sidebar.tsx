@@ -14,6 +14,7 @@ import {
   contrastOf,
   type ColorScheme,
   type PaperTone,
+  type PaletteTone,
 } from '../platforms/xhs'
 import { Check, ChevronDown, RotateCcw, SlidersHorizontal, Trash2, Plus, X } from 'lucide-react'
 import { useStore } from '../store'
@@ -218,7 +219,8 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
   const [seed, setSeed] = useState(P.accent)
   const [scheme, setScheme] = useState<ColorScheme>('analogous')
   const [paper, setPaper] = useState<PaperTone>('warm')
-  const applyColor = (s = seed, sc = scheme, pp = paper) => patch({ palette: derivePalette(s, sc, pp) })
+  const [tone, setTone] = useState<PaletteTone>(contrastOf(P.bg, '#000000') < 3 ? 'dark' : 'light')
+  const applyColor = (s = seed, sc = scheme, pp = paper, tn = tone) => patch({ palette: derivePalette(s, sc, pp, tn) })
   const patch = (p: XhsStyleOverrides) => patchLayout(p)
   const H = L.headings[headingTab]
 
@@ -671,7 +673,7 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
                         setSeed(preset.seed)
                         setScheme(preset.scheme)
                         setPaper(preset.paper)
-                        patch({ palette: pal })
+                        patch({ palette: paletteOf(preset, tone) })
                       }}
                       className="flex h-8 items-center gap-1.5 rounded-md border border-transparent px-1.5 text-left transition-colors hover:border-black/[0.08] hover:bg-black/[0.03]"
                     >
@@ -743,6 +745,24 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
                     }}
                   />
                 </Field>
+              </div>
+              <div className="mt-1.5">
+                <Field label="明暗">
+                  <Seg
+                    value={tone}
+                    options={[
+                      { value: 'light' as const, label: '浅色' },
+                      { value: 'dark' as const, label: '深色' },
+                    ]}
+                    onChange={(v) => {
+                      setTone(v)
+                      applyColor(seed, scheme, paper, v)
+                    }}
+                  />
+                </Field>
+              </div>
+              <div className="mt-1.5">
+                <ToggleRow label="纸面颗粒" value={L.paperTexture} onChange={(v) => patch({ paperTexture: v })} />
               </div>
               <p className="mt-1.5 text-[9px] leading-relaxed text-ink-faint">
                 色轮定关系（OKLCH 等感知步长）；明度建层级、彩度反向补偿；文字对比度自动校验。

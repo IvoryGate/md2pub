@@ -782,7 +782,14 @@ const CoverCard = ({
   const shellStyle: CSSProperties = {
     width: '100%',
     height: '100%',
-    background: p.bg,
+    backgroundColor: p.bg,
+    ...(L.paperTexture
+      ? {
+          backgroundImage:
+            'radial-gradient(circle at 1px 1px, rgba(0,0,0,0.03) 0.7px, transparent 0.95px), radial-gradient(circle at 3px 5px, rgba(0,0,0,0.018) 0.6px, transparent 0.85px)',
+          backgroundSize: '7px 7px, 13px 13px',
+        }
+      : {}),
     paddingTop: L.padding.top,
     paddingLeft: L.padding.left,
     paddingRight: L.padding.right,
@@ -1109,7 +1116,14 @@ export const CardPage = ({ card, theme, watermark, coverText }: { card: XhsCard;
       style={{
         width: '100%',
         height: '100%',
-        background: p.bg,
+        backgroundColor: p.bg,
+        ...(L.paperTexture
+          ? {
+              backgroundImage:
+                'radial-gradient(circle at 1px 1px, rgba(0,0,0,0.03) 0.7px, transparent 0.95px), radial-gradient(circle at 3px 5px, rgba(0,0,0,0.018) 0.6px, transparent 0.85px)',
+              backgroundSize: '7px 7px, 13px 13px',
+            }
+          : {}),
         color: p.text,
         fontFamily: theme.fontFamily,
         boxSizing: 'border-box',

@@ -12,6 +12,7 @@ import type { XhsPalette } from './theme'
 
 export type ColorScheme = 'mono' | 'analogous' | 'complement' | 'split' | 'triadic'
 export type PaperTone = 'warm' | 'cool'
+export type PaletteTone = 'light' | 'dark'
 
 export interface ColorPreset {
   id: string
@@ -39,7 +40,7 @@ const schemeHues = (h: number, scheme: ColorScheme) => {
   }
 }
 
-export function derivePalette(seedHex: string, scheme: ColorScheme, paper: PaperTone): XhsPalette {
+export function derivePalette(seedHex: string, scheme: ColorScheme, paper: PaperTone, tone: PaletteTone = 'light'): XhsPalette {
   const seed = hexToOklch(seedHex)
   const hues = schemeHues(seed.h, scheme)
 
@@ -64,6 +65,29 @@ export function derivePalette(seedHex: string, scheme: ColorScheme, paper: Paper
   const codeBg = oklchToHex(0.25, 0.012, seed.h)
   const codeFg = oklchToHex(0.95, 0.01, paperHue)
 
+  if (tone === 'dark') {
+    /* 暗色模式：纸色压到 L≈0.17，墨色提亮；对比度按「亮字/暗底」校验 */
+    const dbg = oklchToHex(0.17, 0.012, paper === 'warm' ? 70 : 250)
+    const dHeading = ensureContrast(oklchToHex(0.97, 0.01, seed.h), dbg, 10, 'light')
+    const dText = ensureContrast(oklchToHex(0.88, 0.008, seed.h), dbg, 7, 'light')
+    const dMuted = ensureContrast(oklchToHex(0.62, 0.012, seed.h), dbg, 3.2, 'light')
+    const dAccent = ensureContrast(oklchToHex(clamp(seed.l, 0.6, 0.74), clamp(Math.max(seed.c, 0.14), 0.14, 0.23), seed.h), dbg, 4.5, 'light')
+    const dStrong = ensureContrast(oklchToHex(0.76, clamp(seed.c * 1.1, 0.14, 0.26), rotateHue(seed.h, 6)), dbg, 5, 'light')
+    const dItalic = ensureContrast(oklchToHex(0.8, clamp(seed.c * 0.55, 0.06, 0.14), hues.secondary), dbg, 3, 'light')
+    return {
+      bg: dbg,
+      text: dText,
+      heading: dHeading,
+      accent: dAccent,
+      muted: dMuted,
+      quoteBg: oklchToHex(0.23, 0.02, seed.h),
+      codeBg: oklchToHex(0.2, 0.012, seed.h),
+      codeFg: oklchToHex(0.9, 0.01, paperHue),
+      strong: dStrong,
+      italic: dItalic,
+    }
+  }
+
   return { bg, text, heading, accent, muted, quoteBg, codeBg, codeFg, strong, italic }
 }
 
@@ -80,7 +104,7 @@ export const CLASSICAL_COLORS: ColorPreset[] = [
   { id: 'songhua', name: '松花', seed: '#bce672', scheme: 'split', paper: 'warm' },
 ]
 
-export const paletteOf = (preset: ColorPreset) => derivePalette(preset.seed, preset.scheme, preset.paper)
+export const paletteOf = (preset: ColorPreset, tone: PaletteTone = 'light') => derivePalette(preset.seed, preset.scheme, preset.paper, tone)
 
 /** 给面板做对比度提示用 */
 export const contrastOf = (fg: string, bg: string) => Math.round(contrastRatio(fg, bg) * 10) / 10
