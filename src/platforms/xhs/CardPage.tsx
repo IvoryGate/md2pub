@@ -3,6 +3,7 @@ import { Fragment, useLayoutEffect, useRef, useState, type CSSProperties } from 
 import { KPParagraph, TypesetWidthCtx } from './kp'
 import { renderInline, stripInline } from '../../core/document/parse'
 import { highlightCodeLines } from '../../core/highlight'
+import { advanceWidth } from '../../core/typeset'
 import type { XhsCard, XhsCardBlock } from './layout'
 import type { XhsCardTheme, XhsHeadingStyle } from './theme'
 import { xhsMermaidVars } from './theme'
@@ -111,8 +112,7 @@ const decoStyle = (style: XhsHeadingStyle, theme: XhsCardTheme): CSSProperties =
   }
 }
 
-/** 卡片根上挂 CSS 变量：行内元素着色（strong/em/行内代码/链接）由 index.css 消费 */
-export const xhsCssVars = (theme: XhsCardTheme): CSSProperties =>
+/** 卡片根上挂 CSS 变量：行内元素着色（strong/em/行内代码/链接）由 index.css 消费 */export const xhsCssVars = (theme: XhsCardTheme): CSSProperties =>
   ({
     '--xhs-accent': theme.palette.accent,
     '--xhs-strong': theme.palette.strong,
@@ -401,6 +401,14 @@ export const BlockView = ({
       const to = block.type === 'listSlice' ? block.to : data.items.length
       const ordered = block.type === 'listSlice' ? data.ordered : block.ordered
       const shown = block.type === 'listSlice' ? data.items.slice(from, to) : data.items
+      /* 悬挂缩进槽位 = 标记实宽 + 光学间隙（CLREQ：编号与内容空隙不宜过宽，
+         标记列与正文左缘齐平）。固定槽位会让 • 过散、双位数撞正文。
+         数字自带句点留白 → 间隙 0.3em；圆点墨迹窄 → 0.55em 光学间隙。 */
+      const markerSize = B.size * (ordered ? 1.12 : 1.26)
+      const markerFont = { family: theme.fontFamily, weight: 700, size: markerSize, letterSpacing: 0 }
+      const labels = shown.map((_, i) => (ordered ? `${from + i + 1}.` : theme.bulletSymbol || '•'))
+      const maxMarker = labels.reduce((m, l) => Math.max(m, advanceWidth(l, markerFont)), 0)
+      const indent = Math.max(L.list.indent, Math.ceil(maxMarker + B.size * (ordered ? 0.3 : 0.55)))
       return (
         <div style={{ display: 'grid', gap: L.list.itemGap }} data-list>
           {shown.map((item, i) => (
@@ -408,8 +416,8 @@ export const BlockView = ({
               key={i}
               style={{
                 // 挂起缩进：首行负 textIndent 拉回圆点，折行对齐正文
-                paddingLeft: L.list.indent,
-                textIndent: -L.list.indent,
+                paddingLeft: indent,
+                textIndent: -indent,
                 display: 'block',
               }}
             >
@@ -417,21 +425,21 @@ export const BlockView = ({
                 style={{
                   display: 'inline-block',
                   textIndent: 0,
-                  width: L.list.indent,
+                  width: indent,
                   marginRight: 0,
                   color: p.accent,
                   fontWeight: 700,
-                  fontSize: B.size * (ordered ? 1.12 : 1.26),
-                  textAlign: ordered ? 'left' : 'center',
+                  fontSize: markerSize,
+                  textAlign: 'left',
                   whiteSpace: 'nowrap',
                 }}
               >
-                {ordered ? `${from + i + 1}.` : theme.bulletSymbol || '•'}
+                {labels[i]}
               </span>
               <span
                 style={{
                   display: 'inline',
-                  textIndent: L.list.indent,
+                  textIndent: indent,
                   color: p.text,
                   fontSize: B.size,
                   lineHeight: B.lineRatio,

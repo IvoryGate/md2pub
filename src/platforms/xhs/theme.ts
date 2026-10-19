@@ -188,7 +188,7 @@ const baseLayout: XhsLayout = {
     h3: { sizeRatio: 1.15, weight: 700, align: 'left', spaceBefore: 26, spaceAfter: 6, decoration: 'dots' },
     h4: { sizeRatio: 1.0, weight: 600, align: 'left', spaceBefore: 14, spaceAfter: 6, decoration: 'dots' },
   },
-  list: { indent: 44, itemGap: 12 },
+  list: { indent: 34, itemGap: 12 },
   quote: { pad: 24, radius: 12 },
   blocks: { marginY: 16 },
   code: { sizeRatio: 0.62, pad: 25, radius: 16, showLang: true },
