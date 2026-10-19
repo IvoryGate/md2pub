@@ -27,7 +27,7 @@ export interface XhsPadding {
   left: number
 }
 
-export type HeadingDecoration = 'none' | 'bar' | 'underline' | 'twin' | 'dots' | 'pill'
+export type HeadingDecoration = 'none' | 'bar' | 'bar-right' | 'underline' | 'twin' | 'dots' | 'pill' | 'flank'
 
 /** 页眉/页脚元素锚点（六向） */
 export type ChromePos = 'top-left' | 'top-center' | 'top-right' | 'bottom-left' | 'bottom-center' | 'bottom-right'
@@ -44,13 +44,15 @@ export interface XhsHeadingStyle {
   size?: number
   /** 字重 400~800 */
   weight: number
-  align: 'left' | 'center'
+  align: 'left' | 'center' | 'right'
   /** 段前/段后 px */
   spaceBefore: number
   spaceAfter: number
   decoration: HeadingDecoration
   /** 字距 px（缺省跟随正文） */
   tracking?: number
+  /** 行高比（缺省 = 正文行距 × 0.82；设置后独立） */
+  lineHeight?: number
 }
 
 /** 完整版式卡：页面骨架 + 各元素元素的布局参数（不含颜色） */
@@ -212,10 +214,10 @@ const baseLayout: XhsLayout = {
     // 56/28 明显更透气；h1 若落在页首，段前距由渲染层丢弃（页边距已提供顶部空气）
     h1: { sizeRatio: 1.55, weight: 700, align: 'center', spaceBefore: 54, spaceAfter: 16, decoration: 'pill' },
     // h2 = Phycat「双子塔」：主色长条 + 辅紫短条下移错位（×2.0 卡片尺度）
-    h2: { sizeRatio: 1.5, weight: 700, align: 'left', spaceBefore: 34, spaceAfter: 6, decoration: 'twin' },
+    h2: { sizeRatio: 1.5, weight: 700, align: 'left', spaceBefore: 34, spaceAfter: 6, decoration: 'twin', tracking: 0.5 },
     // h3 = Phycat h3：细竖条 + 尾部浅粉三点图标（SVG mask）
-    h3: { sizeRatio: 1.15, weight: 700, align: 'left', spaceBefore: 26, spaceAfter: 6, decoration: 'dots' },
-    h4: { sizeRatio: 1.0, weight: 600, align: 'left', spaceBefore: 14, spaceAfter: 6, decoration: 'dots' },
+    h3: { sizeRatio: 1.15, weight: 700, align: 'left', spaceBefore: 26, spaceAfter: 6, decoration: 'dots', tracking: 0.5 },
+    h4: { sizeRatio: 1.0, weight: 600, align: 'left', spaceBefore: 14, spaceAfter: 6, decoration: 'dots', tracking: 0.5 },
   },
   list: { indent: 34, itemGap: 12 },
   quote: { pad: 24, radius: 12 },

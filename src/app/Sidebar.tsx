@@ -161,14 +161,19 @@ const PosGrid = ({ value, onChange }: { value: ChromePos; onChange: (v: ChromePo
   </div>
 )
 
-const DECORATIONS: Array<{ value: HeadingDecoration; label: string }> = [
-  { value: 'none', label: '无' },
-  { value: 'bar', label: '竖条' },
-  { value: 'underline', label: '下划线' },
-  { value: 'twin', label: '双条' },
-  { value: 'dots', label: '圆点' },
-  { value: 'pill', label: '胶囊' },
+type HAlign = 'left' | 'center' | 'right'
+/** 装饰成套：每种装饰声明适用的对齐方式，面板按当前对齐过滤 */
+const DECORATIONS: Array<{ value: HeadingDecoration; label: string; aligns: HAlign[] }> = [
+  { value: 'none', label: '无', aligns: ['left', 'center', 'right'] },
+  { value: 'bar', label: '竖条', aligns: ['left'] },
+  { value: 'twin', label: '双条', aligns: ['left'] },
+  { value: 'dots', label: '尾点', aligns: ['left'] },
+  { value: 'underline', label: '下划线', aligns: ['left', 'center', 'right'] },
+  { value: 'pill', label: '胶囊', aligns: ['center'] },
+  { value: 'flank', label: '双侧线', aligns: ['center'] },
+  { value: 'bar-right', label: '右竖条', aligns: ['right'] },
 ]
+const alignDefaultDeco = (a: HAlign): HeadingDecoration => (a === 'left' ? 'bar' : a === 'right' ? 'bar-right' : 'pill')
 
 type TabKey = 'basic' | 'cover' | 'advanced'
 
@@ -200,6 +205,18 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
     const next: XhsStyleOverrides = { body: { size: v } }
     if (Object.keys(frozen).length) next.headings = frozen as XhsStyleOverrides['headings']
     if (L.coverTitleSize == null) next.coverTitleSize = Math.round(prev * 2.35)
+    patch(next)
+  }
+
+  /** 拖正文行距只改正文：首次调整时把标题行高落定 */
+  const setBodyLineRatio = (v: number) => {
+    const frozen: Record<string, { lineHeight: number }> = {}
+    for (const lvl of ['h1', 'h2', 'h3', 'h4'] as const) {
+      const h = L.headings[lvl]
+      if (h.lineHeight == null) frozen[lvl] = { lineHeight: +(L.body.lineRatio * 0.82).toFixed(2) }
+    }
+    const next: XhsStyleOverrides = { body: { lineRatio: v } }
+    if (Object.keys(frozen).length) next.headings = frozen as XhsStyleOverrides['headings']
     patch(next)
   }
 
@@ -344,7 +361,7 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
                   <Num value={L.body.size} min={26} max={54} suffix="px" onChange={setBodySize} />
                 </Field>
                 <Field label="行距">
-                  <Num value={L.body.lineRatio} min={1.2} max={2.2} step={0.05} suffix="×" onChange={(v) => patch({ body: { lineRatio: v } })} />
+                  <Num value={L.body.lineRatio} min={1.2} max={2.2} step={0.05} suffix="×" onChange={setBodyLineRatio} />
                 </Field>
               </Pair>
               <Pair>
@@ -371,11 +388,26 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
               />
               <div className="mt-1.5">
                 <Pair>
-                  <Field label="字号 · 独立">
+                  <Field label="字号">
                     <Num value={headingSize} min={20} max={120} suffix="px" onChange={(v) => patch({ headings: { [headingTab]: { size: v } } as XhsStyleOverrides['headings'] })} />
                   </Field>
+                  <Field label="行距">
+                    <Num
+                      value={H.lineHeight ?? +(L.body.lineRatio * 0.82).toFixed(2)}
+                      min={1}
+                      max={2.2}
+                      step={0.05}
+                      suffix="×"
+                      onChange={(v) => patch({ headings: { [headingTab]: { lineHeight: v } } as XhsStyleOverrides['headings'] })}
+                    />
+                  </Field>
+                </Pair>
+                <Pair>
                   <Field label="字距">
                     <Num value={H.tracking ?? L.body.letterSpacing} min={0} max={8} step={0.5} suffix="px" onChange={(v) => patch({ headings: { [headingTab]: { tracking: v } } as XhsStyleOverrides['headings'] })} />
+                  </Field>
+                  <Field label="字重">
+                    <Seg value={H.weight} options={[500, 600, 700, 800].map((w) => ({ value: w, label: String(w) }))} onChange={(v) => patch({ headings: { [headingTab]: { weight: v } } as XhsStyleOverrides['headings'] })} />
                   </Field>
                 </Pair>
                 <Pair>
@@ -386,13 +418,10 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
                     <Num value={H.spaceAfter} min={0} max={50} suffix="px" onChange={(v) => patch({ headings: { [headingTab]: { spaceAfter: v } } as XhsStyleOverrides['headings'] })} />
                   </Field>
                 </Pair>
-                <Field label="字重">
-                  <Seg value={H.weight} options={[500, 600, 700, 800].map((w) => ({ value: w, label: String(w) }))} onChange={(v) => patch({ headings: { [headingTab]: { weight: v } } as XhsStyleOverrides['headings'] })} />
-                </Field>
                 <div className="mt-1.5">
                   <Field label="装饰">
                     <div className="grid grid-cols-3 gap-1">
-                      {DECORATIONS.map((d) => (
+                      {DECORATIONS.filter((d) => d.aligns.includes(H.align as HAlign)).map((d) => (
                         <button
                           key={d.value}
                           onClick={() => patch({ headings: { [headingTab]: { decoration: d.value } } as XhsStyleOverrides['headings'] })}
@@ -413,8 +442,13 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
                       options={[
                         { value: 'left' as const, label: '左' },
                         { value: 'center' as const, label: '中' },
+                        { value: 'right' as const, label: '右' },
                       ]}
-                      onChange={(v) => patch({ headings: { [headingTab]: { align: v } } as XhsStyleOverrides['headings'] })}
+                      onChange={(v) => {
+                        const valid = DECORATIONS.filter((d) => d.aligns.includes(v)).map((d) => d.value)
+                        const deco = valid.includes(H.decoration) ? H.decoration : alignDefaultDeco(v)
+                        patch({ headings: { [headingTab]: { align: v, decoration: deco } } as XhsStyleOverrides['headings'] })
+                      }}
                     />
                   </Field>
                 </div>
@@ -563,13 +597,13 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
                           onChange={(v) => patch({ cover: v })}
                         />
                       </Field>
-                      <Field label="标题字号 · 独立">
+                      <Field label="标题字号">
                         <Num value={coverTitlePx} min={40} max={180} suffix="px" onChange={(v) => patch({ coverTitleSize: v })} />
                       </Field>
                     </Pair>
                   ) : (
                     <div className="w-1/2 pr-[3px]">
-                      <Field label="标题字号 · 独立">
+                      <Field label="标题字号">
                         <Num value={coverTitlePx} min={40} max={180} suffix="px" onChange={(v) => patch({ coverTitleSize: v })} />
                       </Field>
                     </div>

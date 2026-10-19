@@ -100,6 +100,12 @@ const decoStyle = (style: XhsHeadingStyle, theme: XhsCardTheme): CSSProperties =
         paddingLeft: 22,
         borderRadius: 4,
       }
+    case 'bar-right':
+      return {
+        borderRight: `8px solid ${p.accent}`,
+        paddingRight: 22,
+        borderRadius: 4,
+      }
     case 'underline':
       return {
         textDecorationLine: 'underline',
@@ -150,7 +156,7 @@ export const BlockView = ({
       const textStyle: CSSProperties = {
         color: p.heading,
         fontSize: st.size ?? B.size * st.sizeRatio,
-        lineHeight: B.lineRatio * 0.82,
+        lineHeight: st.lineHeight ?? B.lineRatio * 0.82,
         letterSpacing: st.tracking ?? B.letterSpacing,
         fontWeight: st.weight,
         textAlign: st.align,
@@ -174,6 +180,25 @@ export const BlockView = ({
                 background: `linear-gradient(90deg, ${p.accent}66, ${p.accent}, ${p.accent}66)`,
               }}
             />
+          </div>
+        )
+      }
+      if (st.decoration === 'flank') {
+        // 居中档专用：标题两侧短细线，左/中/右按对齐方式收拢
+        const rule = <i style={{ width: '1.3em', height: '0.07em', background: `${p.accent}80`, flexShrink: 0 }} />
+        return (
+          <div
+            style={{
+              ...textStyle,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.72em',
+              justifyContent: st.align === 'right' ? 'flex-end' : st.align === 'center' ? 'center' : 'flex-start',
+            }}
+          >
+            {rule}
+            <span>{block.text}</span>
+            {rule}
           </div>
         )
       }
@@ -254,37 +279,19 @@ export const BlockView = ({
         <blockquote
           style={{
             margin: `${L.blocks.marginY}px 0`,
-            padding: `${Math.round(L.quote.pad * 0.75)}px ${Math.round(L.quote.pad * 0.9)}px`,
-            background: p.quoteBg,
-            borderRadius: L.quote.radius,
-            border: `1px solid ${p.italic}4d`,
+            padding: '20px 24px 20px 26px',
+            background: `${p.accent}0a`,
+            borderLeft: `4px solid ${p.accent}`,
+            borderRadius: '3px 10px 10px 3px',
             color: p.text,
             fontSize: B.size * 0.95,
             lineHeight: B.lineRatio,
             letterSpacing: B.letterSpacing,
-            display: 'flex',
-            gap: 18,
-            alignItems: 'flex-start',
           }}
         >
-          <i
-            style={{
-              fontStyle: 'normal',
-              fontSize: B.size * 0.62,
-              lineHeight: 1.2,
-              filter: 'grayscale(1)',
-              opacity: 0.8,
-              transform: 'rotate(30deg)',
-              flexShrink: 0,
-            }}
-          >
-            💡
-          </i>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            {block.text.split('\n').map((line, i) => (
-              <div key={i} dangerouslySetInnerHTML={{ __html: renderInline(line) }} />
-            ))}
-          </div>
+          {block.text.split(String.fromCharCode(10)).map((line, i) => (
+            <div key={i} dangerouslySetInnerHTML={{ __html: renderInline(line) }} />
+          ))}
         </blockquote>
       )
     case 'code': {
@@ -594,7 +601,7 @@ const imageStyle = (
 
 // ---------- 页眉 / 水印 ----------
 
-const CardHeader = ({ card, theme }: { card: XhsCard; theme: XhsCardTheme }) => {
+const CardHeader = ({ card, theme, tags }: { card: XhsCard; theme: XhsCardTheme; tags?: string }) => {
   const L = theme.layout
   const p = theme.palette
   if (!L.header.showTag) return null
@@ -615,7 +622,10 @@ const CardHeader = ({ card, theme }: { card: XhsCard; theme: XhsCardTheme }) => 
       }}
     >
       <div style={{ color: p.accent, fontSize: 28, letterSpacing: 5, fontWeight: 600 }}>
-        {card.meta?.tags[0] ? `#${card.meta.tags[0]}#` : ''}
+        {(() => {
+          const list = (tags ?? '').trim() ? (tags ?? '').split(/[,，\s]+/).filter(Boolean) : (card.meta?.tags ?? [])
+          return list[0] ? `#${list[0]}#` : ''
+        })()}
       </div>
     </div>
   )
@@ -1115,7 +1125,7 @@ export const CardPage = ({ card, theme, watermark, coverText }: { card: XhsCard;
       }}
     >
       {/* 页眉（话题标签）——显示开关与高度由 layout.header 驱动 */}
-      <CardHeader card={card} theme={theme} />
+      <CardHeader card={card} theme={theme} tags={coverText?.tags} />
 
       {/* 流式内容区：块间 gap 与分页装箱同源（paragraphSpacing）；
           子块 flex-shrink:0 —— overflow 容器（表格/代码/公式）在内容超高时必须溢出而非被压缩 */}
