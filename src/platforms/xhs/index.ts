@@ -7,5 +7,14 @@ export * from './layout'
 export { CardPage } from './CardPage'
 export { XhsMeasureLayer } from './measure'
 export type { XhsCardSet } from './layout'
-export { exportCardPng, exportCardsZip, safeFilename } from './export'
+export {
+  exportCardPng,
+  exportCardPngWithPicker,
+  exportCardsToDirectory,
+  exportCardsZip,
+  pickExportDirectory,
+  supportsDirectoryExport,
+  safeFilename,
+  type DirHandleLike,
+} from './export'
 export { applyXhsOverrides, type XhsStyleOverrides } from './theme'

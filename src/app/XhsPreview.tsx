@@ -6,8 +6,11 @@ import {
   applyXhsOverrides,
   CardPage,
   XhsMeasureLayer,
-  exportCardPng,
+  exportCardPngWithPicker,
+  exportCardsToDirectory,
   exportCardsZip,
+  pickExportDirectory,
+  supportsDirectoryExport,
   safeFilename,
   type XhsCardSet,
 } from '../platforms/xhs'
@@ -37,8 +40,22 @@ export const XhsPreview = ({ bus }: { bus: ScrollBus }) => {
   }, [themeId, overrides])
 
   const [cardSet, setCardSet] = useState<XhsCardSet | null>(null)
+  const [toast, setToast] = useState('')
+  const toastTimer = useRef<number | null>(null)
+  const flash = (msg: string) => {
+    setToast(msg)
+    if (toastTimer.current) window.clearTimeout(toastTimer.current)
+    toastTimer.current = window.setTimeout(() => setToast(''), 2400)
+  }
 
-  const baseName = safeFilename(doc.meta.title ?? 'notes')
+  // 文件名优先用封面标题（与导出图一致），其次文档标题
+  const baseName = safeFilename(
+    String(coverText.title || doc.meta.title || 'notes')
+      .split(String.fromCharCode(13))
+      .join('')
+      .split(String.fromCharCode(10))
+      .join(''),
+  )
   const totalPages = cardSet?.cards.filter(c => c.kind === 'content').length ?? 0
 
   const handleExportOne = async (i: number) => {
@@ -46,24 +63,52 @@ export const XhsPreview = ({ bus }: { bus: ScrollBus }) => {
     if (!el) return
     setExporting(true)
     try {
-      await exportCardPng(el, `${baseName}-p${String(i + 1).padStart(2, '0')}`)
+      const result = await exportCardPngWithPicker(el, `${baseName}-p${String(i + 1).padStart(2, '0')}.png`)
+      if (result === 'saved') flash('已保存当前页 PNG')
+    } catch {
+      flash('导出失败，请重试')
     } finally {
       setExporting(false)
     }
   }
 
   const handleExportAll = async () => {
+    const items = cardRefs.current
+      .map((el, i): [HTMLElement, number] | null => (el ? [el, i] : null))
+      .filter((x): x is [HTMLElement, number] => x !== null)
+    if (!items.length) return
+
+    const files = items.map(([el, i]) => ({ el, name: `${baseName}-p${String(i + 1).padStart(2, '0')}.png` }))
+
+    // 首选：用户自选本地目录，直接写多张 PNG（不经过浏览器下载目录）
+    if (supportsDirectoryExport()) {
+      let dir: Awaited<ReturnType<typeof pickExportDirectory>>
+      try {
+        dir = await pickExportDirectory()
+      } catch {
+        flash('无法打开目录选择器')
+        return
+      }
+      if (!dir) return // 用户取消
+      setExporting(true)
+      try {
+        await exportCardsToDirectory(files, dir, (done, total) => setToast(`正在导出 ${done}/${total}…`))
+        flash(`已导出 ${files.length} 张 PNG →「${dir.name}」`)
+      } catch {
+        flash('导出失败，请重试')
+      } finally {
+        setExporting(false)
+      }
+      return
+    }
+
+    // 降级：不支持目录 API 的浏览器 → ZIP 下载
     setExporting(true)
     try {
-      const items = cardRefs.current
-        .map((el, i): [HTMLElement, number] | null => (el ? [el, i] : null))
-        .filter((x): x is [HTMLElement, number] => x !== null)
-      await exportCardsZip(
-        items.map(([el, i]) => ({
-          el,
-          name: `${baseName}-p${String(i + 1).padStart(2, '0')}.png`,
-        })),
-      )
+      await exportCardsZip(files, `${baseName}-${files.length}张.zip`)
+      flash(`已导出 ${files.length} 张 PNG（ZIP）`)
+    } catch {
+      flash('导出失败，请重试')
     } finally {
       setExporting(false)
     }
@@ -97,6 +142,13 @@ export const XhsPreview = ({ bus }: { bus: ScrollBus }) => {
           {cardSet && <div className="h-8" />}
         </div>
       </div>
+
+      {/* 导出完成提示 */}
+      {toast && (
+        <div className="pointer-events-none absolute bottom-[74px] left-1/2 z-30 -translate-x-1/2 rounded-full bg-ink/90 px-3.5 py-1.5 text-[11.5px] text-white shadow-lg">
+          {toast}
+        </div>
+      )}
 
       {/* 底部悬浮工具条 */}
       <div className="glass absolute bottom-5 left-1/2 z-20 flex -translate-x-1/2 items-center gap-1 rounded-full p-1.5 pl-3">

@@ -17,7 +17,8 @@ function triggerDownload(blob: Blob, filename: string) {
   a.href = url
   a.download = filename
   a.click()
-  URL.revokeObjectURL(url)
+  // 延迟回收：立即 revoke 会让部分浏览器取消下载
+  setTimeout(() => URL.revokeObjectURL(url), 4000)
 }
 
 export const safeFilename = (text: string): string =>
@@ -47,4 +48,78 @@ export async function exportCardsZip(
   }
   const blob = await zip.generateAsync({ type: 'blob' })
   triggerDownload(blob, zipName ?? `md2pub-xhs-${Date.now()}.zip`)
+}
+
+
+// ---------- 本地目录导出（File System Access API） ----------
+
+interface WritableLike {
+  write(data: Blob): Promise<void>
+  close(): Promise<void>
+}
+interface FileHandleLike {
+  createWritable(): Promise<WritableLike>
+}
+export interface DirHandleLike {
+  name: string
+  getFileHandle(name: string, opts?: { create?: boolean }): Promise<FileHandleLike>
+}
+
+export const supportsDirectoryExport = () =>
+  typeof (window as unknown as { showDirectoryPicker?: unknown }).showDirectoryPicker === 'function'
+
+/** 让用户选择导出目录；取消返回 null */
+export async function pickExportDirectory(): Promise<DirHandleLike | null> {
+  try {
+    const picker = (window as unknown as { showDirectoryPicker: (o?: unknown) => Promise<DirHandleLike> }).showDirectoryPicker
+    return await picker({ mode: 'readwrite', id: 'md2pub-export' })
+  } catch (err) {
+    if ((err as { name?: string })?.name === 'AbortError') return null
+    throw err
+  }
+}
+
+/** 逐张写 PNG 到用户选择的目录（不进浏览器下载目录） */
+export async function exportCardsToDirectory(
+  cards: ZipCardInput[],
+  dir: DirHandleLike,
+  onProgress?: (done: number, total: number) => void,
+): Promise<void> {
+  let i = 0
+  for (const { el, name } of cards) {
+    const dataUrl = await nodeToPngDataUrl(el)
+    const blob = await (await fetch(dataUrl)).blob()
+    const fh = await dir.getFileHandle(name, { create: true })
+    const w = await fh.createWritable()
+    await w.write(blob)
+    await w.close()
+    i++
+    onProgress?.(i, cards.length)
+  }
+}
+
+/** 单张 PNG：弹出系统保存对话框自选路径；不支持时退回下载 */
+export async function exportCardPngWithPicker(el: HTMLElement, name: string): Promise<'saved' | 'cancelled'> {
+  const picker = (window as unknown as {
+    showSaveFilePicker?: (o: unknown) => Promise<FileHandleLike>
+  }).showSaveFilePicker
+  if (!picker) {
+    await exportCardPng(el, name)
+    return 'saved'
+  }
+  try {
+    const handle = await picker({
+      suggestedName: name.endsWith('.png') ? name : `${name}.png`,
+      types: [{ description: 'PNG 图片', accept: { 'image/png': ['.png'] } }],
+    })
+    const dataUrl = await nodeToPngDataUrl(el)
+    const blob = await (await fetch(dataUrl)).blob()
+    const w = await handle.createWritable()
+    await w.write(blob)
+    await w.close()
+    return 'saved'
+  } catch (err) {
+    if ((err as { name?: string })?.name === 'AbortError') return 'cancelled'
+    throw err
+  }
 }
