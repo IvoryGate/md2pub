@@ -76,8 +76,8 @@ const dotsIconStyle = (color: string, icon: 'h3' | 'h4' = 'h3'): CSSProperties =
   display: 'inline-block',
   width: '1.2em',
   height: '1.2em',
-  // 墨迹中心校准：提升量 = 墨迹中心(≈0.364em) − 图标半高(0.6em) = −0.235em（YaHei 实测拟合）
-  verticalAlign: '-0.235em',
+  // 墨迹中心校准：提升量 = 墨迹中心(文楷实测均值 0.355em) − 图标半高(0.6em) = −0.245em
+  verticalAlign: '-0.245em',
   marginLeft: '0.38em',
   backgroundColor: color,
   opacity: 0.5,
@@ -193,7 +193,7 @@ export const BlockView = ({
       }
       if (st.decoration === 'twin') {
         // Phycat h2「双子塔」：装饰为行内元素 + 精确 vertical-align 长度。
-        // 提升量 = 墨迹中心（canvas 实测 YaHei：CJK≈0.35em/拉丁≈0.38em，取均值 0.364em）
+        // 提升量 = 墨迹中心（canvas 实测 文楷实测：CJK 0.368/拉丁 0.342，取均值 0.355em）
         // − 装饰半高，em 常量随字号比缩放；悬挂缩进保证首行条贴左缘、折行对齐
         return (
           <div style={{ ...textStyle, paddingLeft: '0.85em', textIndent: '-0.85em' }}>
@@ -204,7 +204,7 @@ export const BlockView = ({
                 height: '1em',
                 borderRadius: '0.107em',
                 background: p.accent,
-                verticalAlign: '-0.136em',
+                verticalAlign: '-0.145em',
                 marginRight: '0.128em',
                 textIndent: 0,
               }}
@@ -217,7 +217,7 @@ export const BlockView = ({
                 borderRadius: '0.09em',
                 background: p.italic,
                 opacity: 0.6,
-                verticalAlign: '0.064em',
+                verticalAlign: '0.055em',
                 marginRight: '0.427em',
                 textIndent: 0,
               }}
@@ -243,7 +243,7 @@ export const BlockView = ({
                 height: '1em',
                 borderRadius: '0.1em',
                 background: p.accent,
-                verticalAlign: '-0.134em',
+                verticalAlign: '-0.145em',
                 marginRight: '0.52em',
                 textIndent: 0,
               }}

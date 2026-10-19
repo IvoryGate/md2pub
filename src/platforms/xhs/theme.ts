@@ -122,7 +122,9 @@ export interface XhsCardTheme {
   bulletSymbol: string
 }
 
-const FONT_SANS = 'PingFang SC, Microsoft YaHei, Noto Sans SC, sans-serif'
+/* 卡片正文首选霞鹜文楷（由 index.css 引入 @font-face，离线打包可用）；
+   后备保持系统黑体族以防分片未就绪 */
+const FONT_SANS = '"LXGW WenKai", PingFang SC, Microsoft YaHei, Noto Sans SC, sans-serif'
 const FONT_SERIF = '"Source Han Serif SC", "Noto Serif SC", SimSun, serif'
 
 /** 通用基准版式（按调研规范取中值；主题在此之上微调） */

@@ -1,3 +1,8 @@
+/* 卡片正文字体：霞鹜文楷（npm 包，unicode-range 分片按需加载，含 700 粗面；
+   不走包内 style.css 聚合入口——postcss-import 对其嵌套相对导入解析失败） */
+@import "lxgw-wenkai-webfont/lxgwwenkai-regular.css";
+@import "lxgw-wenkai-webfont/lxgwwenkai-bold.css";
+
 @import "tailwindcss";
 
 /*
