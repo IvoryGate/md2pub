@@ -164,7 +164,7 @@ const FONT_SERIF = '"Source Han Serif SC", "Noto Serif SC", SimSun, serif'
 
 /** 通用基准版式（按调研规范取中值；主题在此之上微调） */
 const baseLayout: XhsLayout = {
-  padding: { top: 96, right: 88, bottom: 96, left: 88 },
+  padding: { top: 112, right: 88, bottom: 124, left: 88 },
   body: {
     /** 正文字号 px（1080 宽卡片推荐 30~38） */
     size: 34,
