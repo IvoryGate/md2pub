@@ -5,7 +5,8 @@ import { renderInline, stripInline } from '../../core/document/parse'
 import { highlightCodeLines } from '../../core/highlight'
 import { advanceWidth } from '../../core/typeset'
 import type { XhsCard, XhsCardBlock } from './layout'
-import type { XhsCardTheme, XhsHeadingStyle } from './theme'
+import type { ChromePos, XhsCardTheme, XhsHeadingStyle, XhsLayout } from './theme'
+import { normalizeChromePos } from './theme'
 import { xhsMermaidVars } from './theme'
 import { useDiagramSvg } from '../shared-blocks'
 
@@ -148,7 +149,7 @@ export const BlockView = ({
       const decor = decoStyle(st, theme)
       const textStyle: CSSProperties = {
         color: p.heading,
-        fontSize: B.size * st.sizeRatio,
+        fontSize: st.size ?? B.size * st.sizeRatio,
         lineHeight: B.lineRatio * 0.82,
         letterSpacing: st.tracking ?? B.letterSpacing,
         fontWeight: st.weight,
@@ -597,7 +598,7 @@ const CardHeader = ({ card, theme }: { card: XhsCard; theme: XhsCardTheme }) => 
   const L = theme.layout
   const p = theme.palette
   if (!L.header.showTag) return null
-  // 页眉只保留话题标签（左）；页码移至下边距带右下角（CardFooter）
+  // 页眉只保留话题标签（左上）；页码/水印由六向锚点系统定位
   const bandHeight = Math.max(24, L.padding.top - 8)
   const height = Math.min(L.header.height, bandHeight)
   return (
@@ -620,98 +621,56 @@ const CardHeader = ({ card, theme }: { card: XhsCard; theme: XhsCardTheme }) => 
   )
 }
 
-const CardFooter = ({ card, theme, watermark }: { card: XhsCard; theme: XhsCardTheme; watermark?: string }) => {
-  const L = theme.layout
-  const p = theme.palette
-  const showPage = L.header.showPageNum
-  const showMark = L.watermark.enabled && (watermark ?? '').trim() !== ''
-  if (!showPage && !showMark) return null
-  const band = Math.max(12, Math.round((L.padding.bottom - 32) / 2))
-  return (
-    <div
-      style={{
-        position: 'absolute',
-        left: L.padding.left,
-        right: L.padding.right,
-        bottom: band,
-        height: 32,
-        display: 'flex',
-        alignItems: 'center',
-        pointerEvents: 'none',
-      }}
-    >
-      {showMark && L.watermark.pos === 'left' && <Watermark theme={theme} text={watermark} inline />}
-      {showMark && L.watermark.pos === 'center' && (
-        <div style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)' }}>
-          <Watermark theme={theme} text={watermark} inline />
-        </div>
-      )}
-      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 24 }}>
-        {showMark && L.watermark.pos === 'right' && <Watermark theme={theme} text={watermark} inline />}
-        {showPage && (
-          <span style={{ color: p.muted, opacity: 0.85, fontSize: 26, letterSpacing: 2, whiteSpace: 'nowrap' }}>
-            {card.page} <span style={{ opacity: 0.5 }}>/ {card.totalPages ?? card.page}</span>
-          </span>
-        )}
-      </div>
-    </div>
-  )
+/** 六向锚点：页眉/页脚元素共用的定位系统（相对卡片，落在边距带内） */
+const chromeAnchor = (pos: ChromePos, L: XhsLayout): CSSProperties => {
+  const line = 32
+  const vertical = pos.startsWith('top')
+    ? { top: Math.max(8, Math.round((L.padding.top - line) / 2)) }
+    : { bottom: Math.max(12, Math.round((L.padding.bottom - line) / 2)) }
+  const horizontal = pos.endsWith('left')
+    ? { left: L.padding.left }
+    : pos.endsWith('right')
+      ? { right: L.padding.right }
+      : { left: '50%', transform: 'translateX(-50%)' }
+  return { position: 'absolute', lineHeight: `${line}px`, ...vertical, ...horizontal }
 }
 
-const Watermark = ({
-  theme,
-  text,
-  inline,
-  pos: posOverride,
-}: {
-  theme: XhsCardTheme
-  text?: string
-  inline?: boolean
-  /** 位置覆盖（封面用独立位置）；正文由调用方按 enabled 控制 */
-  pos?: 'left' | 'center' | 'right'
-}) => {
-  const L = theme.layout
+const Watermark = ({ theme, text, pos }: { theme: XhsCardTheme; text?: string; pos: ChromePos }) => {
   const content = (text ?? '').trim()
   if (!content) return null
-  const side = posOverride ?? L.watermark.pos
-  const pos: Record<string, CSSProperties> = {
-    left: { left: L.padding.left, right: 'auto', transform: 'none' },
-    center: { left: '50%', right: 'auto', transform: 'translateX(-50%)' },
-    right: { right: L.padding.right, left: 'auto', transform: 'none' },
-  }
-  if (inline) {
-    return (
-      <span
-        style={{
-          fontSize: 26,
-          color: theme.palette.muted,
-          opacity: 0.85,
-          letterSpacing: 1,
-          whiteSpace: 'nowrap',
-        }}
-      >
-        {content}
-      </span>
-    )
-  }
   return (
     <div
       style={{
-        position: 'absolute',
-        // 水印住在下边距带内，垂直居中（行盒约 32px）
-        bottom: Math.max(12, Math.round((theme.layout.padding.bottom - 32) / 2)),
+        ...chromeAnchor(pos, theme.layout),
         fontSize: 26,
         color: theme.palette.muted,
         opacity: 0.72,
         letterSpacing: 1,
         whiteSpace: 'nowrap',
-        ...pos[side],
+        pointerEvents: 'none',
       }}
     >
       {content}
     </div>
   )
 }
+
+/** 页码（位置由 header.pageNumPos 决定，与水印共用锚点系统） */
+const PageNumber = ({ theme, page, total, pos }: { theme: XhsCardTheme; page: number; total?: number; pos: ChromePos }) => (
+  <div
+    style={{
+      ...chromeAnchor(pos, theme.layout),
+      fontSize: 26,
+      color: theme.palette.muted,
+      opacity: 0.85,
+      letterSpacing: 2,
+      whiteSpace: 'nowrap',
+      pointerEvents: 'none',
+    }}
+  >
+    {page} <span style={{ opacity: 0.5 }}>/ {total ?? page}</span>
+  </div>
+)
 
 // ---------- 封面（六套版式：经典 / 竖排 / 巨字 / 杂志 / 书封 / 索引） ----------
 //
@@ -799,10 +758,12 @@ const CoverCard = ({
     .map(s => s.trim())
     .filter(Boolean)
   const titleLines = manualLines.length > 1 ? manualLines : splitCoverLines(titleText, [...titleText].length > 10 ? 2 : 1)
-  const scale = L.coverTitleScale ?? 1
+  /** 封面标题基准：用户设定绝对 px 时用它，否则按正文基准 × 版式比例 */
+  const coverBase = L.coverTitleSize ?? B.size * 2.35
+  const coverPx = (mult: number) => Math.round(coverBase * (mult / 2.35))
   const maxLineLen = Math.max(1, ...titleLines.map(l => [...l].length))
   /** 字号上限：保证最长一行放得下（宽 / 最长行字数），再受展示级基准封顶 */
-  const fitCoverSize = (base: number, width = 904) => Math.min(Math.round(base * scale), Math.round((width / maxLineLen) * scale))
+  const fitCoverSize = (base: number, width = 904) => Math.min(Math.round(base), Math.round(width / maxLineLen))
 
   const hair = `${p.text}24`
   const ink = p.heading
@@ -835,7 +796,8 @@ const CoverCard = ({
   if (L.coverStyle === 'vertical') {
     /* 竖排：汉字直排右起，左列为落款列（标签/副题/作者/印记），无落款时只留印章 */
     const n = [...titleText].length
-    const vSize = n <= 8 ? Math.round(B.size * 2.2) : n <= 16 ? Math.round(B.size * 1.9) : Math.round(B.size * 1.55)
+    const vRatio = (L.coverTitleSize ?? B.size * 2.2) / (B.size * 2.2)
+    const vSize = Math.round((n <= 8 ? B.size * 2.2 : n <= 16 ? B.size * 1.9 : B.size * 1.55) * vRatio)
     body = (
       <div style={{ display: 'flex', flex: 1, flexDirection: 'row-reverse', justifyContent: 'flex-start', alignItems: 'stretch', gap: 52 }}>
         <div
@@ -930,7 +892,7 @@ const CoverCard = ({
             <h1
               style={{
                 color: ink,
-                fontSize: fitCoverSize(B.size * 2.35),
+                fontSize: fitCoverSize(coverPx(2.35)),
                 lineHeight: 1.3,
                 fontWeight: 700,
                 letterSpacing: 1.5,
@@ -963,7 +925,7 @@ const CoverCard = ({
           <h1
             style={{
               color: ink,
-              fontSize: fitCoverSize(B.size * 2.15, 805),
+              fontSize: fitCoverSize(coverPx(2.15), 805),
               lineHeight: 1.45,
               fontWeight: 700,
               letterSpacing: 2,
@@ -999,7 +961,7 @@ const CoverCard = ({
           <h1
             style={{
               color: ink,
-              fontSize: fitCoverSize(B.size * 2.05),
+              fontSize: fitCoverSize(coverPx(2.05)),
               lineHeight: 1.36,
               fontWeight: 700,
               letterSpacing: 1.5,
@@ -1047,7 +1009,7 @@ const CoverCard = ({
       <h1
         style={{
           color: ink,
-          fontSize: fitCoverSize(B.size * 2.1),
+          fontSize: fitCoverSize(coverPx(2.1)),
           lineHeight: 1.36,
           fontWeight: 800,
           letterSpacing: 2,
@@ -1105,7 +1067,7 @@ const CoverCard = ({
       }}
     >
       {body}
-      {L.watermark.cover && <Watermark theme={theme} text={watermark} pos={L.watermark.coverPos} />}
+      {L.watermark.cover && <Watermark theme={theme} text={watermark} pos={normalizeChromePos(L.watermark.coverPos)} />}
     </div>
   )
 }
@@ -1165,8 +1127,11 @@ export const CardPage = ({ card, theme, watermark, coverText }: { card: XhsCard;
         </TypesetWidthCtx.Provider>
       </div>
 
-      {/* 页脚（下边距带）：水印 + 页码（右下） */}
-      <CardFooter card={card} theme={theme} watermark={watermark} />
+      {/* 页脚（六向锚点）：水印 + 页码 */}
+      {L.watermark.enabled && <Watermark theme={theme} text={watermark} pos={normalizeChromePos(L.watermark.pos)} />}
+      {L.header.showPageNum && (
+        <PageNumber theme={theme} page={card.page} total={card.totalPages} pos={normalizeChromePos(L.header.pageNumPos)} />
+      )}
     </div>
   )
 }

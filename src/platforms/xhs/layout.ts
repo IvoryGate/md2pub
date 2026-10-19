@@ -108,6 +108,8 @@ export function paginateFlow(
   blocks: Block[],
   m: BlockMeasures[],
   metrics: FlowMetrics,
+  /** 分页策略：optimal = 全篇 DP 最优；greedy = 顺序填满（首适应） */
+  mode: 'optimal' | 'greedy' = 'optimal',
 ): { pages: FlowUnit[][]; warnings: string[] } {
   const { availableHeight, blockGap } = metrics
   const warnings: string[] = []
@@ -217,12 +219,8 @@ export function paginateFlow(
     }
   }
 
-  // ---------- 还原分页计划（原子区间 → FlowUnit） ----------
-  const pages: FlowUnit[][] = []
-  let a = 0
-  while (a < N) {
-    const e = next[a]!
-    if (e <= a) break // 防御：理论不可达
+  // ---------- 原子区间 → FlowUnit ----------
+  const buildUnits = (a: number, e: number): FlowUnit[] => {
     const units: FlowUnit[] = []
     for (let k = a; k < e; ) {
       const at = atoms[k]!
@@ -255,8 +253,52 @@ export function paginateFlow(
       }
       units.push({ kind: 'list', index: at.block, fromItem: from, toItem: to, cont: from > 0 })
     }
-    if (units.length) pages.push(units)
-    a = e
+    return units
+  }
+
+  const pages: FlowUnit[][] = []
+
+  if (mode === 'greedy') {
+    // 顺序填页（首适应）：放不下就换页；页尾不留标题/引导块
+    let start = 0
+    let used = 0
+    let prevBlock = -1
+    const flushAt = (endAtom: number) => {
+      const u = buildUnits(start, endAtom)
+      if (u.length) pages.push(u)
+      start = endAtom
+      used = 0
+      prevBlock = -1
+    }
+    for (let b = 0; b < N; b++) {
+      const atom = atoms[b]!
+      const gap = b === start ? 0 : atom.block === prevBlock ? (atom.kind === 'item' ? atom.itemGap : 0) : blockGap
+      const h = atom.h - (b === start && atom.kind === 'block' ? atom.topMargin : 0)
+      if (b > start && used + gap + h > availableHeight + 0.5) {
+        let end = b
+        while (end > start + 1) {
+          const last = atoms[end - 1]!
+          if (last.kind === 'block' && last.keepAfter) end--
+          else break
+        }
+        flushAt(end)
+        b = end - 1
+        continue
+      }
+      used += gap + h
+      prevBlock = atom.block
+      if (atom.forceBreak) flushAt(b + 1)
+    }
+    if (start < N) flushAt(N)
+  } else {
+    let a = 0
+    while (a < N) {
+      const e = next[a]!
+      if (e <= a) break
+      const units = buildUnits(a, e)
+      if (units.length) pages.push(units)
+      a = e
+    }
   }
   if (pages.length === 0) pages.push([])
   return { pages, warnings }

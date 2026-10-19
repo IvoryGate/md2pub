@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Pencil, ChevronLeft, CodeXml, BookOpen } from 'lucide-react'
+import { Pencil, ChevronLeft, CodeXml, BookOpen, SeparatorHorizontal } from 'lucide-react'
 import CodeMirror from '@uiw/react-codemirror'
 import { EditorView, type ViewUpdate } from '@codemirror/view'
 import { markdown as markdownLang } from '@codemirror/lang-markdown'
@@ -190,6 +190,23 @@ export const EditorPanel = ({
   const viewRef = useRef<EditorView | null>(null)
   const { nums, schedule } = useLineNumbers(viewRef, holderRef)
 
+  /** 在光标处插入分页标记（阅读模式下先切回编辑） */
+  const insertPageBreak = () => {
+    if (editorMode === 'read') setEditorMode('edit')
+    window.setTimeout(() => {
+      const view = viewRef.current
+      if (!view) return
+      const { from, to } = view.state.selection.main
+      const nl = String.fromCharCode(10)
+      const snippet = nl + nl + '<!-- pagebreak -->' + nl + nl
+      view.dispatch({
+        changes: { from, to, insert: snippet },
+        selection: { anchor: from + snippet.length },
+      })
+      view.focus()
+    }, 60)
+  }
+
   // 块级渲染部件（mermaid / 表格 / 公式）点击即回到源码态：
   // CM 对块部件下半个区域的点击会映射到块之后，这里在捕获阶段拦截，
   // 直接把光标放进块起始位置（选区与块相交 → 块退回源码）。
@@ -238,6 +255,13 @@ export const EditorPanel = ({
           {fmt(stats.words)} 词 {fmt(stats.chars)} 字符
         </span>
         <div className="ml-auto flex items-center gap-2">
+          <button
+            className="flex h-6 w-6 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-black/[0.06] hover:text-ink"
+            onClick={insertPageBreak}
+            title="在光标处插入分页标记"
+          >
+            <SeparatorHorizontal className="h-3.5 w-3.5" strokeWidth={1.8} />
+          </button>
           {/* 三模式切换（Obsidian 对位）：源码 `</>` / 编辑 / 阅读 */}
           <nav className="segmented icon-only">
             {(['source', 'edit', 'read'] as const).map((m) => (

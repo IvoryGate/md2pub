@@ -28,12 +28,20 @@ export interface XhsPadding {
 }
 
 export type HeadingDecoration = 'none' | 'bar' | 'underline' | 'twin' | 'dots' | 'pill'
+
+/** 页眉/页脚元素锚点（六向） */
+export type ChromePos = 'top-left' | 'top-center' | 'top-right' | 'bottom-left' | 'bottom-center' | 'bottom-right'
+/** 兼容旧存档的 left/center/right（等价于底部三向） */
+export const normalizeChromePos = (p: string): ChromePos =>
+  p === 'left' ? 'bottom-left' : p === 'center' ? 'bottom-center' : p === 'right' ? 'bottom-right' : (p as ChromePos)
 export type HeadingLevel = 'h1' | 'h2' | 'h3' | 'h4'
 
 /** 分级标题样式（首个 h1 归封面；正文中的 h1 视为章节开头档，h5/h6 合并进 h4 的比例档） */
 export interface XhsHeadingStyle {
-  /** 相对正文字号的比例 */
+  /** 相对正文字号的比例（预设定义用） */
   sizeRatio: number
+  /** 绝对字号 px；设置后不再随正文缩放 */
+  size?: number
   /** 字重 400~800 */
   weight: number
   align: 'left' | 'center'
@@ -94,14 +102,16 @@ export interface XhsLayout {
   header: {
     showTag: boolean
     showPageNum: boolean
+    /** 页码锚点（默认右下） */
+    pageNumPos: ChromePos
     height: number
   }
   watermark: {
     enabled: boolean
-    pos: 'left' | 'center' | 'right'
+    pos: ChromePos
     /** 封面水印：独立开关 + 独立位置 */
     cover: boolean
-    coverPos: 'left' | 'center' | 'right'
+    coverPos: ChromePos
   }
   /** 封面：显式开关（不再由首个 h1 隐式决定）。
       关闭时首个 h1 留在正文，作为章节开头档（居中胶囊条 h1 档） */
@@ -110,8 +120,10 @@ export interface XhsLayout {
   coverStyle: 'classic' | 'vertical' | 'big' | 'editorial' | 'jacket' | 'index'
   /** 经典封面版式位置 */
   cover: 'top' | 'center' | 'bottom'
-  /** 封面标题整体缩放（0.8–1.3，1 = 版式基准） */
-  coverTitleScale: number
+  /** 封面标题绝对字号 px（设置后不随正文缩放） */
+  coverTitleSize?: number
+  /** 分页策略：全局最优（DP）/ 顺序贪心 */
+  pagination: 'optimal' | 'greedy'
 }
 
 export interface XhsPalette {
@@ -212,12 +224,12 @@ const baseLayout: XhsLayout = {
   table: { sizeRatio: 0.8, cellPad: 16 },
   image: { fullBleed: false, radius: 12, outline: true, marginY: 16 },
   divider: { gapY: 26 },
-  header: { showTag: true, showPageNum: true, height: 56 },
-  watermark: { enabled: true, pos: 'left', cover: true, coverPos: 'left' },
+  header: { showTag: true, showPageNum: true, pageNumPos: 'bottom-right', height: 56 },
+  watermark: { enabled: true, pos: 'bottom-left', cover: true, coverPos: 'bottom-left' },
   coverOn: true,
   coverStyle: 'classic',
   cover: 'center',
-  coverTitleScale: 1,
+  pagination: 'optimal',
 }
 
 export const XHS_THEMES: XhsCardTheme[] = [

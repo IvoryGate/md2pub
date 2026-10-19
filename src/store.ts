@@ -2,6 +2,14 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { deepMerge, type XhsStyleOverrides } from './platforms/xhs'
 
+export interface CustomPreset {
+  id: string
+  name: string
+  themeId: string
+  overrides: XhsStyleOverrides
+  coverText: { title: string; subtitle: string; author: string; tags: string }
+}
+
 const DEFAULT_MD = `# 从展示到安装：买量的几个基础指标
 
 买量这个过程是这样的：你花钱投了广告。用户在刷手机时，看到你的广告，被吸引住了，顺手点了一下。页面随即跳到应用商店。这时 ta 仍对你的这个产品感兴趣，于是点了下载，马上就打开，或者等会儿再打开。
@@ -31,6 +39,11 @@ export const useStore = create<{
   /** 封面文字（与正文解耦：留空则回退到文档元数据；面板「封面」区编辑） */
   coverText: { title: string; subtitle: string; author: string; tags: string }
   setCoverText: (p: Partial<{ title: string; subtitle: string; author: string; tags: string }>) => void
+  /** 用户保存的样式预设（主题 + 覆盖 + 封面文字快照） */
+  customPresets: CustomPreset[]
+  savePreset: (name: string) => void
+  deletePreset: (id: string) => void
+  applyPreset: (id: string) => void
   watermark: string
   setWatermark: (s: string) => void
   /** 编辑器模式：source = 纯源码；edit = 实时预览；read = 阅读视图 */
@@ -51,6 +64,27 @@ export const useStore = create<{
       setSize: (size) => set({ size }),
       coverText: { title: '', subtitle: '', author: '', tags: '' },
       setCoverText: (p) => set((s) => ({ coverText: { ...s.coverText, ...p } })),
+      customPresets: [],
+      savePreset: (name) =>
+        set((s) => ({
+          customPresets: [
+            ...s.customPresets,
+            {
+              id: `p${Date.now().toString(36)}`,
+              name: name.trim() || `我的样式 ${s.customPresets.length + 1}`,
+              themeId: s.themeId,
+              overrides: JSON.parse(JSON.stringify(s.overrides)),
+              coverText: { ...s.coverText },
+            },
+          ],
+        })),
+      deletePreset: (id) => set((s) => ({ customPresets: s.customPresets.filter((p) => p.id !== id) })),
+      applyPreset: (id) =>
+        set((s) => {
+          const p = s.customPresets.find((x) => x.id === id)
+          if (!p) return {}
+          return { themeId: p.themeId, overrides: JSON.parse(JSON.stringify(p.overrides)), coverText: { ...p.coverText } }
+        }),
       watermark: '@IvoryGate/md2pub',
       setWatermark: (watermark) => set({ watermark }),
       editorMode: 'edit',

@@ -98,10 +98,12 @@ export const XhsMeasureLayer = ({ doc, theme, sizeName, cover, onCardSet }: Meas
     const offset = 0
     const bodyBlocks = doc.blocks.slice(offset)
     const m: BlockMeasures[] = bodyBlocks.map((_, k) => measures[offset + k] ?? { height: 0 })
-    const { pages, warnings } = paginateFlow(bodyBlocks, m, {
-      availableHeight,
-      blockGap: theme.layout.body.paragraphSpacing,
-    })
+    const { pages, warnings } = paginateFlow(
+      bodyBlocks,
+      m,
+      { availableHeight, blockGap: theme.layout.body.paragraphSpacing },
+      theme.layout.pagination ?? 'optimal',
+    )
 
     // ---------- 拆分单元解析 ----------
     const lineCount = (docIndex: number): number => {
