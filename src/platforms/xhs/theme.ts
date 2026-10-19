@@ -125,6 +125,38 @@ export interface XhsCardTheme {
   bulletSymbol: string
 }
 
+/** mermaid theme:'base' 的调色变量——全部从卡片色板/字体派生，图表与卡片同调 */
+export const xhsMermaidVars = (theme: XhsCardTheme): Record<string, string> => {
+  const p = theme.palette
+  return {
+    fontFamily: theme.fontFamily,
+    background: 'transparent',
+    // 主节点：accent 淡染底 + accent 描边 + 正文色文字
+    primaryColor: `${p.accent}24`,
+    primaryTextColor: p.text,
+    primaryBorderColor: p.accent,
+    secondaryColor: p.quoteBg,
+    tertiaryColor: `${p.accent}0d`,
+    lineColor: p.text,
+    // 决策线/标注文字与正文同明度，不抢戏
+    edgeLabelBackground: p.bg,
+    clusterBkg: `${p.accent}0d`,
+    clusterBorder: `${p.accent}40`,
+    noteBkgColor: p.quoteBg,
+    noteBorderColor: `${p.accent}4d`,
+    noteTextColor: p.text,
+    titleColor: p.heading,
+    // 时序图
+    mainBkg: `${p.accent}18`,
+    actorBorder: p.accent,
+    actorTextColor: p.text,
+    signalColor: p.text,
+    signalTextColor: p.text,
+    activationBkgColor: p.quoteBg,
+    activationBorderColor: p.accent,
+  }
+}
+
 /* 卡片正文首选霞鹜文楷（由 index.css 引入 @font-face，离线打包可用）；
    后备保持系统黑体族以防分片未就绪 */
 const FONT_SANS = '"LXGW WenKai", PingFang SC, Microsoft YaHei, Noto Sans SC, sans-serif'
@@ -160,7 +192,7 @@ const baseLayout: XhsLayout = {
   quote: { pad: 24, radius: 12 },
   blocks: { marginY: 16 },
   code: { sizeRatio: 0.62, pad: 25, radius: 16, showLang: true },
-  table: { sizeRatio: 0.62, cellPad: 14 },
+  table: { sizeRatio: 0.8, cellPad: 16 },
   image: { fullBleed: false, radius: 12, outline: true, marginY: 16 },
   divider: { gapY: 26 },
   header: { showTag: true, showPageNum: true, height: 56 },

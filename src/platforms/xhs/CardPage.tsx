@@ -4,6 +4,7 @@ import { renderInline, stripInline } from '../../core/document/parse'
 import { highlightCodeLines } from '../../core/highlight'
 import type { XhsCard, XhsCardBlock } from './layout'
 import type { XhsCardTheme, XhsHeadingStyle } from './theme'
+import { xhsMermaidVars } from './theme'
 import { useDiagramSvg } from '../shared-blocks'
 
 /**
@@ -35,8 +36,8 @@ const MathBlock = ({ text, theme }: { text: string; theme: XhsCardTheme }) => {
   )
 }
 
-const MermaidBlock = ({ text }: { text: string }) => {
-  const { svg, error } = useDiagramSvg('mermaid', text)
+const MermaidBlock = ({ text, theme }: { text: string; theme: XhsCardTheme }) => {
+  const { svg, error } = useDiagramSvg('mermaid', text, { mermaidVars: xhsMermaidVars(theme) })
   if (error)
     return (
       <div style={{ fontFamily: 'monospace', fontSize: 24, color: '#c0564e', whiteSpace: 'pre-wrap' }}>
@@ -400,7 +401,7 @@ export const BlockView = ({
     case 'mermaid':
       return (
         <figure style={{ margin: `${L.blocks.marginY}px 0` }}>
-          <MermaidBlock text={block.text} />
+          <MermaidBlock text={block.text} theme={theme} />
         </figure>
       )
     case 'plantuml':
