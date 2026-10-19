@@ -28,6 +28,9 @@ export const useStore = create<{
   setThemeId: (id: string) => void
   size: '3:4' | '1:1' | '4:5'
   setSize: (s: '3:4' | '1:1' | '4:5') => void
+  /** 封面文字（与正文解耦：留空则回退到文档元数据；面板「封面」区编辑） */
+  coverText: { title: string; subtitle: string; author: string; tags: string }
+  setCoverText: (p: Partial<{ title: string; subtitle: string; author: string; tags: string }>) => void
   watermark: string
   setWatermark: (s: string) => void
   /** 编辑器模式：source = 纯源码；edit = 实时预览；read = 阅读视图 */
@@ -46,6 +49,8 @@ export const useStore = create<{
       setThemeId: (themeId) => set({ themeId }),
       size: '3:4',
       setSize: (size) => set({ size }),
+      coverText: { title: '', subtitle: '', author: '', tags: '' },
+      setCoverText: (p) => set((s) => ({ coverText: { ...s.coverText, ...p } })),
       watermark: '@md2pub',
       setWatermark: (watermark) => set({ watermark }),
       editorMode: 'edit',

@@ -99,7 +99,7 @@ export interface XhsLayout {
       关闭时首个 h1 留在正文，作为章节开头档（居中胶囊条 h1 档） */
   coverOn: boolean
   /** 封面样式：classic 经典 / editorial 杂志 / poster 海报 / jacket 书封 / index 索引 */
-  coverStyle: 'classic' | 'editorial' | 'poster' | 'jacket' | 'index'
+  coverStyle: 'classic' | 'vertical' | 'big' | 'editorial' | 'jacket' | 'index'
   /** 经典封面版式位置 */
   cover: 'top' | 'center' | 'bottom'
 }

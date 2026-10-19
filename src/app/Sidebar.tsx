@@ -111,8 +111,42 @@ const ToggleRow = ({
   </div>
 )
 
+const CoverInput = ({
+  label,
+  value,
+  placeholder,
+  onChange,
+  multiline,
+}: {
+  label: string
+  value: string
+  placeholder: string
+  onChange: (v: string) => void
+  multiline?: boolean
+}) => (
+  <label className="flex items-start gap-2">
+    <span className={`w-10 shrink-0 text-[11px] text-ink-faint ${multiline ? 'pt-1.5' : ''}`}>{label}</span>
+    {multiline ? (
+      <textarea
+        rows={2}
+        className="w-full resize-none rounded-lg bg-black/[0.05] px-2.5 py-1.5 text-[12.5px] leading-relaxed text-ink outline-none transition-colors placeholder:text-ink-faint focus:bg-black/[0.08]"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+      />
+    ) : (
+      <input
+        className="w-full rounded-lg bg-black/[0.05] px-2.5 py-1.5 text-[12.5px] text-ink outline-none transition-colors placeholder:text-ink-faint focus:bg-black/[0.08]"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+      />
+    )}
+  </label>
+)
+
 export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
-  const { themeId, setThemeId, overrides, patchLayout, resetOverrides, watermark, setWatermark } = useStore()
+  const { themeId, setThemeId, overrides, patchLayout, resetOverrides, watermark, setWatermark, coverText, setCoverText } = useStore()
   // 面板实时值 = 主题预设 + 用户覆盖（控件反映实际生效值）
   const L: XhsLayout = applyXhsOverrides(baseTheme, overrides).layout
   const [headingTab, setHeadingTab] = useState<'h2' | 'h3' | 'h4'>('h2')
@@ -171,18 +205,40 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
           <ToggleRow label="开启封面" value={L.coverOn} onChange={(v) => patch({ coverOn: v })} />
           {L.coverOn && (
             <>
-              <SegRow
-                label="封面样式"
-                value={L.coverStyle}
-                options={[
-                  { value: 'classic' as const, label: '经典' },
-                  { value: 'editorial' as const, label: '杂志' },
-                  { value: 'poster' as const, label: '海报' },
-                  { value: 'jacket' as const, label: '书封' },
-                  { value: 'index' as const, label: '索引' },
-                ]}
-                onChange={(v) => patch({ coverStyle: v })}
-              />
+              {/* 封面文字（与正文内容解耦；留空回退文档元数据） */}
+              <div className="mt-1 space-y-1.5">
+                <CoverInput label="标题" value={coverText.title} placeholder="封面标题" multiline onChange={(v) => setCoverText({ title: v })} />
+                <p className="pl-12 text-[10.5px] leading-relaxed text-ink-faint">
+                  回车换行 = 断行位置；不手动换行则由算法平衡
+                </p>
+                <CoverInput label="副标题" value={coverText.subtitle} placeholder="副标题（可选，一句副题）" onChange={(v) => setCoverText({ subtitle: v })} />
+                <CoverInput label="作者" value={coverText.author} placeholder="作者 / 署名（可选）" onChange={(v) => setCoverText({ author: v })} />
+                <CoverInput label="标签" value={coverText.tags} placeholder="话题标签（可选，逗号分隔）" onChange={(v) => setCoverText({ tags: v })} />
+              </div>
+
+              {/* 封面样式：两行网格（六套） */}
+              <div className="mt-2 grid grid-cols-3 gap-1.5">
+                {(
+                  [
+                    ['classic', '经典'],
+                    ['vertical', '竖排'],
+                    ['big', '巨字'],
+                    ['editorial', '杂志'],
+                    ['jacket', '书封'],
+                    ['index', '索引'],
+                  ] as const
+                ).map(([value, label]) => (
+                  <button
+                    key={value}
+                    onClick={() => patch({ coverStyle: value })}
+                    className={`rounded-lg px-2 py-1.5 text-[12px] transition-colors ${
+                      L.coverStyle === value ? 'bg-[#1d1d1f] text-white' : 'bg-black/[0.05] text-ink-soft hover:bg-black/[0.08]'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
               {L.coverStyle === 'classic' && (
                 <SegRow
                   label="经典位置"

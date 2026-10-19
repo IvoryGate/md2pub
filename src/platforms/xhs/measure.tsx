@@ -93,9 +93,9 @@ export const XhsMeasureLayer = ({ doc, theme, sizeName, cover, onCardSet }: Meas
     // ---------- 分页（layout.ts 纯逻辑） ----------
     const dims = XHS_CARD_SIZES[sizeName]
     const { availableHeight } = computeContentMetrics(dims, theme)
-    // 封面已展示 doc 标题（meta.title 即首个 heading 文本），正文不重复渲染该块
-    const skipTitle = cover === 'auto' && doc.blocks[0]?.type === 'heading'
-    const offset = skipTitle ? 1 : 0
+    // 封面内容与正文完全解耦：封面文字来自样式面板（coverText），
+    // 正文首个 heading 不再被吞掉，作为普通章节 h1 进入正文流
+    const offset = 0
     const bodyBlocks = doc.blocks.slice(offset)
     const m: BlockMeasures[] = bodyBlocks.map((_, k) => measures[offset + k] ?? { height: 0 })
     const { pages, warnings } = paginateFlow(bodyBlocks, m, {

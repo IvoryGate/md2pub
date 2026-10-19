@@ -700,35 +700,95 @@ const Watermark = ({ theme, text, inline }: { theme: XhsCardTheme; text?: string
   )
 }
 
-// ---------- 封面（五套版式：经典 / 杂志 / 海报 / 书封 / 索引） ----------
+// ---------- 封面（六套版式：经典 / 竖排 / 巨字 / 杂志 / 书封 / 索引） ----------
 //
-// 设计原则（与正文同一套纸墨语言）：
-// 1. 一版一概念：每套封面只讲一件事，装饰不超过「细线 + 一个强调色块」
-// 2. 中文大字是唯一主角：字号按字数自适应，行距、字距按展示级排版给
-// 3. 光学对齐：标题块落在版面的视觉中心偏上（约 42%），不用几何中心
-// 4. 不依赖可选内容：标题以外的标签/作者缺失时版面依然完整
+// 平面设计原则（来自书封/杂志封面方法论）：
+// 1. 一版一概念：每套只讲一件事，装饰 ≤「细线 + 一个强调色块」
+// 2. 字体即图形：中文大字的字号/字距/行距按展示级排版，标题是唯一主角
+// 3. 留白是构图材料：标题落在视觉中心（约 42%），不是几何中心
+// 4. 元素完整：标题 / 副标题 / 作者 / 标签 四件套在任何版式里都有位置；
+//    缺省回退文档元数据，面板可独立编辑（coverText）
+// 5. 克制：纸色 + 墨色 + 单一强调色；不用渐变堆叠、不用伪 3D
 
-/** 标题字号自适应：按字数收缩，长标题不破版（短标题保持气势） */
-const coverTitleSize = (t: string, base: number) => {
-  const n = [...t].length
-  if (n <= 8) return base
-  if (n <= 14) return Math.round(base * 0.86)
-  if (n <= 22) return Math.round(base * 0.72)
-  return Math.round(base * 0.62)
+export interface CoverTextInfo {
+  title: string
+  subtitle: string
+  author: string
+  tags: string
 }
 
-const CoverCard = ({ card, theme, watermark }: { card: XhsCard; theme: XhsCardTheme; watermark?: string }) => {
+/** 括号感知的平衡断行：封面巨字按语义块均分两行，不拆「（三）」这类成对符号 */
+const splitCoverLines = (text: string, maxLines: number): string[] => {
+  const chars = [...text]
+  if (maxLines <= 1 || chars.length <= 6) return [text]
+  // 语义块：成对括号整体成块，其余逐字
+  const groups: string[] = []
+  const openers = '（(《「『【〔'
+  const closers = '）)》」』】〕'
+  for (let i = 0; i < chars.length; i++) {
+    const c = chars[i]!
+    const oi = openers.indexOf(c)
+    if (oi >= 0) {
+      let j = i + 1
+      while (j < chars.length && chars[j] !== closers[oi]) j++
+      if (j < chars.length) {
+        groups.push(chars.slice(i, j + 1).join(''))
+        i = j
+        continue
+      }
+    }
+    groups.push(c)
+  }
+  if (groups.length <= maxLines) return [groups.join('')]
+  const per = Math.ceil(groups.length / maxLines)
+  const out: string[] = []
+  for (let i = 0; i < groups.length; i += per) out.push(groups.slice(i, i + per).join(''))
+  return out
+}
+
+/** 标题行渲染：逐行 nowrap，避免浏览器把最后一个字单独折行（孤字） */
+const TitleLines = ({ lines, align = 'left' }: { lines: string[]; align?: 'left' | 'center' }) => (
+  <>
+    {lines.map((l, i) => (
+      <div key={i} style={{ whiteSpace: 'nowrap', textAlign: align }}>
+        {l}
+      </div>
+    ))}
+  </>
+)
+
+const CoverCard = ({
+  theme,
+  watermark,
+  coverText,
+}: {
+  theme: XhsCardTheme
+  watermark?: string
+  coverText?: CoverTextInfo
+}) => {
   const p = theme.palette
   const L = theme.layout
   const B = L.body
-  const meta = card.meta
-  const titleText = meta?.title ?? ''
-  const tags = meta?.tags ?? []
-  const author = meta?.author ?? ''
-  const tagLine = tags[0] ? `#${tags[0]}#` : ''
-  const subTags = tags.slice(1)
+  const ct = coverText ?? { title: '', subtitle: '', author: '', tags: '' }
 
-  /* 纸墨语言：hairline 用墨色 12%，强调色只出现一次 */
+  /* 封面内容 100% 来自封面设置（coverText）——不再从正文首个 h1 / 文档元数据回退 */
+  const tagList = ct.tags.trim() ? ct.tags.split(/[,，\s]+/).filter(Boolean) : []
+  const titleText = ct.title.trim()
+  const author = ct.author.trim()
+  const subtitle = ct.subtitle.trim()
+  const tagLine = tagList[0] ? `#${tagList[0]}#` : ''
+  /* 封面标题行：
+     - 手动断点优先：面板标题输入框里的换行即断行位置（换行符不渲染）
+     - 未指定时自动平衡两行（括号整体不拆、避免孤字） */
+  const manualLines = ct.title
+    .split('\n')
+    .map(s => s.trim())
+    .filter(Boolean)
+  const titleLines = manualLines.length > 1 ? manualLines : splitCoverLines(titleText, [...titleText].length > 10 ? 2 : 1)
+  const maxLineLen = Math.max(1, ...titleLines.map(l => [...l].length))
+  /** 字号上限：保证最长一行放得下（宽 / 最长行字数），再受展示级基准封顶 */
+  const fitCoverSize = (base: number, width = 904) => Math.min(Math.round(base), Math.round(width / maxLineLen))
+
   const hair = `${p.text}24`
   const ink = p.heading
   const accent = p.accent
@@ -752,33 +812,111 @@ const CoverCard = ({ card, theme, watermark }: { card: XhsCard; theme: XhsCardTh
     flexDirection: 'column',
   }
 
-  /* 标签：有话题时显示 #标签#；无标签时返回 null（不留孤立色块——那看起来像脏点，
-     需要报头记号的版式各自提供成形的替代装饰） */
   const tagEl = (size = 26, tracking = 5) =>
-    tagLine ? (
-      <div style={{ letterSpacing: tracking, color: accent, fontSize: size, fontWeight: 700 }}>{tagLine.toUpperCase()}</div>
-    ) : null
-
-  /** 报头记号：无标签时用短 accent 条替代（成形的装饰，不是孤点） */
+    tagLine ? <div style={{ letterSpacing: tracking, color: accent, fontSize: size, fontWeight: 700 }}>{tagLine.toUpperCase()}</div> : null
   const mastheadMark = (w = 44, h = 4) => <div style={{ width: w, height: h, borderRadius: 2, background: accent }} />
 
   let body: ReactNode
 
-  if (L.coverStyle === 'editorial') {
-    /* 杂志：报头细线 + 大幅左齐标题 + 短强调线 + 页脚作者 */
+  if (L.coverStyle === 'vertical') {
+    /* 竖排：汉字直排右起，左列为落款列（标签/副题/作者/印记），无落款时只留印章 */
+    const n = [...titleText].length
+    const vSize = n <= 8 ? Math.round(B.size * 2.2) : n <= 16 ? Math.round(B.size * 1.9) : Math.round(B.size * 1.55)
+    body = (
+      <div style={{ display: 'flex', flex: 1, flexDirection: 'row-reverse', justifyContent: 'flex-start', alignItems: 'stretch', gap: 52 }}>
+        <div
+          style={{
+            writingMode: 'vertical-rl',
+            textOrientation: 'upright',
+            color: ink,
+            fontSize: vSize,
+            lineHeight: 1.5,
+            fontWeight: 700,
+            letterSpacing: 6,
+            maxHeight: '100%',
+            textAlign: 'start',
+          }}
+        >
+          {titleText}
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', gap: 24, paddingTop: 10, paddingBottom: 10 }}>
+          {tagLine && (
+            <div
+              style={{
+                writingMode: 'vertical-rl',
+                textOrientation: 'upright',
+                fontSize: 21,
+                letterSpacing: 8,
+                color: accent,
+                fontWeight: 700,
+                marginBottom: 'auto',
+              }}
+            >
+              {tagLine}
+            </div>
+          )}
+          {subtitle && (
+            <div style={{ writingMode: 'vertical-rl', textOrientation: 'upright', fontSize: 19, letterSpacing: 4, color: mutedInk }}>
+              {subtitle}
+            </div>
+          )}
+          {author && (
+            <div style={{ writingMode: 'vertical-rl', textOrientation: 'upright', fontSize: 20, letterSpacing: 6, color: mutedInk }}>
+              {author}
+            </div>
+          )}
+          <div style={{ width: 30, height: 30, borderRadius: 3, background: accent }} />
+        </div>
+      </div>
+    )
+  } else if (L.coverStyle === 'big') {
+    /* 巨字：字体即图像——语义平衡断行（两句一行 / 两行均分），
+       每行按版宽 ×1.02 计算字号，右缘轻微出血到页边距，由圆角裁切收边 */
+    const size = Math.max(Math.round(B.size * 2.2), Math.min(Math.round((992 / maxLineLen) * 1.02), 240))
+    body = (
+      <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+        {tagLine ? (
+          <div style={{ fontSize: 20, letterSpacing: 6, color: accent, fontWeight: 700 }}>{tagLine}</div>
+        ) : (
+          mastheadMark(44, 4)
+        )}
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
+          <h1
+            style={{
+              width: `calc(100% + ${L.padding.right}px)`,
+              margin: 0,
+              marginRight: -L.padding.right,
+              color: ink,
+              fontSize: size,
+              lineHeight: 1.04,
+              fontWeight: 800,
+              letterSpacing: -2,
+            }}
+          >
+            <TitleLines lines={titleLines} />
+          </h1>
+        </div>
+        <div style={{ height: 1, background: hair, marginBottom: 22 }} />
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', fontSize: 22, letterSpacing: 3, color: mutedInk }}>
+          <span>{author}</span>
+          <span>{subtitle}</span>
+        </div>
+      </div>
+    )
+  } else if (L.coverStyle === 'editorial') {
+    /* 杂志：报头 + 大幅左齐标题 + 强调线 + 页脚细线 */
     body = (
       <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           {tagLine ? tagEl(26, 6) : mastheadMark()}
         </div>
         <div style={{ height: 1, background: hair, marginTop: 26 }} />
-
         <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
           <div style={{ width: '100%', transform: 'translateY(-2%)' }}>
             <h1
               style={{
                 color: ink,
-                fontSize: coverTitleSize(titleText, B.size * 2.35),
+                fontSize: fitCoverSize(B.size * 2.35),
                 lineHeight: 1.3,
                 fontWeight: 700,
                 letterSpacing: 1.5,
@@ -787,17 +925,14 @@ const CoverCard = ({ card, theme, watermark }: { card: XhsCard; theme: XhsCardTh
                 wordBreak: 'break-word',
               }}
             >
-              {titleText}
+              <TitleLines lines={titleLines} />
             </h1>
             <div style={{ width: 72, height: 6, borderRadius: 3, background: accent, marginTop: 44 }} />
-            {subTags.length > 0 && (
-              <div style={{ marginTop: 36, fontSize: 26, lineHeight: 1.9, letterSpacing: 2, color: mutedInk }}>
-                {subTags.join('　·　')}
-              </div>
+            {subtitle && (
+              <div style={{ marginTop: 36, fontSize: 26, lineHeight: 1.9, letterSpacing: 2, color: mutedInk }}>{subtitle}</div>
             )}
           </div>
         </div>
-
         <div style={{ height: 1, background: hair, marginBottom: 22 }} />
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 22, letterSpacing: 3, color: mutedInk }}>
           <span>{author}</span>
@@ -805,94 +940,16 @@ const CoverCard = ({ card, theme, watermark }: { card: XhsCard; theme: XhsCardTh
         </div>
       </div>
     )
-  } else if (L.coverStyle === 'poster') {
-    /* 海报：巨字 + 幽灵首字（标题第一个字放大 8 倍作背景）+ 胶囊条 */
-    const ghost = [...titleText][0] ?? ''
-    body = (
-      <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', flex: 1 }}>
-        {ghost && (
-          <div
-            aria-hidden
-            style={{
-              position: 'absolute',
-              right: -110,
-              bottom: -190,
-              fontSize: 640,
-              lineHeight: 1,
-              fontWeight: 700,
-              color: `${accent}0d`,
-              userSelect: 'none',
-              pointerEvents: 'none',
-            }}
-          >
-            {ghost}
-          </div>
-        )}
-        <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', paddingTop: 8 }}>{tagEl(24, 6)}</div>
-        <div
-          style={{
-            position: 'relative',
-            flex: 1,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            textAlign: 'center',
-            transform: 'translateY(-2%)',
-          }}
-        >
-          <div style={{ width: '100%' }}>
-            <h1
-              style={{
-                color: ink,
-                fontSize: coverTitleSize(titleText, B.size * 2.75),
-                lineHeight: 1.3,
-                fontWeight: 800,
-                letterSpacing: 4,
-                margin: 0,
-                whiteSpace: 'pre-wrap',
-                wordBreak: 'break-word',
-              }}
-            >
-              {titleText}
-            </h1>
-            <div
-              style={{
-                width: 176,
-                height: 8,
-                borderRadius: 4,
-                margin: '48px auto 0',
-                background: `linear-gradient(90deg, ${accent}55, ${accent}, ${accent}55)`,
-              }}
-            />
-            {subTags.length > 0 && (
-              <div style={{ marginTop: 40, fontSize: 26, lineHeight: 1.9, letterSpacing: 2, color: mutedInk }}>
-                {subTags.join('　·　')}
-              </div>
-            )}
-          </div>
-        </div>
-        <div style={{ position: 'relative', textAlign: 'center', fontSize: 22, letterSpacing: 4, color: mutedInk }}>{author}</div>
-      </div>
-    )
   } else if (L.coverStyle === 'jacket') {
-    /* 书封：细线内框 + 居中书名 + 底部小方点（唯一装饰） */
+    /* 书封：细线内框 + 居中书名 + 版脚作者（装帧语言） */
     body = (
-      <div
-        style={{
-          flex: 1,
-          border: `1.5px solid ${accent}4d`,
-          padding: '56px 48px',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-        }}
-      >
+      <div style={{ flex: 1, border: `1.5px solid ${accent}4d`, padding: '56px 48px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         <div style={{ display: 'flex', justifyContent: 'center' }}>{tagEl(24, 6)}</div>
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', width: '100%', transform: 'translateY(-3%)' }}>
           <h1
             style={{
               color: ink,
-              fontSize: coverTitleSize(titleText, B.size * 2.15),
+              fontSize: fitCoverSize(B.size * 2.15, 805),
               lineHeight: 1.45,
               fontWeight: 700,
               letterSpacing: 2,
@@ -903,21 +960,19 @@ const CoverCard = ({ card, theme, watermark }: { card: XhsCard; theme: XhsCardTh
               wordBreak: 'break-word',
             }}
           >
-            {titleText}
+            <TitleLines lines={titleLines} align="center" />
           </h1>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24 }}>
-          {subTags.length > 0 && (
-            <div style={{ fontSize: 24, letterSpacing: 3, color: mutedInk, lineHeight: 1.9 }}>{subTags.join('　·　')}</div>
-          )}
+          {subtitle && <div style={{ fontSize: 24, letterSpacing: 3, color: mutedInk, lineHeight: 1.9 }}>{subtitle}</div>}
           <div style={{ width: 32, height: 2, borderRadius: 1, background: `${accent}80` }} />
           {author && <div style={{ fontSize: 22, letterSpacing: 3, color: mutedInk }}>{author}</div>}
         </div>
       </div>
     )
   } else if (L.coverStyle === 'index') {
-    /* 索引：目录式结构——顶部栏目字 + 细线 + 左齐标题 + 标签索引行 */
-    const rows = tags.slice(0, 4)
+    /* 索引：目录式结构——栏目字 + 细线 + 居中标题 + 标签索引行 */
+    const rows = tagList.slice(0, 4)
     body = (
       <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 20, letterSpacing: 6, color: accent }}>
@@ -930,7 +985,7 @@ const CoverCard = ({ card, theme, watermark }: { card: XhsCard; theme: XhsCardTh
           <h1
             style={{
               color: ink,
-              fontSize: coverTitleSize(titleText, B.size * 2.05),
+              fontSize: fitCoverSize(B.size * 2.05),
               lineHeight: 1.36,
               fontWeight: 700,
               letterSpacing: 1.5,
@@ -939,12 +994,13 @@ const CoverCard = ({ card, theme, watermark }: { card: XhsCard; theme: XhsCardTh
               wordBreak: 'break-word',
             }}
           >
-            {titleText}
+            <TitleLines lines={titleLines} />
           </h1>
+          {subtitle && <div style={{ marginTop: 30, fontSize: 24, letterSpacing: 2, color: mutedInk }}>{subtitle}</div>}
 
-          {rows.length > 0 && (
+          {rows.length > 1 && (
             <div style={{ marginTop: 56 }}>
-              {rows.map((t, i) => (
+              {rows.slice(1).map((t, i) => (
                 <div
                   key={i}
                   style={{
@@ -972,12 +1028,12 @@ const CoverCard = ({ card, theme, watermark }: { card: XhsCard; theme: XhsCardTh
       </div>
     )
   } else {
-    /* 经典：上置 / 居中 / 下置（原有骨架，标题字距与行距按展示级微调） */
+    /* 经典：上置 / 居中 / 下置 */
     const title = (
       <h1
         style={{
           color: ink,
-          fontSize: coverTitleSize(titleText, B.size * 2.1),
+          fontSize: fitCoverSize(B.size * 2.1),
           lineHeight: 1.36,
           fontWeight: 800,
           letterSpacing: 2,
@@ -987,7 +1043,7 @@ const CoverCard = ({ card, theme, watermark }: { card: XhsCard; theme: XhsCardTh
           wordBreak: 'break-word',
         }}
       >
-        {titleText}
+        <TitleLines lines={titleLines} align={L.cover === 'center' ? 'center' : 'left'} />
       </h1>
     )
     body =
@@ -998,14 +1054,14 @@ const CoverCard = ({ card, theme, watermark }: { card: XhsCard; theme: XhsCardTh
             {author && <div style={{ fontSize: 24, color: mutedInk, letterSpacing: 3 }}>{author}</div>}
           </div>
           {title}
-          {subTags.length > 0 && <div style={{ fontSize: 26, color: mutedInk, letterSpacing: 3 }}>{subTags.join('　·　')}</div>}
+          {subtitle && <div style={{ fontSize: 26, color: mutedInk, letterSpacing: 3 }}>{subtitle}</div>}
           <div style={{ width: 120, height: 7, borderRadius: 4, background: accent, marginTop: 26 }} />
         </>
       ) : L.cover === 'center' ? (
         <>
           <div style={{ display: 'flex', justifyContent: 'center' }}>{tagEl(26, 5)}</div>
           {title}
-          {subTags.length > 0 && <div style={{ fontSize: 26, color: mutedInk, letterSpacing: 3, textAlign: 'center' }}>{subTags.join('　·　')}</div>}
+          {subtitle && <div style={{ fontSize: 26, color: mutedInk, letterSpacing: 3, textAlign: 'center' }}>{subtitle}</div>}
           <div style={{ width: 120, height: 7, borderRadius: 4, background: accent, margin: '4px auto 0' }} />
           <div style={{ textAlign: 'center', fontSize: 24, color: mutedInk, letterSpacing: 3 }}>{author}</div>
         </>
@@ -1014,7 +1070,7 @@ const CoverCard = ({ card, theme, watermark }: { card: XhsCard; theme: XhsCardTh
           <div style={{ display: 'flex', flexDirection: 'column', gap: 32, marginTop: '4%' }}>
             {tagEl(26, 5)}
             {title}
-            {subTags.length > 0 && <div style={{ fontSize: 26, color: mutedInk, letterSpacing: 3 }}>{subTags.join('　·　')}</div>}
+            {subtitle && <div style={{ fontSize: 26, color: mutedInk, letterSpacing: 3 }}>{subtitle}</div>}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 18, marginBottom: '1%' }}>
             {author && <div style={{ fontSize: 24, color: mutedInk, letterSpacing: 3 }}>{author}</div>}
@@ -1040,7 +1096,7 @@ const CoverCard = ({ card, theme, watermark }: { card: XhsCard; theme: XhsCardTh
   )
 }
 
-export const CardPage = ({ card, theme, watermark }: { card: XhsCard; theme: XhsCardTheme; watermark?: string }) => {
+export const CardPage = ({ card, theme, watermark, coverText }: { card: XhsCard; theme: XhsCardTheme; watermark?: string; coverText?: CoverTextInfo }) => {
   const p = theme.palette
   const L = theme.layout
   /* KP 排版需要渲染前知道内容宽：卡片根自测（clientWidth − 左右 padding），
@@ -1057,7 +1113,7 @@ export const CardPage = ({ card, theme, watermark }: { card: XhsCard; theme: Xhs
     return () => ro.disconnect()
   }, [L.padding.left, L.padding.right])
 
-  if (card.kind === 'cover') return <CoverCard card={card} theme={theme} />
+  if (card.kind === 'cover') return <CoverCard theme={theme} watermark={watermark} coverText={coverText} />
 
   return (
     <div
