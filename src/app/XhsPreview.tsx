@@ -7,7 +7,9 @@ import {
   CardPage,
   XhsMeasureLayer,
   exportCardPngWithPicker,
+  canExportToProject,
   exportCardsToDirectory,
+  exportCardsToProject,
   exportCardsZip,
   pickExportDirectory,
   supportsDirectoryExport,
@@ -60,11 +62,16 @@ export const XhsPreview = ({ bus }: { bus: ScrollBus }) => {
 
   const handleExportOne = async (i: number) => {
     const el = cardRefs.current[i]
-    if (!el) return
+    if (!el) {
+      flash('卡片尚未就绪，请稍候再试')
+      return
+    }
     setExporting(true)
+    flash('请选择保存位置…')
     try {
       const result = await exportCardPngWithPicker(el, `${baseName}-p${String(i + 1).padStart(2, '0')}.png`)
       if (result === 'saved') flash('已保存当前页 PNG')
+      else flash('已取消导出')
     } catch {
       flash('导出失败，请重试')
     } finally {
@@ -72,43 +79,83 @@ export const XhsPreview = ({ bus }: { bus: ScrollBus }) => {
     }
   }
 
+  /** ZIP 导出（兜底 / 显式按钮共用） */
+  const exportZipFiles = async (files: Array<{ el: HTMLElement; name: string }>, reason?: string) => {
+    setExporting(true)
+    try {
+      await exportCardsZip(files, `${baseName}-${files.length}张.zip`)
+      flash(reason ? `${reason}，已改为下载 ZIP` : `已导出 ${files.length} 张 PNG（ZIP）`)
+    } catch {
+      flash('导出失败，请重试')
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const handleExportZip = async () => {
+    const items = cardRefs.current
+      .map((el, i): [HTMLElement, number] | null => (el ? [el, i] : null))
+      .filter((x): x is [HTMLElement, number] => x !== null)
+    if (!items.length) {
+      flash('卡片尚未就绪，请稍候再试')
+      return
+    }
+    await exportZipFiles(items.map(([el, i]) => ({ el, name: `${baseName}-p${String(i + 1).padStart(2, '0')}.png` })))
+  }
+
   const handleExportAll = async () => {
     const items = cardRefs.current
       .map((el, i): [HTMLElement, number] | null => (el ? [el, i] : null))
       .filter((x): x is [HTMLElement, number] => x !== null)
-    if (!items.length) return
-
-    const files = items.map(([el, i]) => ({ el, name: `${baseName}-p${String(i + 1).padStart(2, '0')}.png` }))
-
-    // 首选：用户自选本地目录，直接写多张 PNG（不经过浏览器下载目录）
-    if (supportsDirectoryExport()) {
-      let dir: Awaited<ReturnType<typeof pickExportDirectory>>
-      try {
-        dir = await pickExportDirectory()
-      } catch {
-        flash('无法打开目录选择器')
-        return
-      }
-      if (!dir) return // 用户取消
-      setExporting(true)
-      try {
-        await exportCardsToDirectory(files, dir, (done, total) => setToast(`正在导出 ${done}/${total}…`))
-        flash(`已导出 ${files.length} 张 PNG →「${dir.name}」`)
-      } catch {
-        flash('导出失败，请重试')
-      } finally {
-        setExporting(false)
-      }
+    if (!items.length) {
+      flash('卡片尚未就绪，请稍候再试')
       return
     }
 
-    // 降级：不支持目录 API 的浏览器 → ZIP 下载
+    const files = items.map(([el, i]) => ({ el, name: `${baseName}-p${String(i + 1).padStart(2, '0')}.png` }))
     setExporting(true)
     try {
-      await exportCardsZip(files, `${baseName}-${files.length}张.zip`)
-      flash(`已导出 ${files.length} 张 PNG（ZIP）`)
-    } catch {
-      flash('导出失败，请重试')
+      // 1) 首选：dev server 直接写入项目 exports/ 目录（绕开浏览器下载限制）
+      if (await canExportToProject()) {
+        const stamp = new Date().toTimeString().slice(0, 8).replace(/:/g, '')
+        try {
+          const r = await exportCardsToProject(files, `${baseName}-${stamp}`, (done, total) => setToast(`正在导出 ${done}/${total}…`))
+          flash(`已写入 ${r.rel}（${r.count} 张）`)
+          return
+        } catch {
+          flash('写入项目目录失败，改用目录选择器…')
+        }
+      }
+
+      // 2) 目录选择器：直接写多张 PNG
+      if (supportsDirectoryExport()) {
+        flash('请选择导出目录…')
+        const t0 = performance.now()
+        let dir: Awaited<ReturnType<typeof pickExportDirectory>> = null
+        try {
+          dir = await pickExportDirectory()
+        } catch (err) {
+          const name = (err as { name?: string })?.name ?? '未知错误'
+          await exportZipFiles(files, `无法打开目录选择器（${name}）`)
+          return
+        }
+        if (!dir) {
+          // 瞬间 Abort = 环境不支持（无弹窗）；延迟 Abort = 用户取消
+          if (performance.now() - t0 < 600) await exportZipFiles(files, '目录选择器未弹出')
+          else flash('已取消导出')
+          return
+        }
+        try {
+          await exportCardsToDirectory(files, dir, (done, total) => setToast(`正在导出 ${done}/${total}…`))
+          flash(`已导出 ${files.length} 张 PNG →「${dir.name}」`)
+        } catch {
+          flash('写入目录失败，请重试或改用 ZIP')
+        }
+        return
+      }
+
+      // 3) 最后降级：ZIP 下载
+      await exportZipFiles(files)
     } finally {
       setExporting(false)
     }
@@ -174,9 +221,18 @@ export const XhsPreview = ({ bus }: { bus: ScrollBus }) => {
           className="flex items-center gap-1 rounded-full bg-ink px-3.5 py-1 text-[11.5px] font-medium text-white transition-opacity hover:opacity-85 disabled:opacity-40"
           onClick={handleExportAll}
           disabled={exporting || !cardSet}
+          title="导出全部 PNG：优先写入项目 exports/，其次选择文件夹"
         >
           <Files className="h-3.5 w-3.5" strokeWidth={1.8} />
           {exporting ? '导出中…' : '全部'}
+        </button>
+        <button
+          className="rounded-full border border-black/[0.14] bg-white px-2.5 py-1 text-[11px] text-ink-soft transition-colors hover:bg-black/[0.04] disabled:opacity-40"
+          onClick={handleExportZip}
+          disabled={exporting || !cardSet}
+          title="不选目录，直接下载 ZIP"
+        >
+          ZIP
         </button>
       </div>
     </div>

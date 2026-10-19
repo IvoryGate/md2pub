@@ -11,6 +11,8 @@ export {
   exportCardPng,
   exportCardPngWithPicker,
   exportCardsToDirectory,
+  exportCardsToProject,
+  canExportToProject,
   exportCardsZip,
   pickExportDirectory,
   supportsDirectoryExport,

@@ -123,3 +123,41 @@ export async function exportCardPngWithPicker(el: HTMLElement, name: string): Pr
     throw err
   }
 }
+
+
+// ---------- 写入本地项目目录（dev server 端点，绕开浏览器下载限制） ----------
+
+export const canExportToProject = async (): Promise<boolean> => {
+  try {
+    const r = await fetch('/__md2pub/export', { headers: { Accept: 'application/json' } })
+    if (!(r.headers.get('content-type') ?? '').includes('application/json')) return false
+    const j = (await r.json()) as { dev?: boolean }
+    return !!j?.dev
+  } catch {
+    return false
+  }
+}
+
+/** 逐张生成 PNG 并以 base64 交给 dev server 写入 exports/ */
+export async function exportCardsToProject(
+  cards: ZipCardInput[],
+  subdir: string,
+  onProgress?: (done: number, total: number) => void,
+): Promise<{ rel: string; count: number }> {
+  const files: Array<{ name: string; data: string }> = []
+  let i = 0
+  for (const { el, name } of cards) {
+    const dataUrl = await nodeToPngDataUrl(el)
+    files.push({ name, data: dataUrl.split(',')[1] ?? '' })
+    i++
+    onProgress?.(i, cards.length)
+  }
+  const res = await fetch('/__md2pub/export', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ dir: subdir, files }),
+  })
+  const json = (await res.json().catch(() => null)) as { ok?: boolean; rel?: string; count?: number; error?: string } | null
+  if (!res.ok || !json?.ok) throw new Error(json?.error ?? `HTTP ${res.status}`)
+  return { rel: json.rel ?? subdir, count: json.count ?? files.length }
+}

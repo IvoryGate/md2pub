@@ -29,3 +29,6 @@ pnpm-debug.log*
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# 本地导出产物
+exports/
