@@ -51,7 +51,7 @@ export const useStore = create<{
       setSize: (size) => set({ size }),
       coverText: { title: '', subtitle: '', author: '', tags: '' },
       setCoverText: (p) => set((s) => ({ coverText: { ...s.coverText, ...p } })),
-      watermark: '@md2pub',
+      watermark: '@IvoryGate/md2pub',
       setWatermark: (watermark) => set({ watermark }),
       editorMode: 'edit',
       setEditorMode: (editorMode) => set({ editorMode }),

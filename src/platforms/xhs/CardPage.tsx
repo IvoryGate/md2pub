@@ -776,7 +776,8 @@ const CoverCard = ({
   const titleText = ct.title.trim()
   const author = ct.author.trim()
   const subtitle = ct.subtitle.trim()
-  const tagLine = tagList[0] ? `#${tagList[0]}#` : ''
+  /* 多个标签全部参与渲染：以 #标签# 空格串联（面板输入用逗号/空格分隔） */
+  const tagLine = tagList.map(t => `#${t}#`).join('　')
   /* 封面标题行：
      - 手动断点优先：面板标题输入框里的换行即断行位置（换行符不渲染）
      - 未指定时自动平衡两行（括号整体不拆、避免孤字） */
@@ -1000,7 +1001,7 @@ const CoverCard = ({
 
           {rows.length > 1 && (
             <div style={{ marginTop: 56 }}>
-              {rows.slice(1).map((t, i) => (
+              {rows.map((t, i) => (
                 <div
                   key={i}
                   style={{
@@ -1091,7 +1092,7 @@ const CoverCard = ({
       }}
     >
       {body}
-      <Watermark theme={theme} text={watermark} />
+      {L.watermark.cover && <Watermark theme={theme} text={watermark} />}
     </div>
   )
 }

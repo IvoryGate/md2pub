@@ -209,11 +209,11 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
               <div className="mt-1 space-y-1.5">
                 <CoverInput label="标题" value={coverText.title} placeholder="封面标题" multiline onChange={(v) => setCoverText({ title: v })} />
                 <p className="pl-12 text-[10.5px] leading-relaxed text-ink-faint">
-                  回车换行 = 断行位置；不手动换行则由算法平衡
+                  回车换行 = 断行位置；标签用逗号或空格分隔（会渲染为 #标签#）
                 </p>
                 <CoverInput label="副标题" value={coverText.subtitle} placeholder="副标题（可选，一句副题）" onChange={(v) => setCoverText({ subtitle: v })} />
                 <CoverInput label="作者" value={coverText.author} placeholder="作者 / 署名（可选）" onChange={(v) => setCoverText({ author: v })} />
-                <CoverInput label="标签" value={coverText.tags} placeholder="话题标签（可选，逗号分隔）" onChange={(v) => setCoverText({ tags: v })} />
+                <CoverInput label="标签" value={coverText.tags} placeholder="话题标签：逗号/空格分隔，如 游戏, 出海" onChange={(v) => setCoverText({ tags: v })} />
               </div>
 
               {/* 封面样式：两行网格（六套） */}
@@ -356,7 +356,8 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
 
         {/* 水印 */}
         <Section title="水印">
-          <ToggleRow label="显示水印" value={L.watermark.enabled} onChange={(v) => patch({ watermark: { enabled: v } })} />
+          <ToggleRow label="正文显示水印" value={L.watermark.enabled} onChange={(v) => patch({ watermark: { enabled: v } })} />
+          <ToggleRow label="封面显示水印" value={L.watermark.cover} onChange={(v) => patch({ watermark: { cover: v } })} />
           <SegRow
             label="位置" value={L.watermark.pos}
             options={[
