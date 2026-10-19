@@ -1,7 +1,7 @@
 import katex from 'katex'
-import type { CSSProperties } from 'react'
-import { renderInline } from '../../core/document/parse'
-import { stripInline } from '../../core/document/parse'
+import { Fragment, type CSSProperties } from 'react'
+import { renderInline, stripInline } from '../../core/document/parse'
+import { highlightCodeLines } from '../../core/highlight'
 import type { XhsCard, XhsCardBlock } from './layout'
 import type { XhsCardTheme, XhsHeadingStyle } from './theme'
 import { useDiagramSvg } from '../shared-blocks'
@@ -178,46 +178,96 @@ export const BlockView = ({
         </blockquote>
       )
     case 'code': {
-      const codeStyle: CSSProperties = {
-        margin: 0,
-        background: p.codeBg,
-        color: p.codeFg,
-        padding: L.code.pad,
-        borderRadius: L.code.radius,
-        fontFamily: 'JetBrains Mono, Consolas, monospace',
-        fontSize: B.size * L.code.sizeRatio,
-        lineHeight: 1.55,
-        overflowX: 'auto',
-        whiteSpace: 'pre-wrap',
-        wordBreak: 'break-all',
-      }
-      return L.code.showLang ? (
-        <div
-          style={{
-            border: `1px solid ${p.codeBg}`,
-            borderRadius: L.code.radius,
-            overflow: 'hidden',
-          }}
-        >
-          {block.lang ? (
-            <div
+      // 编辑模式同款代码部件：浅色系 + 语言名左上 + macOS 红绿灯 + 行号 + 语法高亮；
+      // 饰带颜色从主题 accent 派生（8 位 hex alpha），各预设自带同族色调
+      const fs = B.size * L.code.sizeRatio
+      const accent = theme.palette.accent
+      const MONO = 'JetBrains Mono, Consolas, monospace'
+      const lines = highlightCodeLines((block.lang ?? '').toLowerCase(), block.text)
+      const head =
+        L.code.showLang && block.lang ? (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              padding: `${Math.round(L.code.pad * 0.28)}px ${Math.round(L.code.pad * 0.7)}px`,
+              background: `${accent}1a`,
+              borderBottom: `1px solid ${accent}38`,
+            }}
+          >
+            <span
               style={{
-                display: 'flex',
-                justifyContent: 'flex-end',
-                padding: '8px 16px',
-                background: p.codeBg,
-                color: `${p.codeFg}99`,
-                fontSize: B.size * L.code.sizeRatio * 0.92,
-                fontFamily: 'JetBrains Mono, Consolas, monospace',
+                fontSize: fs * 0.92,
+                fontWeight: 600,
+                letterSpacing: '0.02em',
+                fontFamily: MONO,
+                color: accent,
               }}
             >
               {block.lang}
-            </div>
-          ) : null}
-          <pre style={{ ...codeStyle, borderRadius: 0 }}>{block.text}</pre>
+            </span>
+            <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+              {['#ff5f57', '#febc2e', '#28c840'].map(c => (
+                <i
+                  key={c}
+                  style={{
+                    display: 'block',
+                    width: 8,
+                    height: 8,
+                    borderRadius: '50%',
+                    background: c,
+                    boxShadow: 'inset 0 0 0 0.5px rgba(0,0,0,0.14)',
+                  }}
+                />
+              ))}
+            </span>
+          </div>
+        ) : null
+      return (
+        <div
+          className="xhs-code"
+          style={{
+            border: `1px solid ${accent}3d`,
+            borderRadius: L.code.radius,
+            overflow: 'hidden',
+            background: `${accent}09`,
+            color: theme.palette.text,
+            fontFamily: MONO,
+            fontSize: fs,
+            lineHeight: 1.55,
+          }}
+        >
+          {head}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'max-content minmax(0, 1fr)',
+              alignItems: 'baseline',
+              padding: `${Math.round(L.code.pad * 0.36)}px ${Math.round(L.code.pad * 0.7)}px ${Math.round(L.code.pad * 0.43)}px`,
+            }}
+          >
+            {lines.map((ln, i) => (
+              <Fragment key={i}>
+                <span
+                  style={{
+                    paddingRight: 14,
+                    textAlign: 'right',
+                    fontSize: fs * 0.78,
+                    color: `${accent}57`,
+                    whiteSpace: 'pre',
+                    userSelect: 'none',
+                  }}
+                >
+                  {i + 1}
+                </span>
+                <span
+                  style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'anywhere' }}
+                  dangerouslySetInnerHTML={{ __html: ln }}
+                />
+              </Fragment>
+            ))}
+          </div>
         </div>
-      ) : (
-        <pre style={codeStyle}>{block.text}</pre>
       )
     }
     case 'math':
@@ -482,6 +532,7 @@ const CoverCard = ({ card, theme, watermark }: { card: XhsCard; theme: XhsCardTh
   return (
     <div
       data-xhs-card
+      data-xhs-theme={theme.id}
       style={{
         width: '100%',
         height: '100%',
@@ -543,6 +594,7 @@ export const CardPage = ({ card, theme, watermark }: { card: XhsCard; theme: Xhs
   return (
     <div
       data-xhs-card
+      data-xhs-theme={theme.id}
       style={{
         width: '100%',
         height: '100%',

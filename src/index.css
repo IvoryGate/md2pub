@@ -476,3 +476,64 @@ body,
 [data-xhs-card] .xhs-content .xhs-math {
   overflow-y: hidden;
 }
+
+/* ---------- 小红书卡片：代码块（编辑模式同款部件）语法配色 ----------
+   饰带（边框/色带/行号）由 CardPage 内联从主题 accent 派生；
+   此处只提供 highlight.js token 的 Sakura 光色板（与 .cm-code-widget 同源），
+   亮色预设直接可用；暗夜版在 [data-xhs-theme=dark] 下换提亮一组保证对比度 */
+.xhs-code .hljs-keyword,
+.xhs-code .hljs-selector-tag,
+.xhs-code .hljs-doctag { color: #d81b60; }
+.xhs-code .hljs-title,
+.xhs-code .hljs-section { color: #8e24aa; }
+.xhs-code .hljs-string,
+.xhs-code .hljs-regexp,
+.xhs-code .hljs-addition,
+.xhs-code .hljs-char.escape_ { color: #2e7d32; }
+.xhs-code .hljs-comment,
+.xhs-code .hljs-quote { color: #b0bec5; font-style: italic; }
+.xhs-code .hljs-number,
+.xhs-code .hljs-literal,
+.xhs-code .hljs-symbol { color: #f57c00; }
+.xhs-code .hljs-attr,
+.xhs-code .hljs-property { color: #00897b; }
+.xhs-code .hljs-tag,
+.xhs-code .hljs-name { color: #d81b60; }
+.xhs-code .hljs-built_in,
+.xhs-code .hljs-type,
+.xhs-code .hljs-class { color: #0277bd; }
+.xhs-code .hljs-operator { color: #8e24aa; }
+.xhs-code .hljs-punctuation { color: #90a4ae; }
+.xhs-code .hljs-variable,
+.xhs-code .hljs-template-variable { color: #546e7a; }
+.xhs-code .hljs-meta { color: #f57c00; }
+.xhs-code .hljs-deletion { color: #c0564e; text-decoration: line-through; }
+.xhs-code .hljs-emphasis { font-style: italic; }
+.xhs-code .hljs-strong { font-weight: 700; }
+
+/* 暗夜版：暗底提亮 token 组 */
+[data-xhs-theme="dark"] .xhs-code .hljs-keyword,
+[data-xhs-theme="dark"] .xhs-code .hljs-selector-tag,
+[data-xhs-theme="dark"] .xhs-code .hljs-doctag,
+[data-xhs-theme="dark"] .xhs-code .hljs-tag,
+[data-xhs-theme="dark"] .xhs-code .hljs-name { color: #ff8fa3; }
+[data-xhs-theme="dark"] .xhs-code .hljs-title,
+[data-xhs-theme="dark"] .xhs-code .hljs-section,
+[data-xhs-theme="dark"] .xhs-code .hljs-operator { color: #ce93d8; }
+[data-xhs-theme="dark"] .xhs-code .hljs-string,
+[data-xhs-theme="dark"] .xhs-code .hljs-regexp,
+[data-xhs-theme="dark"] .xhs-code .hljs-addition { color: #a5d6a7; }
+[data-xhs-theme="dark"] .xhs-code .hljs-comment,
+[data-xhs-theme="dark"] .xhs-code .hljs-quote { color: #8a9ba8; }
+[data-xhs-theme="dark"] .xhs-code .hljs-number,
+[data-xhs-theme="dark"] .xhs-code .hljs-literal,
+[data-xhs-theme="dark"] .xhs-code .hljs-symbol,
+[data-xhs-theme="dark"] .xhs-code .hljs-meta { color: #ffb74d; }
+[data-xhs-theme="dark"] .xhs-code .hljs-attr,
+[data-xhs-theme="dark"] .xhs-code .hljs-property { color: #80cbc4; }
+[data-xhs-theme="dark"] .xhs-code .hljs-built_in,
+[data-xhs-theme="dark"] .xhs-code .hljs-type,
+[data-xhs-theme="dark"] .xhs-code .hljs-class { color: #81d4fa; }
+[data-xhs-theme="dark"] .xhs-code .hljs-punctuation,
+[data-xhs-theme="dark"] .xhs-code .hljs-variable,
+[data-xhs-theme="dark"] .xhs-code .hljs-template-variable { color: #b0bec5; }

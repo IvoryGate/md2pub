@@ -128,22 +128,8 @@ export const XhsMeasureLayer = ({ doc, theme, sizeName, cover, onCardSet }: Meas
     }))
     const cardSet = assembleCards(doc, { cover, size: sizeName }, cards, warnings)
 
-    // ---------- 回调（计划签名去重，避免父级无谓刷新） ----------
-    const sig = pages
-      .map(p =>
-        p
-          .map(u =>
-            u.kind === 'block'
-              ? `b${u.index}`
-              : u.kind === 'text'
-                ? `t${u.index}[${u.fromLine},${u.toLine}]`
-                : `l${u.index}[${u.fromItem},${u.toItem}]`,
-          )
-          .join('|'),
-      )
-      .join(';')
-    if (sig === root.dataset.sig) return
-    root.dataset.sig = sig
+    // ---------- 回调（每次实测都回传最新 cardSet：卡片必须随内容更新，
+    // 不做按「计划形状」的去重——否则文本级编辑（不改分页）会被旧对象卡住） ----------
     onCardSetRef.current(cardSet)
   }
 

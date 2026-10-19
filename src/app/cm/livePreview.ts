@@ -2,7 +2,7 @@ import { Decoration, WidgetType, EditorView, type DecorationSet } from '@codemir
 import { StateField, type EditorState, type Range } from '@codemirror/state'
 import { diagramSvg, renderMathHtml } from '../../platforms/shared-blocks'
 import { renderInline } from '../../core/document/parse'
-import { highlightCodeLines } from './hl'
+import { highlightCodeLines } from '../../core/highlight'
 
 /**
  * 编辑模式「实时预览」（Obsidian 对位）：
