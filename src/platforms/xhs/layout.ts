@@ -150,8 +150,14 @@ export function paginateFlow(
       return fillText(index, from, total, false)
     }
     if (page.length > 0 && rest - k < WIDOW_LINES) {
-      closeForMove()
-      return fillText(index, from, total, false)
+      // 孤寡纪律优先微调断点：断点前移，让下一页带走 ≥ WIDOW 行（本页多留 1 行）；
+      // 仅当剩余行数连两边最低要求都凑不齐时才整段搬家——避免成页大空洞
+      if (rest - ORPHAN_LINES >= WIDOW_LINES) {
+        k = rest - WIDOW_LINES
+      } else {
+        closeForMove()
+        return fillText(index, from, total, false)
+      }
     }
     // 页空（段首或续排）：孤寡惩罚豁免，尽量铺满整页（超长段落跨多页）
     k = Math.max(1, Math.min(k, Math.floor(availableHeight / lh)))
