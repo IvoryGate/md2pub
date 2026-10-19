@@ -128,6 +128,59 @@ const decoStyle = (style: XhsHeadingStyle, theme: XhsCardTheme): CSSProperties =
     '--xhs-heading': theme.palette.heading,
   }) as CSSProperties
 
+/** 纸面颗粒：运行时生成 PNG 噪声贴图（栅格，导出管线可正确绘制） */
+const grainTiles = new Map<string, string>()
+const grainTile = (dark: boolean, strength: number): string => {
+  const key = `${dark ? 'd' : 'l'}:${strength}`
+  const hit = grainTiles.get(key)
+  if (hit) return hit
+  const size = 160
+  const canvas = document.createElement('canvas')
+  canvas.width = canvas.height = size
+  const ctx = canvas.getContext('2d')!
+  const img = ctx.createImageData(size, size)
+  const value = dark ? 255 : 0
+  // 1 档 ~4% 峰值 → 10 档 ~13% 峰值；r^1.6 让大部分点更浅，偶发深点像纸纤维
+  const maxA = (0.04 + strength * 0.009) * 255
+  for (let i = 0; i < img.data.length; i += 4) {
+    const a = Math.round(maxA * Math.random() ** 1.6)
+    img.data[i] = value
+    img.data[i + 1] = value
+    img.data[i + 2] = value
+    img.data[i + 3] = a
+  }
+  ctx.putImageData(img, 0, 0)
+  // 轻微模糊，避免数字噪点，更像纸纤维
+  const blurred = document.createElement('canvas')
+  blurred.width = blurred.height = size
+  const bctx = blurred.getContext('2d')!
+  bctx.filter = 'blur(0.35px)'
+  bctx.drawImage(canvas, 0, 0)
+  const url = blurred.toDataURL('image/png')
+  grainTiles.set(key, url)
+  return url
+}
+
+const paperGrainStyle = (theme: XhsCardTheme): CSSProperties => {
+  const L = theme.layout
+  if (!L.paperTexture) return {}
+  const strength = Math.min(10, Math.max(1, L.paperTextureStrength ?? 5))
+  return {
+    backgroundImage: `url(${grainTile(isDarkColor(theme.palette.bg), strength)})`,
+    backgroundSize: '160px 160px',
+    backgroundRepeat: 'repeat',
+  }
+}
+
+const isDarkColor = (hex: string) => {
+  const h = hex.replace('#', '')
+  const n = parseInt(h.length === 3 ? h.split('').map((c) => c + c).join('') : h, 16)
+  const r = ((n >> 16) & 255) / 255
+  const g = ((n >> 8) & 255) / 255
+  const b = (n & 255) / 255
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b < 0.35
+}
+
 // ---------- 基础块 ----------
 
 /* 正文段落已由 KPParagraph（kp.tsx，KP 型全局最优断行）接管；
@@ -783,13 +836,7 @@ const CoverCard = ({
     width: '100%',
     height: '100%',
     backgroundColor: p.bg,
-    ...(L.paperTexture
-      ? {
-          backgroundImage:
-            'radial-gradient(circle at 1px 1px, rgba(0,0,0,0.03) 0.7px, transparent 0.95px), radial-gradient(circle at 3px 5px, rgba(0,0,0,0.018) 0.6px, transparent 0.85px)',
-          backgroundSize: '7px 7px, 13px 13px',
-        }
-      : {}),
+    ...paperGrainStyle(theme),
     paddingTop: L.padding.top,
     paddingLeft: L.padding.left,
     paddingRight: L.padding.right,
@@ -1117,13 +1164,7 @@ export const CardPage = ({ card, theme, watermark, coverText }: { card: XhsCard;
         width: '100%',
         height: '100%',
         backgroundColor: p.bg,
-        ...(L.paperTexture
-          ? {
-              backgroundImage:
-                'radial-gradient(circle at 1px 1px, rgba(0,0,0,0.03) 0.7px, transparent 0.95px), radial-gradient(circle at 3px 5px, rgba(0,0,0,0.018) 0.6px, transparent 0.85px)',
-              backgroundSize: '7px 7px, 13px 13px',
-            }
-          : {}),
+        ...paperGrainStyle(theme),
         color: p.text,
         fontFamily: theme.fontFamily,
         boxSizing: 'border-box',

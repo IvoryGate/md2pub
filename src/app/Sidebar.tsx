@@ -763,6 +763,13 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
               </div>
               <div className="mt-1.5">
                 <ToggleRow label="纸面颗粒" value={L.paperTexture} onChange={(v) => patch({ paperTexture: v })} />
+                {L.paperTexture && (
+                  <div className="mt-1 grid grid-cols-2 items-end gap-1.5">
+                    <Field label="颗粒强度">
+                      <Num value={L.paperTextureStrength ?? 5} min={1} max={10} suffix="/10" onChange={(v) => patch({ paperTextureStrength: Math.round(v) })} />
+                    </Field>
+                  </div>
+                )}
               </div>
               <p className="mt-1.5 text-[9px] leading-relaxed text-ink-faint">
                 色轮定关系（OKLCH 等感知步长）；明度建层级、彩度反向补偿；文字对比度自动校验。
