@@ -27,7 +27,9 @@ const MathBlock = ({ text, theme }: { text: string; theme: XhsCardTheme }) => {
       className="xhs-math"
       style={{
         color: theme.palette.text,
-        fontSize: theme.layout.body.size * 0.9,
+        // KaTeX 自带 .katex { font-size: 1.21em }，除回去抵消——
+        // LaTeX 惯例展示公式与正文同字号（此前 0.9×正文×1.21 ≈ 1.09×正文，偏大）
+        fontSize: theme.layout.body.size / 1.21,
         overflowX: 'auto',
         padding: '8px 0',
       }}
