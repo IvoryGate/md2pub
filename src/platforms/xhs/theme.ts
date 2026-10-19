@@ -174,7 +174,7 @@ const baseLayout: XhsLayout = {
     letterSpacing: 0.5,
     /** 段间距 px（块间统一 gap，分页装箱同源） */
     paragraphSpacing: 22,
-    align: 'left',
+    align: 'justify',
   },
   headings: {
     // 推导：调研规范（17px 正文）标题「上28/下14」 → ×(34/17) = 2.0 → 上56/下28；

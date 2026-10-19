@@ -138,6 +138,13 @@ const ParaView = ({ theme, text, html }: { theme: XhsCardTheme; text?: string; h
         wordBreak: 'normal',
         overflowWrap: 'break-word',
         lineBreak: 'strict',
+        // 中文精品排版三件套（Chromium 原生，导出引擎同源）：
+        // - justify 时空隙按字符摊开而非只在西文词间拉伸（中文右缘最理想）
+        textJustify: 'inter-character',
+        // - 中西文/中文与数字之间自动加小间距（Baseline 2025，替代 pangu.js）
+        textAutospace: 'normal',
+        // - 全角标点压缩（相邻标点、行首行末的内部空隙收紧）
+        textSpacingTrim: 'normal',
       }}
       dangerouslySetInnerHTML={{ __html: html ?? text ?? '' }}
     />
