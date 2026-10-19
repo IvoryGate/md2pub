@@ -222,11 +222,13 @@ export const XHS_THEMES: XhsCardTheme[] = [
     fontFamily: FONT_SANS,
     layout: structuredClone(baseLayout),
     palette: {
-      bg: '#fdfcf8',
+      // 米白纸色：比纯白暖一点、远轻于杂志版（#f6f1e7）
+      bg: '#fcf9f2',
       text: '#3a3a3a',
       heading: '#1f1f1f',
       accent: '#ff2e4d',
-      muted: '#9a9a94',
+      // 次要文字：旧值 #9a9a94 在暖纸色上偏淡，封面副题/作者读不清
+      muted: '#7f7f76',
       quoteBg: '#fdf2f4',
       codeBg: '#2f2f2f',
       codeFg: '#f5f2ea',

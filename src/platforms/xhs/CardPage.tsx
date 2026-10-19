@@ -702,7 +702,7 @@ const Watermark = ({
         bottom: Math.max(12, Math.round((theme.layout.padding.bottom - 32) / 2)),
         fontSize: 26,
         color: theme.palette.muted,
-        opacity: 0.85,
+        opacity: 0.72,
         letterSpacing: 1,
         whiteSpace: 'nowrap',
         ...pos[side],
@@ -806,7 +806,6 @@ const CoverCard = ({
   const hair = `${p.text}24`
   const ink = p.heading
   const accent = p.accent
-  const mutedInk = p.muted
 
   const shellStyle: CSSProperties = {
     width: '100%',
@@ -870,12 +869,12 @@ const CoverCard = ({
             </div>
           )}
           {subtitle && (
-            <div style={{ writingMode: 'vertical-rl', textOrientation: 'upright', fontSize: 19, letterSpacing: 4, color: mutedInk }}>
+            <div style={{ writingMode: 'vertical-rl', textOrientation: 'upright', fontSize: 19, letterSpacing: 4, color: p.text, opacity: 0.7 }}>
               {subtitle}
             </div>
           )}
           {author && (
-            <div style={{ writingMode: 'vertical-rl', textOrientation: 'upright', fontSize: 20, letterSpacing: 6, color: mutedInk }}>
+            <div style={{ writingMode: 'vertical-rl', textOrientation: 'upright', fontSize: 20, letterSpacing: 6, color: p.text, opacity: 0.7 }}>
               {author}
             </div>
           )}
@@ -911,7 +910,7 @@ const CoverCard = ({
           </h1>
         </div>
         <div style={{ height: 1, background: hair, marginBottom: 22 }} />
-        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', fontSize: 22, letterSpacing: 3, color: mutedInk }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', fontSize: 22, letterSpacing: 3, color: p.text, opacity: 0.7 }}>
           <span>{author}</span>
           <span>{subtitle}</span>
         </div>
@@ -943,12 +942,12 @@ const CoverCard = ({
             </h1>
             <div style={{ width: 72, height: 6, borderRadius: 3, background: accent, marginTop: 44 }} />
             {subtitle && (
-              <div style={{ marginTop: 36, fontSize: 26, lineHeight: 1.9, letterSpacing: 2, color: mutedInk }}>{subtitle}</div>
+              <div style={{ marginTop: 36, fontSize: 26, lineHeight: 1.9, letterSpacing: 2, color: p.text, opacity: 0.7 }}>{subtitle}</div>
             )}
           </div>
         </div>
         <div style={{ height: 1, background: hair, marginBottom: 22 }} />
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 22, letterSpacing: 3, color: mutedInk }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 22, letterSpacing: 3, color: p.text, opacity: 0.7 }}>
           <span>{author}</span>
           <span style={{ width: 36, height: 2, background: `${accent}66` }} />
         </div>
@@ -978,9 +977,9 @@ const CoverCard = ({
           </h1>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24 }}>
-          {subtitle && <div style={{ fontSize: 24, letterSpacing: 3, color: mutedInk, lineHeight: 1.9 }}>{subtitle}</div>}
+          {subtitle && <div style={{ fontSize: 24, letterSpacing: 3, color: p.text, opacity: 0.7, lineHeight: 1.9 }}>{subtitle}</div>}
           <div style={{ width: 32, height: 2, borderRadius: 1, background: `${accent}80` }} />
-          {author && <div style={{ fontSize: 22, letterSpacing: 3, color: mutedInk }}>{author}</div>}
+          {author && <div style={{ fontSize: 22, letterSpacing: 3, color: p.text, opacity: 0.7 }}>{author}</div>}
         </div>
       </div>
     )
@@ -991,7 +990,7 @@ const CoverCard = ({
       <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 20, letterSpacing: 6, color: accent }}>
           <span>目录</span>
-          <span style={{ color: mutedInk, letterSpacing: 3 }}>{author}</span>
+          <span style={{ color: p.text, opacity: 0.7, letterSpacing: 3 }}>{author}</span>
         </div>
         <div style={{ height: 1, background: hair, marginTop: 24 }} />
 
@@ -1010,7 +1009,7 @@ const CoverCard = ({
           >
             <TitleLines lines={titleLines} />
           </h1>
-          {subtitle && <div style={{ marginTop: 30, fontSize: 24, letterSpacing: 2, color: mutedInk }}>{subtitle}</div>}
+          {subtitle && <div style={{ marginTop: 30, fontSize: 24, letterSpacing: 2, color: p.text, opacity: 0.7 }}>{subtitle}</div>}
 
           {rows.length > 1 && (
             <div style={{ marginTop: 56 }}>
@@ -1025,7 +1024,7 @@ const CoverCard = ({
                     borderTop: `1px solid ${hair}`,
                     fontSize: 24,
                     letterSpacing: 2,
-                    color: mutedInk,
+                    color: p.text, opacity: 0.7,
                   }}
                 >
                   <span style={{ color: accent, fontSize: 20, letterSpacing: 2 }}>{String(i + 1).padStart(2, '0')}</span>
@@ -1065,29 +1064,29 @@ const CoverCard = ({
         <>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             {tagEl(26, 5)}
-            {author && <div style={{ fontSize: 24, color: mutedInk, letterSpacing: 3 }}>{author}</div>}
+            {author && <div style={{ fontSize: 24, color: p.text, opacity: 0.7, letterSpacing: 3 }}>{author}</div>}
           </div>
           {title}
-          {subtitle && <div style={{ fontSize: 26, color: mutedInk, letterSpacing: 3 }}>{subtitle}</div>}
+          {subtitle && <div style={{ fontSize: 26, color: p.text, opacity: 0.7, letterSpacing: 3 }}>{subtitle}</div>}
           <div style={{ width: 120, height: 7, borderRadius: 4, background: accent, marginTop: 26 }} />
         </>
       ) : L.cover === 'center' ? (
         <>
           <div style={{ display: 'flex', justifyContent: 'center' }}>{tagEl(26, 5)}</div>
           {title}
-          {subtitle && <div style={{ fontSize: 26, color: mutedInk, letterSpacing: 3, textAlign: 'center' }}>{subtitle}</div>}
+          {subtitle && <div style={{ fontSize: 26, color: p.text, opacity: 0.7, letterSpacing: 3, textAlign: 'center' }}>{subtitle}</div>}
           <div style={{ width: 120, height: 7, borderRadius: 4, background: accent, margin: '4px auto 0' }} />
-          <div style={{ textAlign: 'center', fontSize: 24, color: mutedInk, letterSpacing: 3 }}>{author}</div>
+          <div style={{ textAlign: 'center', fontSize: 24, color: p.text, opacity: 0.7, letterSpacing: 3 }}>{author}</div>
         </>
       ) : (
         <>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 32, marginTop: '4%' }}>
             {tagEl(26, 5)}
             {title}
-            {subtitle && <div style={{ fontSize: 26, color: mutedInk, letterSpacing: 3 }}>{subtitle}</div>}
+            {subtitle && <div style={{ fontSize: 26, color: p.text, opacity: 0.7, letterSpacing: 3 }}>{subtitle}</div>}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 18, marginBottom: '1%' }}>
-            {author && <div style={{ fontSize: 24, color: mutedInk, letterSpacing: 3 }}>{author}</div>}
+            {author && <div style={{ fontSize: 24, color: p.text, opacity: 0.7, letterSpacing: 3 }}>{author}</div>}
             <div style={{ width: 120, height: 7, borderRadius: 4, background: accent }} />
           </div>
         </>
