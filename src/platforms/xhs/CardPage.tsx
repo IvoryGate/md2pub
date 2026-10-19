@@ -1,5 +1,6 @@
 import katex from 'katex'
-import { Fragment, type CSSProperties } from 'react'
+import { Fragment, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
+import { KPParagraph, TypesetWidthCtx } from './kp'
 import { renderInline, stripInline } from '../../core/document/parse'
 import { highlightCodeLines } from '../../core/highlight'
 import type { XhsCard, XhsCardBlock } from './layout'
@@ -122,34 +123,8 @@ export const xhsCssVars = (theme: XhsCardTheme): CSSProperties =>
 
 // ---------- 基础块 ----------
 
-/** 正文段落：中英混排换行质量（CJK 禁则 + 英文整词断行 + 超长 URL 兜底） */
-const ParaView = ({ theme, text, html }: { theme: XhsCardTheme; text?: string; html?: string }) => {
-  const p = theme.palette
-  const B = theme.layout.body
-  return (
-    <div
-      className="xhs-paragraph"
-      style={{
-        color: p.text,
-        fontSize: B.size,
-        lineHeight: B.lineRatio,
-        letterSpacing: B.letterSpacing,
-        textAlign: B.align,
-        wordBreak: 'normal',
-        overflowWrap: 'break-word',
-        lineBreak: 'strict',
-        // 中文精品排版三件套（Chromium 原生，导出引擎同源）：
-        // - justify 时空隙按字符摊开而非只在西文词间拉伸（中文右缘最理想）
-        textJustify: 'inter-character',
-        // - 中西文/中文与数字之间自动加小间距（Baseline 2025，替代 pangu.js）
-        textAutospace: 'normal',
-        // - 全角标点压缩（相邻标点、行首行末的内部空隙收紧）
-        textSpacingTrim: 'normal',
-      }}
-      dangerouslySetInnerHTML={{ __html: html ?? text ?? '' }}
-    />
-  )
-}
+/* 正文段落已由 KPParagraph（kp.tsx，KP 型全局最优断行）接管；
+   浏览器流式排版版式保留在其内部兜底分支，此处不再需要独立组件 */
 
 export const BlockView = ({
   block,
@@ -270,9 +245,9 @@ export const BlockView = ({
       )
     }
     case 'paragraph':
-      return <ParaView theme={theme} text={renderInline(block.text)} />
+      return <KPParagraph theme={theme} text={renderInline(block.text)} />
     case 'paraSplit':
-      return <ParaView theme={theme} html={block.html} />
+      return <KPParagraph theme={theme} html={block.html} />
     case 'quote':
       return (
         <blockquote
@@ -764,10 +739,25 @@ const CoverCard = ({ card, theme, watermark }: { card: XhsCard; theme: XhsCardTh
 export const CardPage = ({ card, theme, watermark }: { card: XhsCard; theme: XhsCardTheme; watermark?: string }) => {
   const p = theme.palette
   const L = theme.layout
+  /* KP 排版需要渲染前知道内容宽：卡片根自测（clientWidth − 左右 padding），
+     ResizeObserver 跟随面板/页面比例变化，Context 下发给段落引擎 */
+  const rootRef = useRef<HTMLDivElement>(null)
+  const [contentWidth, setContentWidth] = useState(0)
+  useLayoutEffect(() => {
+    const el = rootRef.current
+    if (!el) return
+    const measure = () => setContentWidth(el.clientWidth - L.padding.left - L.padding.right)
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [L.padding.left, L.padding.right])
+
   if (card.kind === 'cover') return <CoverCard card={card} theme={theme} />
 
   return (
     <div
+      ref={rootRef}
       data-xhs-card
       data-xhs-theme={theme.id}
       style={{
@@ -794,9 +784,11 @@ export const CardPage = ({ card, theme, watermark }: { card: XhsCard; theme: Xhs
       {/* 流式内容区：块间 gap 与分页装箱同源（paragraphSpacing）；
           子块 flex-shrink:0 —— overflow 容器（表格/代码/公式）在内容超高时必须溢出而非被压缩 */}
       <div className="xhs-content" style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, gap: L.body.paragraphSpacing }}>
-        {card.blocks.map((b, i) => (
-          <BlockView key={i} block={b} theme={theme} start={i === 0} />
-        ))}
+        <TypesetWidthCtx.Provider value={contentWidth}>
+          {card.blocks.map((b, i) => (
+            <BlockView key={i} block={b} theme={theme} start={i === 0} />
+          ))}
+        </TypesetWidthCtx.Provider>
       </div>
 
       {L.watermark.enabled && <Watermark theme={theme} text={watermark} />}

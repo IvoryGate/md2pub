@@ -11,6 +11,7 @@ import {
   type XhsCardSet,
 } from './layout'
 import { BlockView, xhsCssVars } from './CardPage'
+import { TypesetWidthCtx } from './kp'
 
 /**
  * 度量与流式分页入口。
@@ -164,7 +165,9 @@ export const XhsMeasureLayer = ({ doc, theme, sizeName, cover, onCardSet }: Meas
           // 普通 block 容器会让子块的 margin 塌缩穿透，标题/分隔线/图片的段前距被漏测，
           // 导致「预算 ≤ 页容量却渲染溢出」。flex 下 margin 不塌缩，与卡片渲染完全一致。
           <div key={i} style={{ width: contentWidth, display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
-            <BlockView block={block} theme={theme} />
+            <TypesetWidthCtx.Provider value={contentWidth}>
+              <BlockView block={block} theme={theme} />
+            </TypesetWidthCtx.Provider>
           </div>
         )
       })}
