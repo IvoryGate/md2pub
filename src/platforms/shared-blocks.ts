@@ -67,12 +67,14 @@ export async function diagramSvg(kind: 'mermaid' | 'plantuml', text: string, opt
 export function useDiagramSvg(kind: 'mermaid' | 'plantuml', text: string, opts?: DiagramOpts) {
   const [svg, setSvg] = useState('')
   const [error, setError] = useState('')
-  const optsKey = JSON.stringify(opts)
+  // JSON.stringify(undefined) === undefined（不是字符串），直接 JSON.parse 会抛错——
+  // 阅读模式渲染图表不传 opts 时曾导致整页白屏
+  const optsKey = opts ? JSON.stringify(opts) : ''
   useEffect(() => {
     let alive = true
     setError('')
     setSvg('')
-    diagramSvg(kind, text, JSON.parse(optsKey))
+    diagramSvg(kind, text, optsKey ? JSON.parse(optsKey) : undefined)
       .then(svg => {
         if (alive) setSvg(svg)
       })
