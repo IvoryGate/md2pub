@@ -32,7 +32,7 @@ const MathBlock = ({ text, theme }: { text: string; theme: XhsCardTheme }) => {
         // KaTeX 自带 .katex { font-size: 1.21em }，除回去抵消——
         // LaTeX 惯例展示公式与正文同字号（此前 0.9×正文×1.21 ≈ 1.09×正文，偏大）
         fontSize: theme.layout.body.size / 1.21,
-        overflowX: 'auto',
+        overflow: 'hidden',
         padding: '8px 0',
       }}
       dangerouslySetInnerHTML={{ __html: htmlRef.current }}
@@ -457,7 +457,8 @@ export const BlockView = ({
         <div
           style={{
             margin: `${L.blocks.marginY}px 0`,
-            overflowX: 'auto',
+            // 导出克隆中 overflow:auto 会因亚像素溢出画出滚动条（表格已是 100% 宽）
+            overflow: 'hidden',
             borderRadius: 10,
             border: `1px solid ${p.muted}2e`,
             background: '#ffffff40',
