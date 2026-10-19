@@ -71,7 +71,9 @@ export interface XhsCardSet {
 
 // ---------- LaTeX 式贪心流式分页 ----------
 
-const ORPHAN_LINES = 2
+/** 段落在页尾的孤行下限。卡片是成品图：页尾能塞 1 行就塞（填满优先），
+    整段搬家只会留下大片空洞；下页寡行仍保 ≥ WIDOW_LINES 行 */
+const ORPHAN_LINES = 1
 const WIDOW_LINES = 2
 
 const isKeepWithNext = (b: Block): boolean =>
