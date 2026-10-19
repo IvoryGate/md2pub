@@ -4,7 +4,6 @@ import { renderInline } from '../../core/document/parse'
 import { stripInline } from '../../core/document/parse'
 import type { XhsCard, XhsCardBlock } from './layout'
 import type { XhsCardTheme, XhsHeadingStyle } from './theme'
-import { XHS_FOOTER_RESERVE } from './theme'
 import { useDiagramSvg } from '../shared-blocks'
 
 /**
@@ -113,7 +112,16 @@ const ParaView = ({ theme, text, html }: { theme: XhsCardTheme; text?: string; h
   )
 }
 
-export const BlockView = ({ block, theme }: { block: XhsCardBlock; theme: XhsCardTheme }) => {
+export const BlockView = ({
+  block,
+  theme,
+  start,
+}: {
+  block: XhsCardBlock
+  theme: XhsCardTheme
+  /** 是否为页首块：段前距（标题/分隔线/图片的 marginTop）在页首应丢弃，空间还给内容 */
+  start?: boolean
+}) => {
   const p = theme.palette
   const L = theme.layout
   const B = L.body
@@ -135,7 +143,7 @@ export const BlockView = ({ block, theme }: { block: XhsCardBlock; theme: XhsCar
             fontWeight: st.weight,
             textAlign: st.align,
             margin: 0,
-            marginTop: st.spaceBefore,
+            marginTop: start ? 0 : st.spaceBefore,
             marginBottom: st.spaceAfter,
             whiteSpace: 'pre-wrap',
             wordBreak: 'break-word',
@@ -325,7 +333,7 @@ export const BlockView = ({ block, theme }: { block: XhsCardBlock; theme: XhsCar
         <img
           src={block.url}
           alt={block.alt ?? ''}
-          style={imageStyle(L, p.muted)}
+          style={imageStyle(L, p.muted, start)}
         />
       )
     case 'divider':
@@ -333,7 +341,7 @@ export const BlockView = ({ block, theme }: { block: XhsCardBlock; theme: XhsCar
         <div
           style={{
             height: 2,
-            marginTop: L.divider.gapY,
+            marginTop: start ? 0 : L.divider.gapY,
             marginBottom: L.divider.gapY,
             background: p.muted,
             opacity: 0.35,
@@ -350,10 +358,11 @@ export const BlockView = ({ block, theme }: { block: XhsCardBlock; theme: XhsCar
 const imageStyle = (
   L: XhsCardTheme['layout'],
   muted: string,
+  start?: boolean,
 ): CSSProperties => {
   const base: CSSProperties = {
     display: 'block',
-    marginTop: L.image.marginY,
+    marginTop: start ? 0 : L.image.marginY,
     marginBottom: L.image.marginY,
     borderRadius: L.image.radius,
     maxWidth: L.image.fullBleed ? 'none' : '100%',
@@ -544,7 +553,7 @@ export const CardPage = ({ card, theme, watermark }: { card: XhsCard; theme: Xhs
         paddingTop: L.padding.top,
         paddingLeft: L.padding.left,
         paddingRight: L.padding.right,
-        paddingBottom: L.padding.bottom + XHS_FOOTER_RESERVE,
+        paddingBottom: L.padding.bottom,
         display: 'flex',
         flexDirection: 'column',
         position: 'relative',
@@ -558,7 +567,7 @@ export const CardPage = ({ card, theme, watermark }: { card: XhsCard; theme: Xhs
           子块 flex-shrink:0 —— overflow 容器（表格/代码/公式）在内容超高时必须溢出而非被压缩 */}
       <div className="xhs-content" style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, gap: L.body.paragraphSpacing }}>
         {card.blocks.map((b, i) => (
-          <BlockView key={i} block={b} theme={theme} />
+          <BlockView key={i} block={b} theme={theme} start={i === 0} />
         ))}
       </div>
 

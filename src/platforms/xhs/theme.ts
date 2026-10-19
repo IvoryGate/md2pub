@@ -132,9 +132,12 @@ const baseLayout: XhsLayout = {
     align: 'left',
   },
   headings: {
-    h2: { sizeRatio: 1.5, weight: 700, align: 'left', spaceBefore: 52, spaceAfter: 18, decoration: 'bar' },
-    h3: { sizeRatio: 1.15, weight: 700, align: 'left', spaceBefore: 34, spaceAfter: 12, decoration: 'none' },
-    h4: { sizeRatio: 1.0, weight: 600, align: 'left', spaceBefore: 26, spaceAfter: 10, decoration: 'none' },
+    // 推导：调研规范（17px 正文）标题「上28/下14」 → ×(38/17) ≈ 上62/下31；
+    // 卡片内容区为 flex 列 + gap（paragraphSpacing=26），段前/段后与 gap 叠加生效，
+    // 因此 spaceBefore/After = 目标视觉间距 − paragraphSpacing（保持纯数据、与内容无关）
+    h2: { sizeRatio: 1.5, weight: 700, align: 'left', spaceBefore: 36, spaceAfter: 6, decoration: 'bar' },
+    h3: { sizeRatio: 1.15, weight: 700, align: 'left', spaceBefore: 22, spaceAfter: 6, decoration: 'none' },
+    h4: { sizeRatio: 1.0, weight: 600, align: 'left', spaceBefore: 14, spaceAfter: 6, decoration: 'none' },
   },
   list: { indent: 48, itemGap: 14 },
   quote: { pad: 24, radius: 12 },
@@ -250,14 +253,24 @@ export function applyXhsOverrides(base: XhsCardTheme, overrides: XhsStyleOverrid
   return { ...base, layout: deepMerge(base.layout, overrides) }
 }
 
-/** 内容可用区派生常量：页脚水印预留（页面高度的一部分，分页与渲染共用） */
-export const XHS_FOOTER_RESERVE = 56
+/** 内容可用区派生常量：页脚水印带——内容区下缘与水印之间保留的呼吸空隙（有水印时才扣） */
+export const XHS_FOOTER_BAND = 64
 
-/** 给定尺寸与主题时可用区：测高分页与内容渲染共用这里派生 */
+/**
+ * 内容可用区派生：
+ * - contentWidth：页宽 - 左右边距
+ * - availableHeight：页高 - 上下边距 -（页眉可见时的页眉带）-（水印开启时的页脚带）
+ *   页码是页眉带元素、水印叠加在底边距带内；两个带都与正文保持呼吸间距，正文永不贴到水印。
+ */
 export function computeContentMetrics(size: { width: number; height: number }, theme: XhsCardTheme) {
-  const { padding, body, header } = theme.layout
+  const { padding, body, header, watermark } = theme.layout
   const contentWidth = size.width - padding.left - padding.right
+  const headerVisible = header.showTag || header.showPageNum
   const availableHeight =
-    size.height - padding.top - padding.bottom - header.height - XHS_FOOTER_RESERVE
-  return { contentWidth, availableHeight, body }
+    size.height -
+    padding.top -
+    padding.bottom -
+    (headerVisible ? header.height : 0) -
+    (watermark.enabled ? XHS_FOOTER_BAND : 0)
+  return { contentWidth, availableHeight, body, headerVisible }
 }

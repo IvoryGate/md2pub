@@ -67,6 +67,15 @@ export const XhsMeasureLayer = ({ doc, theme, sizeName, cover, onCardSet }: Meas
       const rect = w.getBoundingClientRect()
       const vertical = parseFloat(cs.marginTop || '0') + parseFloat(cs.marginBottom || '0')
       const entry: BlockMeasures = { height: rect.height + vertical }
+      // 段前距：标题/分隔线/图片；页首渲染时会丢弃（CardPageBlockView start 同源）
+      if (block.type === 'heading') {
+        const key = block.level === 2 ? 'h2' : block.level === 3 ? 'h3' : 'h4'
+        entry.topMargin = theme.layout.headings[key].spaceBefore
+      } else if (block.type === 'divider') {
+        entry.topMargin = theme.layout.divider.gapY
+      } else if (block.type === 'image') {
+        entry.topMargin = theme.layout.image.marginY
+      }
       if (block.type === 'paragraph') entry.lineHeight = paraLineHeight
       if (block.type === 'list') {
         const container = w.querySelector<HTMLElement>('[data-list]')
@@ -151,15 +160,15 @@ export const XhsMeasureLayer = ({ doc, theme, sizeName, cover, onCardSet }: Meas
   }, [doc, theme, sizeName, cover])
 
   return (
-    <div
-      ref={rootRef}
-      style={{ ...HIDDEN_STYLE, fontFamily: theme.fontFamily, color: theme.palette.text }}
-    >
+    <div ref={rootRef} style={{ ...HIDDEN_STYLE, fontFamily: theme.fontFamily, color: theme.palette.text }}>
       {doc.blocks.map((block, i) => {
         if (block.type === 'pagebreak')
           return <div key={i} data-skip-meas="1" style={{ height: 0, width: contentWidth }} />
         return (
-          <div key={i} style={{ width: contentWidth }}>
+          // 关键：包装器必须是 flex 列（与卡片 .xhs-content 容器同构）——
+          // 普通 block 容器会让子块的 margin 塌缩穿透，标题/分隔线/图片的段前距被漏测，
+          // 导致「预算 ≤ 页容量却渲染溢出」。flex 下 margin 不塌缩，与卡片渲染完全一致。
+          <div key={i} style={{ width: contentWidth, display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
             <BlockView block={block} theme={theme} />
           </div>
         )

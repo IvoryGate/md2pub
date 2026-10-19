@@ -26,6 +26,8 @@ export type FlowUnit =
 export interface BlockMeasures {
   /** 块总高（含自身外边距） */
   height: number
+  /** 块自身段前距（标题/分隔线/图片）：块落在页首时会被丢弃（渲染层 start 同源），不占内容区 */
+  topMargin?: number
   /** 文本块行盒高（= fontSize × lineHeight），只有可拆段落需要 */
   lineHeight?: number
   /** 列表各条目高度（含条目间 itemGap 需另给） */
@@ -162,8 +164,9 @@ export function paginateFlow(
       place({ kind: 'list', index, fromItem: from, toItem: n, cont }, spanH(from, n))
       return
     }
-    // 一个条目都放不下（或空间只够孤条）：关页整搬
-    if (page.length > 0 && fit - from < 2 && n - (fit - from) >= 2) {
+    // 空间连一个条目都放不下：关页整搬（列表条目视觉独立， LaTeX 也按条目跨页，
+    // 不做比段落更严的「页尾留 2 条」纪律——那会让三项列表整块下移 leaving 大片空白）
+    if (page.length > 0 && fit === from) {
       closeForMove()
       return fillList(index, from, cont)
     }
@@ -195,21 +198,20 @@ export function paginateFlow(
       fillList(i, 0, false)
       continue
     }
-    // 原子块
-    const h = md.height
-    if (h > availableHeight) {
+    // 原子块：落在页首时丢掉自身段前距（渲染层 start 同源）
+    if (md.height > availableHeight) {
       flush()
       warnings.push(
         `第 ${i + 1} 块（${block.type}）高度超出卡片可用区域，单独成页仍会被裁切，请减字号/页边距或拆分内容。`,
       )
-      place({ kind: 'block', index: i }, h)
+      place({ kind: 'block', index: i }, md.height - (md.topMargin ?? 0))
       flush()
       continue
     }
-    if (usedNow() + gapNow() + h > availableHeight) {
+    if (usedNow() + gapNow() + md.height - (page.length === 0 ? (md.topMargin ?? 0) : 0) > availableHeight) {
       closeForMove()
     }
-    place({ kind: 'block', index: i }, h)
+    place({ kind: 'block', index: i }, md.height - (page.length === 0 ? (md.topMargin ?? 0) : 0))
   }
   flush()
 
