@@ -700,7 +700,13 @@ const Watermark = ({ theme, text, inline }: { theme: XhsCardTheme; text?: string
   )
 }
 
-// ---------- 封面（显式模块：经典 / 杂志 / 海报） ----------
+// ---------- 封面（五套版式：经典 / 杂志 / 海报 / 书封 / 索引） ----------
+//
+// 设计原则（与正文同一套纸墨语言）：
+// 1. 一版一概念：每套封面只讲一件事，装饰不超过「细线 + 一个强调色块」
+// 2. 中文大字是唯一主角：字号按字数自适应，行距、字距按展示级排版给
+// 3. 光学对齐：标题块落在版面的视觉中心偏上（约 42%），不用几何中心
+// 4. 不依赖可选内容：标题以外的标签/作者缺失时版面依然完整
 
 /** 标题字号自适应：按字数收缩，长标题不破版（短标题保持气势） */
 const coverTitleSize = (t: string, base: number) => {
@@ -722,6 +728,12 @@ const CoverCard = ({ card, theme, watermark }: { card: XhsCard; theme: XhsCardTh
   const tagLine = tags[0] ? `#${tags[0]}#` : ''
   const subTags = tags.slice(1)
 
+  /* 纸墨语言：hairline 用墨色 12%，强调色只出现一次 */
+  const hair = `${p.text}24`
+  const ink = p.heading
+  const accent = p.accent
+  const mutedInk = p.muted
+
   const shellStyle: CSSProperties = {
     width: '100%',
     height: '100%',
@@ -740,45 +752,36 @@ const CoverCard = ({ card, theme, watermark }: { card: XhsCard; theme: XhsCardTh
     flexDirection: 'column',
   }
 
-  const tagEl = tagLine ? (
-    <div style={{ letterSpacing: 5, color: p.accent, fontSize: 30, fontWeight: 700 }}>{tagLine.toUpperCase()}</div>
-  ) : null
-  const subTagEl = subTags.length ? (
-    <div style={{ fontSize: 28, color: p.muted, letterSpacing: 3 }}>{subTags.join('  /  ')}</div>
-  ) : null
-  const ruleEl = (width: number, dashed = false) => (
-    <div
-      style={{
-        width,
-        height: 8,
-        borderRadius: 4,
-        background: dashed ? undefined : p.accent,
-        border: dashed ? `2px dashed ${p.accent}66` : undefined,
-      }}
-    />
-  )
+  /* 标签：有话题时显示 #标签#；无标签时返回 null（不留孤立色块——那看起来像脏点，
+     需要报头记号的版式各自提供成形的替代装饰） */
+  const tagEl = (size = 26, tracking = 5) =>
+    tagLine ? (
+      <div style={{ letterSpacing: tracking, color: accent, fontSize: size, fontWeight: 700 }}>{tagLine.toUpperCase()}</div>
+    ) : null
+
+  /** 报头记号：无标签时用短 accent 条替代（成形的装饰，不是孤点） */
+  const mastheadMark = (w = 44, h = 4) => <div style={{ width: w, height: h, borderRadius: 2, background: accent }} />
 
   let body: ReactNode
 
   if (L.coverStyle === 'editorial') {
-    /* 杂志：标签与作者分置两端 + 细规则线 + 左侧竖条大标题（左齐、靠近中线） */
+    /* 杂志：报头细线 + 大幅左齐标题 + 短强调线 + 页脚作者 */
     body = (
       <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 22 }}>
-          {tagEl}
-          <div style={{ fontSize: 24, color: p.muted, letterSpacing: 2 }}>{author}</div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          {tagLine ? tagEl(26, 6) : mastheadMark()}
         </div>
-        <div style={{ height: 2, background: `${p.accent}3d` }} />
-        <div style={{ display: 'flex', flex: 1, alignItems: 'center', gap: 30 }}>
-          <div style={{ width: 10, height: 176, flexShrink: 0, background: p.accent, borderRadius: 5 }} />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 34, padding: '4% 0' }}>
+        <div style={{ height: 1, background: hair, marginTop: 26 }} />
+
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
+          <div style={{ width: '100%', transform: 'translateY(-2%)' }}>
             <h1
               style={{
-                color: p.heading,
+                color: ink,
                 fontSize: coverTitleSize(titleText, B.size * 2.35),
-                lineHeight: 1.32,
+                lineHeight: 1.3,
                 fontWeight: 700,
-                letterSpacing: 1,
+                letterSpacing: 1.5,
                 margin: 0,
                 whiteSpace: 'pre-wrap',
                 wordBreak: 'break-word',
@@ -786,66 +789,151 @@ const CoverCard = ({ card, theme, watermark }: { card: XhsCard; theme: XhsCardTh
             >
               {titleText}
             </h1>
-            {ruleEl(104)}
-            {subTagEl}
+            <div style={{ width: 72, height: 6, borderRadius: 3, background: accent, marginTop: 44 }} />
+            {subTags.length > 0 && (
+              <div style={{ marginTop: 36, fontSize: 26, lineHeight: 1.9, letterSpacing: 2, color: mutedInk }}>
+                {subTags.join('　·　')}
+              </div>
+            )}
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 18, color: p.muted, fontSize: 24, letterSpacing: 2 }}>
-          {author && (
-            <>
-              <span style={{ width: 44, height: 2, background: `${p.muted}80` }} />
-              <span>{author}</span>
-            </>
-          )}
+
+        <div style={{ height: 1, background: hair, marginBottom: 22 }} />
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 22, letterSpacing: 3, color: mutedInk }}>
+          <span>{author}</span>
+          <span style={{ width: 36, height: 2, background: `${accent}66` }} />
         </div>
       </div>
     )
   } else if (L.coverStyle === 'poster') {
-    /* 海报：巨字居中 + 环形色块衬底 + 胶囊条 */
+    /* 海报：巨字 + 幽灵首字（标题第一个字放大 8 倍作背景）+ 胶囊条 */
+    const ghost = [...titleText][0] ?? ''
     body = (
       <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', flex: 1 }}>
-        <div
-          style={{
-            position: 'absolute',
-            width: 620,
-            height: 620,
-            borderRadius: '50%',
-            background: `${p.accent}0f`,
-            top: -230,
-            right: -210,
-          }}
-        />
-        <div
-          style={{
-            position: 'absolute',
-            width: 320,
-            height: 320,
-            borderRadius: '50%',
-            background: `${p.accent}09`,
-            bottom: -140,
-            left: -130,
-          }}
-        />
+        {ghost && (
+          <div
+            aria-hidden
+            style={{
+              position: 'absolute',
+              right: -110,
+              bottom: -190,
+              fontSize: 640,
+              lineHeight: 1,
+              fontWeight: 700,
+              color: `${accent}0d`,
+              userSelect: 'none',
+              pointerEvents: 'none',
+            }}
+          >
+            {ghost}
+          </div>
+        )}
+        <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', paddingTop: 8 }}>{tagEl(24, 6)}</div>
         <div
           style={{
             position: 'relative',
+            flex: 1,
             display: 'flex',
-            flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            flex: 1,
             textAlign: 'center',
-            gap: 46,
+            transform: 'translateY(-2%)',
           }}
         >
-          {tagEl}
+          <div style={{ width: '100%' }}>
+            <h1
+              style={{
+                color: ink,
+                fontSize: coverTitleSize(titleText, B.size * 2.75),
+                lineHeight: 1.3,
+                fontWeight: 800,
+                letterSpacing: 4,
+                margin: 0,
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
+              }}
+            >
+              {titleText}
+            </h1>
+            <div
+              style={{
+                width: 176,
+                height: 8,
+                borderRadius: 4,
+                margin: '48px auto 0',
+                background: `linear-gradient(90deg, ${accent}55, ${accent}, ${accent}55)`,
+              }}
+            />
+            {subTags.length > 0 && (
+              <div style={{ marginTop: 40, fontSize: 26, lineHeight: 1.9, letterSpacing: 2, color: mutedInk }}>
+                {subTags.join('　·　')}
+              </div>
+            )}
+          </div>
+        </div>
+        <div style={{ position: 'relative', textAlign: 'center', fontSize: 22, letterSpacing: 4, color: mutedInk }}>{author}</div>
+      </div>
+    )
+  } else if (L.coverStyle === 'jacket') {
+    /* 书封：细线内框 + 居中书名 + 底部小方点（唯一装饰） */
+    body = (
+      <div
+        style={{
+          flex: 1,
+          border: `1.5px solid ${accent}4d`,
+          padding: '56px 48px',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'center' }}>{tagEl(24, 6)}</div>
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', width: '100%', transform: 'translateY(-3%)' }}>
           <h1
             style={{
-              color: p.heading,
-              fontSize: coverTitleSize(titleText, B.size * 2.75),
-              lineHeight: 1.24,
-              fontWeight: 800,
+              color: ink,
+              fontSize: coverTitleSize(titleText, B.size * 2.15),
+              lineHeight: 1.45,
+              fontWeight: 700,
               letterSpacing: 2,
+              margin: 0,
+              width: '100%',
+              textAlign: 'center',
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word',
+            }}
+          >
+            {titleText}
+          </h1>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24 }}>
+          {subTags.length > 0 && (
+            <div style={{ fontSize: 24, letterSpacing: 3, color: mutedInk, lineHeight: 1.9 }}>{subTags.join('　·　')}</div>
+          )}
+          <div style={{ width: 32, height: 2, borderRadius: 1, background: `${accent}80` }} />
+          {author && <div style={{ fontSize: 22, letterSpacing: 3, color: mutedInk }}>{author}</div>}
+        </div>
+      </div>
+    )
+  } else if (L.coverStyle === 'index') {
+    /* 索引：目录式结构——顶部栏目字 + 细线 + 左齐标题 + 标签索引行 */
+    const rows = tags.slice(0, 4)
+    body = (
+      <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 20, letterSpacing: 6, color: accent }}>
+          <span>目录</span>
+          <span style={{ color: mutedInk, letterSpacing: 3 }}>{author}</span>
+        </div>
+        <div style={{ height: 1, background: hair, marginTop: 24 }} />
+
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+          <h1
+            style={{
+              color: ink,
+              fontSize: coverTitleSize(titleText, B.size * 2.05),
+              lineHeight: 1.36,
+              fontWeight: 700,
+              letterSpacing: 1.5,
               margin: 0,
               whiteSpace: 'pre-wrap',
               wordBreak: 'break-word',
@@ -853,28 +941,46 @@ const CoverCard = ({ card, theme, watermark }: { card: XhsCard; theme: XhsCardTh
           >
             {titleText}
           </h1>
-          <div
-            style={{
-              width: 190,
-              height: 10,
-              borderRadius: 5,
-              background: `linear-gradient(90deg, ${p.accent}55, ${p.accent}, ${p.accent}55)`,
-            }}
-          />
-          {subTagEl}
+
+          {rows.length > 0 && (
+            <div style={{ marginTop: 56 }}>
+              {rows.map((t, i) => (
+                <div
+                  key={i}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'baseline',
+                    gap: 26,
+                    padding: '18px 0',
+                    borderTop: `1px solid ${hair}`,
+                    fontSize: 24,
+                    letterSpacing: 2,
+                    color: mutedInk,
+                  }}
+                >
+                  <span style={{ color: accent, fontSize: 20, letterSpacing: 2 }}>{String(i + 1).padStart(2, '0')}</span>
+                  <span>{t}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
-        <div style={{ position: 'relative', textAlign: 'center', fontSize: 26, color: p.muted, letterSpacing: 3 }}>{author}</div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+          <span style={{ width: 48, height: 3, borderRadius: 2, background: accent }} />
+        </div>
       </div>
     )
   } else {
-    /* 经典：上置 / 居中 / 下置（原有骨架，标题字号改为自适应） */
+    /* 经典：上置 / 居中 / 下置（原有骨架，标题字距与行距按展示级微调） */
     const title = (
       <h1
         style={{
-          color: p.heading,
+          color: ink,
           fontSize: coverTitleSize(titleText, B.size * 2.1),
-          lineHeight: 1.32,
+          lineHeight: 1.36,
           fontWeight: 800,
+          letterSpacing: 2,
           margin: 0,
           textAlign: L.cover === 'center' ? 'center' : 'left',
           whiteSpace: 'pre-wrap',
@@ -887,29 +993,32 @@ const CoverCard = ({ card, theme, watermark }: { card: XhsCard; theme: XhsCardTh
     body =
       L.cover === 'bottom' ? (
         <>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>{tagEl}{author && <div style={{ fontSize: 28, color: p.muted }}>{author}</div>}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            {tagEl(26, 5)}
+            {author && <div style={{ fontSize: 24, color: mutedInk, letterSpacing: 3 }}>{author}</div>}
+          </div>
           {title}
-          {subTagEl}
-          <div style={{ marginTop: 24 }}>{ruleEl(120)}</div>
+          {subTags.length > 0 && <div style={{ fontSize: 26, color: mutedInk, letterSpacing: 3 }}>{subTags.join('　·　')}</div>}
+          <div style={{ width: 120, height: 7, borderRadius: 4, background: accent, marginTop: 26 }} />
         </>
       ) : L.cover === 'center' ? (
         <>
-          <div style={{ display: 'flex', justifyContent: 'center' }}>{tagEl}</div>
+          <div style={{ display: 'flex', justifyContent: 'center' }}>{tagEl(26, 5)}</div>
           {title}
-          {subTagEl}
-          <div style={{ margin: '4px auto 0' }}>{ruleEl(120)}</div>
-          <div style={{ textAlign: 'center', fontSize: 28, color: p.muted }}>{author}</div>
+          {subTags.length > 0 && <div style={{ fontSize: 26, color: mutedInk, letterSpacing: 3, textAlign: 'center' }}>{subTags.join('　·　')}</div>}
+          <div style={{ width: 120, height: 7, borderRadius: 4, background: accent, margin: '4px auto 0' }} />
+          <div style={{ textAlign: 'center', fontSize: 24, color: mutedInk, letterSpacing: 3 }}>{author}</div>
         </>
       ) : (
         <>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 30, marginTop: '4%' }}>
-            {tagEl}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 32, marginTop: '4%' }}>
+            {tagEl(26, 5)}
             {title}
-            {subTagEl}
+            {subTags.length > 0 && <div style={{ fontSize: 26, color: mutedInk, letterSpacing: 3 }}>{subTags.join('　·　')}</div>}
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: '1%' }}>
-            {author && <div style={{ fontSize: 28, color: p.muted }}>想法 {author}</div>}
-            {ruleEl(120)}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 18, marginBottom: '1%' }}>
+            {author && <div style={{ fontSize: 24, color: mutedInk, letterSpacing: 3 }}>{author}</div>}
+            <div style={{ width: 120, height: 7, borderRadius: 4, background: accent }} />
           </div>
         </>
       )
@@ -921,7 +1030,7 @@ const CoverCard = ({ card, theme, watermark }: { card: XhsCard; theme: XhsCardTh
       data-xhs-theme={theme.id}
       style={{
         ...shellStyle,
-        justifyContent: L.coverStyle === 'editorial' ? 'flex-start' : L.coverStyle === 'poster' ? 'flex-start' : L.cover === 'center' ? 'center' : L.cover === 'bottom' ? 'flex-end' : 'space-between',
+        justifyContent: L.coverStyle === 'classic' ? (L.cover === 'center' ? 'center' : L.cover === 'bottom' ? 'flex-end' : 'space-between') : 'flex-start',
         gap: L.coverStyle === 'classic' ? 30 : 0,
       }}
     >

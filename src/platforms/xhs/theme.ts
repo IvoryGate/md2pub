@@ -98,8 +98,8 @@ export interface XhsLayout {
   /** 封面：显式开关（不再由首个 h1 隐式决定）。
       关闭时首个 h1 留在正文，作为章节开头档（居中胶囊条 h1 档） */
   coverOn: boolean
-  /** 封面样式：classic 经典（位置可调）/ editorial 杂志 / poster 海报 */
-  coverStyle: 'classic' | 'editorial' | 'poster'
+  /** 封面样式：classic 经典 / editorial 杂志 / poster 海报 / jacket 书封 / index 索引 */
+  coverStyle: 'classic' | 'editorial' | 'poster' | 'jacket' | 'index'
   /** 经典封面版式位置 */
   cover: 'top' | 'center' | 'bottom'
 }

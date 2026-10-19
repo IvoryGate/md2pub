@@ -178,6 +178,8 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
                   { value: 'classic' as const, label: '经典' },
                   { value: 'editorial' as const, label: '杂志' },
                   { value: 'poster' as const, label: '海报' },
+                  { value: 'jacket' as const, label: '书封' },
+                  { value: 'index' as const, label: '索引' },
                 ]}
                 onChange={(v) => patch({ coverStyle: v })}
               />
