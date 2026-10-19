@@ -95,7 +95,12 @@ export interface XhsLayout {
     height: number
   }
   watermark: { enabled: boolean; pos: 'left' | 'center' | 'right' }
-  /** 封面版式骨架 */
+  /** 封面：显式开关（不再由首个 h1 隐式决定）。
+      关闭时首个 h1 留在正文，作为章节开头档（居中胶囊条 h1 档） */
+  coverOn: boolean
+  /** 封面样式：classic 经典（位置可调）/ editorial 杂志 / poster 海报 */
+  coverStyle: 'classic' | 'editorial' | 'poster'
+  /** 经典封面版式位置 */
   cover: 'top' | 'center' | 'bottom'
 }
 
@@ -199,7 +204,9 @@ const baseLayout: XhsLayout = {
   divider: { gapY: 26 },
   header: { showTag: true, showPageNum: true, height: 56 },
   watermark: { enabled: true, pos: 'left' },
-  cover: 'top',
+  coverOn: true,
+  coverStyle: 'classic',
+  cover: 'center',
 }
 
 export const XHS_THEMES: XhsCardTheme[] = [

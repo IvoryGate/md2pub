@@ -1,5 +1,5 @@
 import katex from 'katex'
-import { Fragment, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
+import { Fragment, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { KPParagraph, TypesetWidthCtx } from './kp'
 import { renderInline, stripInline } from '../../core/document/parse'
 import { highlightCodeLines } from '../../core/highlight'
@@ -700,98 +700,232 @@ const Watermark = ({ theme, text, inline }: { theme: XhsCardTheme; text?: string
   )
 }
 
-// ---------- 封面（三种版式骨架） ----------
+// ---------- 封面（显式模块：经典 / 杂志 / 海报） ----------
+
+/** 标题字号自适应：按字数收缩，长标题不破版（短标题保持气势） */
+const coverTitleSize = (t: string, base: number) => {
+  const n = [...t].length
+  if (n <= 8) return base
+  if (n <= 14) return Math.round(base * 0.86)
+  if (n <= 22) return Math.round(base * 0.72)
+  return Math.round(base * 0.62)
+}
 
 const CoverCard = ({ card, theme, watermark }: { card: XhsCard; theme: XhsCardTheme; watermark?: string }) => {
   const p = theme.palette
   const L = theme.layout
   const B = L.body
-  const titleSize = B.size * 2.1
   const meta = card.meta
-  const title = (
-    <h1
+  const titleText = meta?.title ?? ''
+  const tags = meta?.tags ?? []
+  const author = meta?.author ?? ''
+  const tagLine = tags[0] ? `#${tags[0]}#` : ''
+  const subTags = tags.slice(1)
+
+  const shellStyle: CSSProperties = {
+    width: '100%',
+    height: '100%',
+    background: p.bg,
+    paddingTop: L.padding.top,
+    paddingLeft: L.padding.left,
+    paddingRight: L.padding.right,
+    paddingBottom: L.padding.bottom,
+    fontFamily: theme.fontFamily,
+    color: p.text,
+    ...xhsCssVars(theme),
+    boxSizing: 'border-box',
+    overflow: 'hidden',
+    position: 'relative',
+    display: 'flex',
+    flexDirection: 'column',
+  }
+
+  const tagEl = tagLine ? (
+    <div style={{ letterSpacing: 5, color: p.accent, fontSize: 30, fontWeight: 700 }}>{tagLine.toUpperCase()}</div>
+  ) : null
+  const subTagEl = subTags.length ? (
+    <div style={{ fontSize: 28, color: p.muted, letterSpacing: 3 }}>{subTags.join('  /  ')}</div>
+  ) : null
+  const ruleEl = (width: number, dashed = false) => (
+    <div
       style={{
-        color: p.heading,
-        fontSize: titleSize,
-        lineHeight: 1.32,
-        fontWeight: 800,
-        margin: 0,
-        textAlign: L.cover === 'center' ? 'center' : 'left',
-        whiteSpace: 'pre-wrap',
-        wordBreak: 'break-word',
+        width,
+        height: 8,
+        borderRadius: 4,
+        background: dashed ? undefined : p.accent,
+        border: dashed ? `2px dashed ${p.accent}66` : undefined,
       }}
-    >
-      {meta?.title ?? ''}
-    </h1>
+    />
   )
-  const tag = meta?.tags[0] ? (
-    <div style={{ letterSpacing: 5, color: p.accent, fontSize: 32, fontWeight: 700 }}>
-      #{meta.tags[0].toUpperCase()}#
-    </div>
-  ) : null
-  const subTags =
-    meta && meta.tags.length > 1 ? (
-      <div style={{ fontSize: 30, color: p.muted, letterSpacing: 3 }}>
-        {meta.tags.slice(1).join('  /  ')}
+
+  let body: ReactNode
+
+  if (L.coverStyle === 'editorial') {
+    /* 杂志：标签与作者分置两端 + 细规则线 + 左侧竖条大标题（左齐、靠近中线） */
+    body = (
+      <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 22 }}>
+          {tagEl}
+          <div style={{ fontSize: 24, color: p.muted, letterSpacing: 2 }}>{author}</div>
+        </div>
+        <div style={{ height: 2, background: `${p.accent}3d` }} />
+        <div style={{ display: 'flex', flex: 1, alignItems: 'center', gap: 30 }}>
+          <div style={{ width: 10, height: 176, flexShrink: 0, background: p.accent, borderRadius: 5 }} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 34, padding: '4% 0' }}>
+            <h1
+              style={{
+                color: p.heading,
+                fontSize: coverTitleSize(titleText, B.size * 2.35),
+                lineHeight: 1.32,
+                fontWeight: 700,
+                letterSpacing: 1,
+                margin: 0,
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
+              }}
+            >
+              {titleText}
+            </h1>
+            {ruleEl(104)}
+            {subTagEl}
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 18, color: p.muted, fontSize: 24, letterSpacing: 2 }}>
+          {author && (
+            <>
+              <span style={{ width: 44, height: 2, background: `${p.muted}80` }} />
+              <span>{author}</span>
+            </>
+          )}
+        </div>
       </div>
-    ) : null
-  const author = meta?.author ? (
-    <div style={{ fontSize: 28, color: p.muted }}>{meta.author}</div>
-  ) : null
+    )
+  } else if (L.coverStyle === 'poster') {
+    /* 海报：巨字居中 + 环形色块衬底 + 胶囊条 */
+    body = (
+      <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', flex: 1 }}>
+        <div
+          style={{
+            position: 'absolute',
+            width: 620,
+            height: 620,
+            borderRadius: '50%',
+            background: `${p.accent}0f`,
+            top: -230,
+            right: -210,
+          }}
+        />
+        <div
+          style={{
+            position: 'absolute',
+            width: 320,
+            height: 320,
+            borderRadius: '50%',
+            background: `${p.accent}09`,
+            bottom: -140,
+            left: -130,
+          }}
+        />
+        <div
+          style={{
+            position: 'relative',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flex: 1,
+            textAlign: 'center',
+            gap: 46,
+          }}
+        >
+          {tagEl}
+          <h1
+            style={{
+              color: p.heading,
+              fontSize: coverTitleSize(titleText, B.size * 2.75),
+              lineHeight: 1.24,
+              fontWeight: 800,
+              letterSpacing: 2,
+              margin: 0,
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word',
+            }}
+          >
+            {titleText}
+          </h1>
+          <div
+            style={{
+              width: 190,
+              height: 10,
+              borderRadius: 5,
+              background: `linear-gradient(90deg, ${p.accent}55, ${p.accent}, ${p.accent}55)`,
+            }}
+          />
+          {subTagEl}
+        </div>
+        <div style={{ position: 'relative', textAlign: 'center', fontSize: 26, color: p.muted, letterSpacing: 3 }}>{author}</div>
+      </div>
+    )
+  } else {
+    /* 经典：上置 / 居中 / 下置（原有骨架，标题字号改为自适应） */
+    const title = (
+      <h1
+        style={{
+          color: p.heading,
+          fontSize: coverTitleSize(titleText, B.size * 2.1),
+          lineHeight: 1.32,
+          fontWeight: 800,
+          margin: 0,
+          textAlign: L.cover === 'center' ? 'center' : 'left',
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+        }}
+      >
+        {titleText}
+      </h1>
+    )
+    body =
+      L.cover === 'bottom' ? (
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>{tagEl}{author && <div style={{ fontSize: 28, color: p.muted }}>{author}</div>}</div>
+          {title}
+          {subTagEl}
+          <div style={{ marginTop: 24 }}>{ruleEl(120)}</div>
+        </>
+      ) : L.cover === 'center' ? (
+        <>
+          <div style={{ display: 'flex', justifyContent: 'center' }}>{tagEl}</div>
+          {title}
+          {subTagEl}
+          <div style={{ margin: '4px auto 0' }}>{ruleEl(120)}</div>
+          <div style={{ textAlign: 'center', fontSize: 28, color: p.muted }}>{author}</div>
+        </>
+      ) : (
+        <>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 30, marginTop: '4%' }}>
+            {tagEl}
+            {title}
+            {subTagEl}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: '1%' }}>
+            {author && <div style={{ fontSize: 28, color: p.muted }}>想法 {author}</div>}
+            {ruleEl(120)}
+          </div>
+        </>
+      )
+  }
 
   return (
     <div
       data-xhs-card
       data-xhs-theme={theme.id}
       style={{
-        width: '100%',
-        height: '100%',
-        background: p.bg,
-        padding: L.padding.top,
-        paddingLeft: L.padding.left,
-        paddingRight: L.padding.right,
-        paddingBottom: L.padding.bottom,
-        fontFamily: theme.fontFamily,
-        color: p.text,
-        ...xhsCssVars(theme),
-        boxSizing: 'border-box',
-        overflow: 'hidden',
-        position: 'relative',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent:
-          L.cover === 'center' ? 'center' : L.cover === 'bottom' ? 'flex-end' : 'space-between',
-        gap: 30,
+        ...shellStyle,
+        justifyContent: L.coverStyle === 'editorial' ? 'flex-start' : L.coverStyle === 'poster' ? 'flex-start' : L.cover === 'center' ? 'center' : L.cover === 'bottom' ? 'flex-end' : 'space-between',
+        gap: L.coverStyle === 'classic' ? 30 : 0,
       }}
     >
-      {L.cover === 'bottom' ? (
-        <>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>{tag}{author}</div>
-          {title}
-          {subTags}
-          <div style={{ width: 120, height: 10, borderRadius: 5, background: p.accent, marginTop: 24 }} />
-        </>
-      ) : L.cover === 'center' ? (
-        <>
-          <div style={{ display: 'flex', justifyContent: 'center' }}>{tag}</div>
-          {title}
-          {subTags}
-          <div style={{ width: 120, height: 10, borderRadius: 5, background: p.accent, margin: '4px auto 0' }} />
-          <div style={{ textAlign: 'center' }}>{author}</div>
-        </>
-      ) : (
-        <>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 30, marginTop: '4%' }}>
-            {tag}
-            {title}
-            {subTags}
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: '1%' }}>
-            {author && <div style={{ fontSize: 28, color: p.muted }}>想法 {meta!.author}</div>}
-            <div style={{ width: 120, height: 10, borderRadius: 5, background: p.accent }} />
-          </div>
-        </>
-      )}
+      {body}
       <Watermark theme={theme} text={watermark} />
     </div>
   )

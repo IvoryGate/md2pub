@@ -72,7 +72,7 @@ export const XhsPreview = ({ bus }: { bus: ScrollBus }) => {
   return (
     <div className="relative h-full">
       {/* 隐藏度量层（采样 → 分页 → 拆分解析 → 卡片集合） */}
-      <XhsMeasureLayer doc={doc} theme={theme} sizeName={size} cover="auto" onCardSet={setCardSet} />
+      <XhsMeasureLayer doc={doc} theme={theme} sizeName={size} cover={theme.layout.coverOn ? 'auto' : 'off'} onCardSet={setCardSet} />
 
       {/* 卡片轨道（左右留白避让浮动面板） */}
       <div ref={railRef} className="h-full overflow-y-auto">

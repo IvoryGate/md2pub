@@ -168,16 +168,33 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
 
         {/* 页面骨架 */}
         <Section title="页面" defaultOpen>
-          <SegRow
-            label="封面版式"
-            value={L.cover}
-            options={[
-              { value: 'top', label: '上置' },
-              { value: 'center', label: '居中' },
-              { value: 'bottom', label: '下置' },
-            ]}
-            onChange={(v) => patch({ cover: v })}
-          />
+          <ToggleRow label="开启封面" value={L.coverOn} onChange={(v) => patch({ coverOn: v })} />
+          {L.coverOn && (
+            <>
+              <SegRow
+                label="封面样式"
+                value={L.coverStyle}
+                options={[
+                  { value: 'classic' as const, label: '经典' },
+                  { value: 'editorial' as const, label: '杂志' },
+                  { value: 'poster' as const, label: '海报' },
+                ]}
+                onChange={(v) => patch({ coverStyle: v })}
+              />
+              {L.coverStyle === 'classic' && (
+                <SegRow
+                  label="经典位置"
+                  value={L.cover}
+                  options={[
+                    { value: 'top' as const, label: '上置' },
+                    { value: 'center' as const, label: '居中' },
+                    { value: 'bottom' as const, label: '下置' },
+                  ]}
+                  onChange={(v) => patch({ cover: v })}
+                />
+              )}
+            </>
+          )}
           <SliderRow label="上边距" value={L.padding.top} min={40} max={200} onChange={(v) => patch({ padding: { top: v } })} />
           <SliderRow label="下边距" value={L.padding.bottom} min={40} max={200} onChange={(v) => patch({ padding: { bottom: v } })} />
           <SliderRow label="左边距" value={L.padding.left} min={40} max={200} onChange={(v) => patch({ padding: { left: v } })} />
