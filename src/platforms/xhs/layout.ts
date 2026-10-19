@@ -69,15 +69,40 @@ export interface XhsCardSet {
   warnings: string[]
 }
 
-// ---------- LaTeX 式贪心流式分页 ----------
+// ---------- 全局最优分页（DP） ----------
 
-/** 段落在页尾的孤行下限。卡片是成品图：页尾能塞 1 行就塞（填满优先），
-    整段搬家只会留下大片空洞；下页寡行仍保 ≥ WIDOW_LINES 行 */
-const ORPHAN_LINES = 1
-const WIDOW_LINES = 2
+/**
+ * 分页从「贪心 + 局部规则」升级为全篇 DP：
+ *
+ *   目标 = Σ 各页留白²（以行高归一） + 孤行/寡行代价
+ *
+ * 贪心时代每改一条局部规则都会让后续页洗牌（实测某页 89%→95% 的同时
+ * 另一页 96%→91%），无法宣称整体最优。DP 一次求解全篇断点，
+ * 每页的取舍都在全局账本里算过——留白被均匀分摊，孤行/寡行只在
+ * 「全局收益更划算」时发生，而不是被一条硬规则一刀切。
+ *
+ * 硬约束（不可谈判）：
+ * - 表格/代码/图/公式/引用不可拆（完整性）
+ * - 标题与「：」引导句不悬页尾（keep-with-next）
+ * - 显式 `<!-- pagebreak -->` 强制断页
+ */
+const ORPHAN_DEMERIT = 0.6
+/** 页首残句（寡行）比页尾孤行醒目得多：两三个字的段尾碎片独占页首，观感近似错误。
+    权重必须大到 DP 宁可让本页少一行也不接受——这是「视觉代价进入全局账本」。 */
+const WIDOW_DEMERIT = 8.0
+/** 「：」引导句断在页尾：轻微观感损失，软代价；
+    若改用硬约束会逼出更丑的页首残句（本页明明放得下却整行推走） */
+const LEADIN_DEMERIT = 2.0
+/** 单块超过整页时的兜底代价（仍然单独成页并给出警告） */
+const OVERSIZE_PENALTY = 1e3
 
 const isKeepWithNext = (b: Block): boolean =>
   b.type === 'heading' || (b.type === 'paragraph' && /：\s*$/.test(b.text))
+
+type Atom =
+  | { kind: 'block'; block: number; h: number; topMargin: number; keepAfter: boolean; forceBreak: boolean }
+  | { kind: 'line'; block: number; line: number; lines: number; h: number; leadIn: boolean; forceBreak: boolean }
+  | { kind: 'item'; block: number; item: number; items: number; h: number; itemGap: number; forceBreak: boolean }
 
 export function paginateFlow(
   blocks: Block[],
@@ -85,164 +110,157 @@ export function paginateFlow(
   metrics: FlowMetrics,
 ): { pages: FlowUnit[][]; warnings: string[] } {
   const { availableHeight, blockGap } = metrics
-  const pages: FlowUnit[][] = []
   const warnings: string[] = []
-  let page: FlowUnit[] = []
-  /** 与 page 对齐的单元高度（0 间距计入 gap） */
-  let unitHeights: number[] = []
-  const gapNow = () => (page.length > 0 ? blockGap : 0)
-  const usedNow = () => unitHeights.reduce((s, h) => s + h, 0)
-  const room = () => availableHeight - usedNow() - gapNow()
 
-  const flush = () => {
-    if (page.length > 0) pages.push(page)
-    page = []
-    unitHeights = []
+  // ---------- 原子化：段落→行原子、列表→条目原子、其余→整块原子 ----------
+  const atoms: Atom[] = []
+  const markBreak = () => {
+    const last = atoms[atoms.length - 1]
+    if (last) last.forceBreak = true
   }
-  const place = (u: FlowUnit, h: number) => {
-    if (page.length > 0) unitHeights.push(blockGap)
-    page.push(u)
-    unitHeights.push(h)
-  }
-  /** 被弹出待重放的 keep 链单元（unit, 放置高度） */
-  let pending: Array<[FlowUnit, number]> = []
-  /** keep 链重放到新页页首：被搬页的标题必须继续出现在下一页开头（LaTeX 语义） */
-  const replayPending = () => {
-    const chain = pending
-    pending = []
-    chain.forEach(([u, h], ci) => {
-      // 链首落在新页页首：与渲染 start 行为同源，丢掉自身段前距
-      const md = m[u.index]!
-      place(u, ci === 0 && u.kind === 'block' ? md.height - (md.topMargin ?? 0) : h)
-    })
-  }
-  /** 关页以迎接一个放不下的单元；标题/引导句不孤行页尾（keep-with-next 随行），弹出的链在新页页首重放 */
-  const closeForMove = () => {
-    const popped: Array<[FlowUnit, number]> = []
-    while (page.length > 1 && page[page.length - 1]!.kind === 'block') {
-      const last = page[page.length - 1] as Extract<FlowUnit, { kind: 'block' }>
-      if (!isKeepWithNext(blocks[last.index]!)) break
-      popped.unshift([last, unitHeights[unitHeights.length - 1]!])
-      page.pop()
-      unitHeights.pop()
-      unitHeights.pop() // 该单元的 gap
-    }
-    flush()
-    pending = popped
-    replayPending()
-  }
-
-  /** 段落填页：[from, total) 行区间从当前页尾部续排 */
-  const fillText = (index: number, from: number, total: number, cont: boolean) => {
-    const lh = m[index]!.lineHeight ?? 0
-    const rest = total - from
-    if (rest <= 0) return
-    const space = room()
-    if (rest * lh <= space) {
-      // 完整段：占高用实测高度（比 行数×行高 更准）
-      const totalH = m[index]!.height
-      const totalLines = Math.max(1, Math.round(totalH / lh))
-      place({ kind: 'text', index, fromLine: from, toLine: total, cont }, (totalH * rest) / totalLines)
+  blocks.forEach((b, i) => {
+    if (b.type === 'pagebreak') {
+      markBreak()
       return
     }
-    // 本页放不下：算能容纳的行数
-    let k = Math.floor(space / lh)
-    if (page.length > 0 && k < ORPHAN_LINES) {
-      closeForMove()
-      return fillText(index, from, total, false)
-    }
-    if (page.length > 0 && rest - k < WIDOW_LINES) {
-      // 孤寡纪律优先微调断点：断点前移，让下一页带走 ≥ WIDOW 行（本页多留 1 行）；
-      // 仅当剩余行数连两边最低要求都凑不齐时才整段搬家——避免成页大空洞
-      if (rest - ORPHAN_LINES >= WIDOW_LINES) {
-        k = rest - WIDOW_LINES
-      } else {
-        closeForMove()
-        return fillText(index, from, total, false)
-      }
-    }
-    // 页空（段首或续排）：孤寡惩罚豁免，尽量铺满整页（超长段落跨多页）
-    k = Math.max(1, Math.min(k, Math.floor(availableHeight / lh)))
-    place({ kind: 'text', index, fromLine: from, toLine: from + k, cont }, k * lh)
-    flush()
-    fillText(index, from + k, total, true)
-  }
-
-  /** 列表填页：条目为拆分单元，条目间另有 itemGap */
-  const fillList = (index: number, from: number, cont: boolean) => {
-    const items = m[index]!.items ?? []
-    const ig = m[index]!.itemGap ?? 0
-    const n = items.length
-    if (from >= n) return
-    const spanH = (from: number, to: number) => {
-      // items[from, to) 高度 + 条目间 gap
-      let s = items.slice(from, to).reduce((a, b) => a + b, 0)
-      if (to > from + 1) s += (to - from - 1) * ig
-      return s
-    }
-    const space = room()
-    let fit = from
-    while (fit < n && spanH(from, fit + 1) <= space) fit++
-
-    if (fit === n) {
-      place({ kind: 'list', index, fromItem: from, toItem: n, cont }, spanH(from, n))
-      return
-    }
-    // 空间连一个条目都放不下：关页整搬（列表条目视觉独立， LaTeX 也按条目跨页，
-    // 不做比段落更严的「页尾留 2 条」纪律——那会让三项列表整块下移 leaving 大片空白）
-    if (page.length > 0 && fit === from) {
-      closeForMove()
-      return fillList(index, from, cont)
-    }
-    // 页空：铺满整页再续排
-    if (page.length === 0) {
-      fit = from
-      const full = availableHeight
-      while (fit < n && spanH(from, fit + 1) <= full) fit++
-      fit = Math.max(from + 1, fit)
-    }
-    place({ kind: 'list', index, fromItem: from, toItem: fit, cont }, spanH(from, fit))
-    flush()
-    fillList(index, fit, true)
-  }
-
-  for (let i = 0; i < blocks.length; i++) {
-    const block = blocks[i]!
-    const md = m[i]!
-    if (block.type === 'pagebreak') {
-      flush()
-      continue
-    }
-    if (block.type === 'paragraph') {
+    const md = m[i]
+    if (!md) return
+    if (b.type === 'paragraph') {
       const lines = Math.max(1, Math.round(md.height / (md.lineHeight ?? 1)))
-      fillText(i, 0, lines, false)
-      continue
+      const h = md.height / lines
+      // 「：」引导句不再是硬约束，仅作为页尾软代价（见 LEADIN_DEMERIT 注释）
+      const leadIn = isKeepWithNext(b)
+      for (let l = 0; l < lines; l++)
+        atoms.push({ kind: 'line', block: i, line: l, lines, h, leadIn: leadIn && l === lines - 1, forceBreak: false })
+      return
     }
-    if (block.type === 'list' && md.items && md.items.length > 0) {
-      fillList(i, 0, false)
-      continue
-    }
-    // 原子块：落在页首时丢掉自身段前距（渲染层 start 同源）
-    if (md.height > availableHeight) {
-      flush()
-      warnings.push(
-        `第 ${i + 1} 块（${block.type}）高度超出卡片可用区域，单独成页仍会被裁切，请减字号/页边距或拆分内容。`,
+    if (b.type === 'list' && md.items && md.items.length > 0) {
+      md.items.forEach((h, k) =>
+        atoms.push({ kind: 'item', block: i, item: k, items: md.items!.length, h, itemGap: md.itemGap ?? 0, forceBreak: false }),
       )
-      place({ kind: 'block', index: i }, md.height - (md.topMargin ?? 0))
-      flush()
-      continue
+      return
     }
-    if (usedNow() + gapNow() + md.height - (page.length === 0 ? (md.topMargin ?? 0) : 0) > availableHeight) {
-      closeForMove()
+    if (md.height > availableHeight) {
+      warnings.push(
+        `第 ${i + 1} 块（${b.type}）高度超出卡片可用区域，单独成页仍会被裁切，请减字号/页边距或拆分内容。`,
+      )
     }
-    place({ kind: 'block', index: i }, md.height - (page.length === 0 ? (md.topMargin ?? 0) : 0))
-  }
-  flush()
+    atoms.push({
+      kind: 'block',
+      block: i,
+      h: md.height,
+      topMargin: md.topMargin ?? 0,
+      keepAfter: isKeepWithNext(b),
+      forceBreak: false,
+    })
+  })
 
+  const N = atoms.length
+  if (N === 0) return { pages: [[]], warnings }
+
+  // 行高归一基准（留白代价以「行」为单位，避免不同字号下权重漂移）
+  const lh =
+    (m.find(x => x.lineHeight && x.lineHeight > 0)?.lineHeight) ??
+    Math.max(1, Math.round(availableHeight / 20))
+  const shortfallCost = (used: number) => {
+    const s = Math.max(0, availableHeight - used) / lh
+    return s * s
+  }
+
+  // ---------- DP：best[a] = 从第 a 个原子开始排版的最小全篇代价 ----------
+  const INF = Number.POSITIVE_INFINITY
+  const best = new Float64Array(N + 1).fill(INF)
+  const next = new Int32Array(N + 1).fill(-1)
+  best[N] = 0
+
+  for (let a = N - 1; a >= 0; a--) {
+    let used = 0
+    let prevBlock = -1
+    for (let b = a; b < N; b++) {
+      const atom = atoms[b]!
+      const sameBlock = atom.block === prevBlock
+      const gap = b === a ? 0 : sameBlock ? (atom.kind === 'item' ? atom.itemGap : 0) : blockGap
+      const h = atom.h - (b === a && atom.kind === 'block' ? atom.topMargin : 0)
+      const candidate = used + gap + h
+      const aloneOverflow = b === a && candidate > availableHeight + 0.5
+      if (candidate > availableHeight + 0.5 && !aloneOverflow) break
+      used += gap + h
+      prevBlock = atom.block
+
+      const e = b + 1
+      const atDocEnd = e >= N
+      // 标题是硬 keep-with-next（页尾悬标题不可接受）；「：」引导句走软代价
+      if (!atDocEnd && atom.kind === 'block' && atom.keepAfter) continue
+
+      // 页尾孤行 / 下页寡行 / 引导句悬尾（软代价，交给全局权衡）
+      let extra = 0
+      let orphan = false
+      let widow = false
+      if (!atDocEnd && atom.kind === 'line' && atoms[e]!.kind === 'line' && atoms[e]!.block === atom.block) {
+        let placed = 0
+        for (let k = b; k >= a && atoms[k]!.kind === 'line' && atoms[k]!.block === atom.block; k--) placed++
+        orphan = placed === 1
+        widow = atom.lines - (atoms[e] as Extract<Atom, { kind: 'line' }>).line === 1
+      }
+      if (orphan) extra += ORPHAN_DEMERIT
+      if (widow) extra += WIDOW_DEMERIT
+      if (!atDocEnd && atom.kind === 'line' && atom.leadIn) extra += LEADIN_DEMERIT
+      if (aloneOverflow) extra += OVERSIZE_PENALTY
+
+      const cost = atDocEnd ? extra : shortfallCost(used) + extra + best[e]!
+      if (cost < best[a]!) {
+        best[a] = cost
+        next[a] = e
+      }
+      if (atom.forceBreak) break // 显式分页：本页到此为止
+      if (atDocEnd) break
+    }
+  }
+
+  // ---------- 还原分页计划（原子区间 → FlowUnit） ----------
+  const pages: FlowUnit[][] = []
+  let a = 0
+  while (a < N) {
+    const e = next[a]!
+    if (e <= a) break // 防御：理论不可达
+    const units: FlowUnit[] = []
+    for (let k = a; k < e; ) {
+      const at = atoms[k]!
+      if (at.kind === 'block') {
+        units.push({ kind: 'block', index: at.block })
+        k++
+        continue
+      }
+      if (at.kind === 'line') {
+        const from = at.line
+        let to = from + 1
+        k++
+        while (k < e) {
+          const nx = atoms[k]!
+          if (nx.kind !== 'line' || nx.block !== at.block || nx.line !== to) break
+          to++
+          k++
+        }
+        units.push({ kind: 'text', index: at.block, fromLine: from, toLine: to, cont: from > 0 })
+        continue
+      }
+      const from = at.item
+      let to = from + 1
+      k++
+      while (k < e) {
+        const nx = atoms[k]!
+        if (nx.kind !== 'item' || nx.block !== at.block || nx.item !== to) break
+        to++
+        k++
+      }
+      units.push({ kind: 'list', index: at.block, fromItem: from, toItem: to, cont: from > 0 })
+    }
+    if (units.length) pages.push(units)
+    a = e
+  }
   if (pages.length === 0) pages.push([])
   return { pages, warnings }
 }
-
 /** 把分页计划组装成卡片（封面 + 正文），输出卡片集合（split 单元由度量层解析后传入） */
 export function assembleCards(
   doc: Document,
