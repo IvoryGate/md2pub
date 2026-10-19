@@ -154,7 +154,7 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
   const H = L.headings[headingTab]
 
   return (
-    <aside className="glass absolute bottom-5 right-5 top-4 z-10 flex w-[312px] flex-col overflow-hidden rounded-[20px]">
+    <aside className="glass absolute bottom-5 right-5 top-4 z-10 flex w-[440px] flex-col overflow-hidden rounded-[20px]">
       {/* 面板头 */}
       <div className="flex h-11 shrink-0 items-center gap-2 border-b border-black/[0.06] px-4">
         <Palette className="h-3.5 w-3.5 text-ink-faint" strokeWidth={1.8} />

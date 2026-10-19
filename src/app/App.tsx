@@ -47,7 +47,7 @@ const App = () => {
         style={{
           // CSS 变量驱动卡片轨道避让浮动面板（面板收起时自动回收空间）
           '--rail-pl': editorOpen ? '508px' : '36px',
-          '--rail-pr': '344px',
+          '--rail-pr': '478px',
         } as React.CSSProperties}
       >
         {/* 编辑器浮动面板（可折叠） */}
