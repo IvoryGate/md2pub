@@ -596,14 +596,21 @@ const CardHeader = ({ card, theme }: { card: XhsCard; theme: XhsCardTheme }) => 
   const L = theme.layout
   const p = theme.palette
   if (!L.header.showTag && !L.header.showPageNum) return null
+  // 页眉住在上边距带内（垂直居中，不占正文高度）；边距过窄时收缩自身而不侵入版心
+  const bandHeight = Math.max(24, L.padding.top - 8)
+  const height = Math.min(L.header.height, bandHeight)
   return (
     <div
       style={{
+        position: 'absolute',
+        top: Math.max(4, Math.round((L.padding.top - height) / 2)),
+        left: L.padding.left,
+        right: L.padding.right,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        flexShrink: 0,
-        height: L.header.height,
+        height,
+        pointerEvents: 'none',
       }}
     >
       <div style={{ color: p.accent, fontSize: 28, letterSpacing: 5, fontWeight: 600 }}>
@@ -633,7 +640,8 @@ const Watermark = ({ theme, text }: { theme: XhsCardTheme; text?: string }) => {
     <div
       style={{
         position: 'absolute',
-        bottom: Math.max(24, theme.layout.padding.bottom * 0.32),
+        // 水印住在下边距带内，垂直居中（行盒约 32px）
+        bottom: Math.max(12, Math.round((theme.layout.padding.bottom - 32) / 2)),
         fontSize: 26,
         color: theme.palette.muted,
         opacity: 0.85,

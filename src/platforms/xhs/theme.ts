@@ -309,8 +309,6 @@ export function applyXhsOverrides(base: XhsCardTheme, overrides: XhsStyleOverrid
   return { ...base, layout: deepMerge(base.layout, overrides) }
 }
 
-/** 内容可用区派生常量：页脚水印带——内容区下缘与水印之间保留的呼吸空隙（有水印时才扣） */
-export const XHS_FOOTER_BAND = 64
 
 /**
  * 内容可用区派生：
@@ -319,14 +317,12 @@ export const XHS_FOOTER_BAND = 64
  *   页码是页眉带元素、水印叠加在底边距带内；两个带都与正文保持呼吸间距，正文永不贴到水印。
  */
 export function computeContentMetrics(size: { width: number; height: number }, theme: XhsCardTheme) {
-  const { padding, body, header, watermark } = theme.layout
+  const { padding, body, header } = theme.layout
   const contentWidth = size.width - padding.left - padding.right
   const headerVisible = header.showTag || header.showPageNum
-  const availableHeight =
-    size.height -
-    padding.top -
-    padding.bottom -
-    (headerVisible ? header.height : 0) -
-    (watermark.enabled ? XHS_FOOTER_BAND : 0)
+  /* 版心 = 卡片高 − 上下边距。页眉/水印都**住在边距带内部**（随边距走），
+     不再额外占正文高度——旧模型把 header.height 与 64px 水印带从版心扣掉，
+     等于页眉贴正文、底部双重留白。 */
+  const availableHeight = size.height - padding.top - padding.bottom
   return { contentWidth, availableHeight, body, headerVisible }
 }
