@@ -764,6 +764,7 @@ export interface CoverTextInfo {
   tags: string
   /** 图封面：图片地址 */
   image?: string
+  /** 图片排版：图上叠字 / 图文分开 */
   imageLayout?: 'overlay' | 'separate'
   /** 叠图遮罩强度 0–90 */
   imageScrim?: number
@@ -853,9 +854,24 @@ const CoverCard = ({
   /** 字号上限：保证最长一行放得下（宽 / 最长行字数），再受展示级基准封顶 */
   const fitCoverSize = (base: number, width = 904) => Math.min(Math.round(base), Math.round(width / maxLineLen))
 
-  const hair = `${p.text}24`
-  const ink = p.heading
+  /* 封面图 = 所有版式共享的背景层；有图时文字自动切白，并叠加可调遮罩 */
+  const coverImage = (ct.image ?? '').trim()
+  const hasImage = !!coverImage
+  const imageLayout = ct.imageLayout ?? 'overlay'
+  const overlay = hasImage && imageLayout === 'overlay'
+  const separate = hasImage && imageLayout === 'separate'
+  const scrim = Math.min(90, Math.max(0, ct.imageScrim ?? 55))
+  const ink = overlay ? '#ffffff' : p.heading
+  const fg = overlay ? 'rgba(255,255,255,0.86)' : p.text
+  const hair = overlay ? 'rgba(255,255,255,0.24)' : `${p.text}24`
   const accent = p.accent
+  const tagColor = overlay ? 'rgba(255,255,255,0.95)' : accent
+  /** 图文分开时图片占内容区的高度：竖排/索引需要更多文字高度 */
+  const separatePct =
+    ({ classic: 40, vertical: 22, big: 34, editorial: 36, jacket: 34, index: 28 } as Record<string, number>)[
+      L.coverStyle
+    ] ?? 36
+  const imageFirst = L.coverStyle !== 'classic' || L.cover !== 'top'
 
   const coverPad = L.coverPadding ?? L.padding
   const shellStyle: CSSProperties = {
@@ -868,7 +884,7 @@ const CoverCard = ({
     paddingRight: coverPad.right,
     paddingBottom: coverPad.bottom,
     fontFamily: theme.fontFamily,
-    color: p.text,
+    color: fg,
     ...xhsCssVars(theme),
     boxSizing: 'border-box',
     overflow: 'hidden',
@@ -878,7 +894,7 @@ const CoverCard = ({
   }
 
   const tagEl = (size = 26, tracking = 5) =>
-    tagLine ? <div style={{ letterSpacing: tracking, color: accent, fontSize: size, fontWeight: 700 }}>{tagLine.toUpperCase()}</div> : null
+    tagLine ? <div style={{ letterSpacing: tracking, color: tagColor, fontSize: size, fontWeight: 700 }}>{tagLine.toUpperCase()}</div> : null
   const mastheadMark = (w = 44, h = 4) => <div style={{ width: w, height: h, borderRadius: 2, background: accent }} />
 
   let body: ReactNode
@@ -913,7 +929,7 @@ const CoverCard = ({
                 textOrientation: 'upright',
                 fontSize: 21,
                 letterSpacing: 8,
-                color: accent,
+                color: tagColor,
                 fontWeight: 700,
                 marginBottom: 'auto',
               }}
@@ -922,12 +938,12 @@ const CoverCard = ({
             </div>
           )}
           {subtitle && (
-            <div style={{ writingMode: 'vertical-rl', textOrientation: 'upright', fontSize: 19, letterSpacing: 4, color: p.text, opacity: 0.7 }}>
+            <div style={{ writingMode: 'vertical-rl', textOrientation: 'upright', fontSize: 19, letterSpacing: 4, color: fg, opacity: 0.7 }}>
               {subtitle}
             </div>
           )}
           {author && (
-            <div style={{ writingMode: 'vertical-rl', textOrientation: 'upright', fontSize: 20, letterSpacing: 6, color: p.text, opacity: 0.7 }}>
+            <div style={{ writingMode: 'vertical-rl', textOrientation: 'upright', fontSize: 20, letterSpacing: 6, color: fg, opacity: 0.7 }}>
               {author}
             </div>
           )}
@@ -938,20 +954,23 @@ const CoverCard = ({
   } else if (L.coverStyle === 'big') {
     /* 巨字：字体即图像——语义平衡断行（两句一行 / 两行均分），
        每行按版宽 ×1.02 计算字号，右缘轻微出血到页边距，由圆角裁切收边 */
-    const size = Math.max(Math.round(B.size * 2.2), Math.min(Math.round((992 / maxLineLen) * 1.02), 240))
+    const size = Math.max(
+      Math.round(B.size * 2.2),
+      Math.min(Math.round(((separate ? 904 : 992) / maxLineLen) * 1.02), 240),
+    )
     body = (
       <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
         {tagLine ? (
-          <div style={{ fontSize: 20, letterSpacing: 6, color: accent, fontWeight: 700 }}>{tagLine}</div>
+          <div style={{ fontSize: 20, letterSpacing: 6, color: tagColor, fontWeight: 700 }}>{tagLine}</div>
         ) : (
           mastheadMark(44, 4)
         )}
         <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
           <h1
             style={{
-              width: `calc(100% + ${L.padding.right}px)`,
+              width: separate ? '100%' : `calc(100% + ${L.padding.right}px)`,
               margin: 0,
-              marginRight: -L.padding.right,
+              marginRight: separate ? 0 : -L.padding.right,
               color: ink,
               fontSize: size,
               lineHeight: 1.04,
@@ -963,7 +982,7 @@ const CoverCard = ({
           </h1>
         </div>
         <div style={{ height: 1, background: hair, marginBottom: 22 }} />
-        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', fontSize: 22, letterSpacing: 3, color: p.text, opacity: 0.7 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', fontSize: 22, letterSpacing: 3, color: fg, opacity: 0.7 }}>
           <span>{author}</span>
           <span>{subtitle}</span>
         </div>
@@ -995,22 +1014,44 @@ const CoverCard = ({
             </h1>
             <div style={{ width: 72, height: 6, borderRadius: 3, background: accent, marginTop: 44 }} />
             {subtitle && (
-              <div style={{ marginTop: 36, fontSize: 26, lineHeight: 1.9, letterSpacing: 2, color: p.text, opacity: 0.7 }}>{subtitle}</div>
+              <div style={{ marginTop: 36, fontSize: 26, lineHeight: 1.9, letterSpacing: 2, color: fg, opacity: 0.7 }}>{subtitle}</div>
             )}
           </div>
         </div>
         <div style={{ height: 1, background: hair, marginBottom: 22 }} />
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 22, letterSpacing: 3, color: p.text, opacity: 0.7 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 22, letterSpacing: 3, color: fg, opacity: 0.7 }}>
           <span>{author}</span>
           <span style={{ width: 36, height: 2, background: `${accent}66` }} />
         </div>
       </div>
     )
   } else if (L.coverStyle === 'jacket') {
-    /* 书封：细线内框 + 居中书名 + 版脚作者（装帧语言） */
+    /* 书封：细线内框 + 居中书名 + 版脚作者（装帧语言）。
+       图文分开时图片放在内框里，保持「整本书」的完整感，而不是浮在框外。 */
+    const jacketImage = separate ? (
+      <div
+        style={{
+          width: '100%',
+          height: '30%',
+          flexShrink: 0,
+          overflow: 'hidden',
+          borderRadius: 10,
+          marginTop: 26,
+          marginBottom: 8,
+          background: p.quoteBg,
+        }}
+      >
+        <img
+          src={coverImage}
+          alt=""
+          style={{ display: 'block', width: '100%', height: '100%', objectFit: 'cover' }}
+        />
+      </div>
+    ) : null
     body = (
       <div style={{ flex: 1, border: `1.5px solid ${accent}4d`, padding: '56px 48px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         <div style={{ display: 'flex', justifyContent: 'center' }}>{tagEl(24, 6)}</div>
+        {jacketImage}
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', width: '100%', transform: 'translateY(-3%)' }}>
           <h1
             style={{
@@ -1030,9 +1071,9 @@ const CoverCard = ({
           </h1>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24 }}>
-          {subtitle && <div style={{ fontSize: 24, letterSpacing: 3, color: p.text, opacity: 0.7, lineHeight: 1.9 }}>{subtitle}</div>}
+          {subtitle && <div style={{ fontSize: 24, letterSpacing: 3, color: fg, opacity: 0.7, lineHeight: 1.9 }}>{subtitle}</div>}
           <div style={{ width: 32, height: 2, borderRadius: 1, background: `${accent}80` }} />
-          {author && <div style={{ fontSize: 22, letterSpacing: 3, color: p.text, opacity: 0.7 }}>{author}</div>}
+          {author && <div style={{ fontSize: 22, letterSpacing: 3, color: fg, opacity: 0.7 }}>{author}</div>}
         </div>
       </div>
     )
@@ -1041,9 +1082,9 @@ const CoverCard = ({
     const rows = tagList.slice(0, 4)
     body = (
       <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 20, letterSpacing: 6, color: accent }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 20, letterSpacing: 6, color: tagColor }}>
           <span>目录</span>
-          <span style={{ color: p.text, opacity: 0.7, letterSpacing: 3 }}>{author}</span>
+          <span style={{ color: fg, opacity: 0.7, letterSpacing: 3 }}>{author}</span>
         </div>
         <div style={{ height: 1, background: hair, marginTop: 24 }} />
 
@@ -1062,7 +1103,7 @@ const CoverCard = ({
           >
             <TitleLines lines={titleLines} />
           </h1>
-          {subtitle && <div style={{ marginTop: 30, fontSize: 24, letterSpacing: 2, color: p.text, opacity: 0.7 }}>{subtitle}</div>}
+          {subtitle && <div style={{ marginTop: 30, fontSize: 24, letterSpacing: 2, color: fg, opacity: 0.7 }}>{subtitle}</div>}
 
           {rows.length > 1 && (
             <div style={{ marginTop: 56 }}>
@@ -1077,10 +1118,10 @@ const CoverCard = ({
                     borderTop: `1px solid ${hair}`,
                     fontSize: 24,
                     letterSpacing: 2,
-                    color: p.text, opacity: 0.7,
+                    color: fg, opacity: 0.7,
                   }}
                 >
-                  <span style={{ color: accent, fontSize: 20, letterSpacing: 2 }}>{String(i + 1).padStart(2, '0')}</span>
+                  <span style={{ color: tagColor, fontSize: 20, letterSpacing: 2 }}>{String(i + 1).padStart(2, '0')}</span>
                   <span>{t}</span>
                 </div>
               ))}
@@ -1090,130 +1131,6 @@ const CoverCard = ({
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
           <span style={{ width: 48, height: 3, borderRadius: 2, background: accent }} />
-        </div>
-      </div>
-    )
-  } else if (L.coverStyle === 'image') {
-    /* 图封：图片主导的封面。
-       overlay = 全幅图片 + 暗角遮罩 + 白字；separate = 图片在上、文字在下。 */
-    const image = (ct.image ?? '').trim()
-    const layout = ct.imageLayout ?? 'overlay'
-    const scrim = Math.min(90, Math.max(0, ct.imageScrim ?? 55))
-    const overlay = layout === 'overlay' && !!image
-    const imageEl = (
-      <img
-        src={image}
-        alt=""
-        style={{ display: 'block', width: '100%', height: '100%', objectFit: 'cover' }}
-      />
-    )
-    const titleNode = (
-      <h1
-        style={{
-          color: overlay ? '#ffffff' : ink,
-          fontSize: fitCoverSize(coverPx(2.05)),
-          lineHeight: 1.3,
-          fontWeight: 800,
-          letterSpacing: 1.5,
-          margin: 0,
-          whiteSpace: 'pre-wrap',
-          wordBreak: 'break-word',
-        }}
-      >
-        <TitleLines lines={titleLines} align={overlay ? 'center' : 'left'} />
-      </h1>
-    )
-    body = overlay ? (
-      <>
-        <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
-          {imageEl}
-          <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              background: `linear-gradient(180deg, rgba(0,0,0,${(scrim * 0.22) / 100}) 0%, rgba(0,0,0,${(scrim * 0.55) / 100}) 42%, rgba(0,0,0,${scrim / 100}) 100%)`,
-            }}
-          />
-        </div>
-        <div
-          style={{
-            position: 'relative',
-            zIndex: 1,
-            display: 'flex',
-            flexDirection: 'column',
-            flex: 1,
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            textAlign: 'center',
-          }}
-        >
-          <div style={{ alignSelf: 'stretch', display: 'flex', justifyContent: 'center' }}>
-            {tagLine ? (
-              <div style={{ color: 'rgba(255,255,255,0.94)', fontSize: 26, fontWeight: 700, letterSpacing: 5 }}>
-                {tagLine.toUpperCase()}
-              </div>
-            ) : null}
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 26 }}>
-            {titleNode}
-            {subtitle && (
-              <div style={{ fontSize: 26, letterSpacing: 3, lineHeight: 1.7, color: 'rgba(255,255,255,0.82)' }}>{subtitle}</div>
-            )}
-            <div style={{ width: 120, height: 7, borderRadius: 4, background: accent }} />
-          </div>
-          <div
-            style={{
-              alignSelf: 'stretch',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              fontSize: 24,
-              letterSpacing: 3,
-              color: 'rgba(255,255,255,0.82)',
-            }}
-          >
-            <span>{author}</span>
-            <span style={{ width: 36, height: 2, background: 'rgba(255,255,255,0.45)' }} />
-          </div>
-        </div>
-      </>
-    ) : (
-      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-        {image ? (
-          <div style={{ height: '52%', flexShrink: 0, overflow: 'hidden', borderRadius: 16, background: p.quoteBg }}>
-            {imageEl}
-          </div>
-        ) : null}
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            flex: 1,
-            justifyContent: 'space-between',
-            paddingTop: image ? 42 : 0,
-          }}
-        >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-            {tagEl(24, 5)}
-            {titleNode}
-            {subtitle && (
-              <div style={{ fontSize: 25, letterSpacing: 2, lineHeight: 1.7, color: p.text, opacity: 0.7 }}>{subtitle}</div>
-            )}
-          </div>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              fontSize: 23,
-              letterSpacing: 3,
-              color: p.text,
-              opacity: 0.7,
-            }}
-          >
-            <span>{author}</span>
-            <div style={{ width: 120, height: 7, borderRadius: 4, background: accent }} />
-          </div>
         </div>
       </div>
     )
@@ -1241,52 +1158,139 @@ const CoverCard = ({
         <>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             {tagEl(26, 5)}
-            {author && <div style={{ fontSize: 24, color: p.text, opacity: 0.7, letterSpacing: 3 }}>{author}</div>}
+            {author && <div style={{ fontSize: 24, color: fg, opacity: 0.7, letterSpacing: 3 }}>{author}</div>}
           </div>
           {title}
-          {subtitle && <div style={{ fontSize: 26, color: p.text, opacity: 0.7, letterSpacing: 3 }}>{subtitle}</div>}
+          {subtitle && <div style={{ fontSize: 26, color: fg, opacity: 0.7, letterSpacing: 3 }}>{subtitle}</div>}
           <div style={{ width: 120, height: 7, borderRadius: 4, background: accent, marginTop: 26 }} />
         </>
       ) : L.cover === 'center' ? (
         <>
           <div style={{ display: 'flex', justifyContent: 'center' }}>{tagEl(26, 5)}</div>
           {title}
-          {subtitle && <div style={{ fontSize: 26, color: p.text, opacity: 0.7, letterSpacing: 3, textAlign: 'center' }}>{subtitle}</div>}
+          {subtitle && <div style={{ fontSize: 26, color: fg, opacity: 0.7, letterSpacing: 3, textAlign: 'center' }}>{subtitle}</div>}
           <div style={{ width: 120, height: 7, borderRadius: 4, background: accent, margin: '4px auto 0' }} />
-          <div style={{ textAlign: 'center', fontSize: 24, color: p.text, opacity: 0.7, letterSpacing: 3 }}>{author}</div>
+          <div style={{ textAlign: 'center', fontSize: 24, color: fg, opacity: 0.7, letterSpacing: 3 }}>{author}</div>
         </>
       ) : (
         <>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 32, marginTop: '4%' }}>
             {tagEl(26, 5)}
             {title}
-            {subtitle && <div style={{ fontSize: 26, color: p.text, opacity: 0.7, letterSpacing: 3 }}>{subtitle}</div>}
+            {subtitle && <div style={{ fontSize: 26, color: fg, opacity: 0.7, letterSpacing: 3 }}>{subtitle}</div>}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 18, marginBottom: '1%' }}>
-            {author && <div style={{ fontSize: 24, color: p.text, opacity: 0.7, letterSpacing: 3 }}>{author}</div>}
+            {author && <div style={{ fontSize: 24, color: fg, opacity: 0.7, letterSpacing: 3 }}>{author}</div>}
             <div style={{ width: 120, height: 7, borderRadius: 4, background: accent }} />
           </div>
         </>
       )
   }
 
-  return (
+  const textWrap: CSSProperties = {
+    position: 'relative',
+    zIndex: overlay ? 1 : undefined,
+    display: 'flex',
+    flexDirection: 'column',
+    flex: 1,
+    minHeight: 0,
+    justifyContent:
+      L.coverStyle === 'classic'
+        ? L.cover === 'center'
+          ? 'center'
+          : L.cover === 'bottom'
+            ? 'flex-end'
+            : 'space-between'
+        : 'flex-start',
+    gap: L.coverStyle === 'classic' ? 30 : 0,
+    textShadow: overlay ? '0 2px 16px rgba(0,0,0,0.45)' : undefined,
+  }
+  const imageBand = separate ? (
     <div
-      data-xhs-card
-      data-xhs-theme={theme.id}
       style={{
-        ...shellStyle,
-        justifyContent: L.coverStyle === 'classic' ? (L.cover === 'center' ? 'center' : L.cover === 'bottom' ? 'flex-end' : 'space-between') : 'flex-start',
-        gap: L.coverStyle === 'classic' ? 30 : 0,
+        height: `${separatePct}%`,
+        flexShrink: 0,
+        overflow: 'hidden',
+        borderRadius: 14,
+        background: p.quoteBg,
+        marginTop: imageFirst ? 0 : 28,
+        marginBottom: imageFirst ? 28 : 0,
       }}
     >
-      {body}
+      <img
+        src={coverImage}
+        alt=""
+        style={{ display: 'block', width: '100%', height: '100%', objectFit: 'cover' }}
+      />
+    </div>
+  ) : null
+
+  return (
+    <div data-xhs-card data-xhs-theme={theme.id} style={shellStyle}>
+      {/* 图上叠字：图片是背景层；图文分开：图片是版式里的独立块 */}
+      {overlay && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 0, pointerEvents: 'none' }}>
+          <img
+            src={coverImage}
+            alt=""
+            style={{ display: 'block', width: '100%', height: '100%', objectFit: 'cover' }}
+          />
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              background: `linear-gradient(180deg, rgba(0,0,0,${(scrim * 0.32) / 100}) 0%, rgba(0,0,0,${(scrim * 0.62) / 100}) 45%, rgba(0,0,0,${scrim / 100}) 100%)`,
+            }}
+          />
+        </div>
+      )}
+      {separate ? (
+        separate && L.coverStyle === 'jacket' ? (
+          <div style={textWrap}>{body}</div>
+        ) : L.coverStyle === 'vertical' ? (
+          /* 竖排 + 图文分开：图片放左侧竖条，文字仍然直排 */
+          <div style={{ position: 'relative', display: 'flex', flexDirection: 'row', gap: 28, flex: 1, minHeight: 0 }}>
+            <div
+              style={{
+                width: '38%',
+                flexShrink: 0,
+                overflow: 'hidden',
+                borderRadius: 14,
+                background: p.quoteBg,
+              }}
+            >
+              <img
+                src={coverImage}
+                alt=""
+                style={{ display: 'block', width: '100%', height: '100%', objectFit: 'cover' }}
+              />
+            </div>
+            <div style={textWrap}>{body}</div>
+          </div>
+        ) : (
+          <div
+            style={{
+              position: 'relative',
+              display: 'flex',
+              flexDirection: 'column',
+              flex: 1,
+              minHeight: 0,
+            }}
+          >
+            {imageFirst && imageBand}
+            <div style={textWrap}>{body}</div>
+            {!imageFirst && imageBand}
+          </div>
+        )
+      ) : (
+        <div style={textWrap}>{body}</div>
+      )}
       {L.watermark.cover && (
         <Watermark
           theme={theme}
           text={watermark}
           pos={normalizeChromePos(L.watermark.coverPos)}
-          light={L.coverStyle === 'image' && (ct.imageLayout ?? 'overlay') === 'overlay' && !!ct.image?.trim()}
+          light={overlay}
         />
       )}
       {guides && <GuideOverlay theme={theme} inspect={inspect} cover w={pageW} h={pageH} />}

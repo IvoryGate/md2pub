@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import {
   XHS_THEMES,
   applyXhsOverrides,
@@ -20,6 +20,7 @@ import {
 } from '../platforms/xhs'
 import { Check, ChevronDown, RotateCcw, SlidersHorizontal, Trash2, Plus, X, Undo2, Redo2 } from 'lucide-react'
 import { useStore } from '../store'
+import { derivePublish } from '../content/publish'
 import { hexToOklch, oklchToHex, rgbToHex, hexToRgb } from '../core/color'
 import { useShallow } from 'zustand/react/shallow'
 
@@ -458,13 +459,15 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
       : `@${publish.mention.trim()}`
     : ''
   const publishAll = [publish.title.trim(), publish.body.trim(), hashTags, mentionText].filter(Boolean).join('\n\n')
-  const fillPublishFromCover = () =>
-    setPublish({
-      title: [...coverText.title].slice(0, 20).join(''),
-      tags: coverText.tags,
-      mention:
-        coverText.author && !coverText.author.startsWith('@') ? `@${coverText.author}` : coverText.author,
-    })
+  /** 从正文与封面自动起草发布文案（可在生成结果上继续改） */
+  const regeneratePublish = () => setPublish(derivePublish(useStore.getState().markdown, coverText))
+  const publishAutoRef = useRef(false)
+  useEffect(() => {
+    if (tab !== 'publish' || publishAutoRef.current) return
+    publishAutoRef.current = true
+    if (!publish.body.trim()) regeneratePublish()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab])
   const tagPos = normalizeChromePos(L.header.tagPos ?? 'top-left')
   const pagePos = normalizeChromePos(L.header.pageNumPos)
   const wmPos = normalizeChromePos(L.watermark.pos)
@@ -997,7 +1000,6 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
                         ['big', '巨字'],
                         ['editorial', '杂志'],
                         ['jacket', '书封'],
-                        ['image', '图封'],
                         ['index', '索引'],
                       ] as const
                     ).map(([value, label]) => (
@@ -1038,19 +1040,18 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
                   )}
                 </Section>
 
-                {L.coverStyle === 'image' && (
-                  <Section title="封面图" defaultOpen>
-                    <Field label="图文布局">
-                      <Seg
-                        value={coverText.imageLayout ?? 'overlay'}
-                        options={[
-                          { value: 'overlay' as const, label: '图上叠字' },
-                          { value: 'separate' as const, label: '图文分开' },
-                        ]}
-                        onChange={(v) => setCoverText({ imageLayout: v })}
-                      />
-                    </Field>
-                    <div className="mt-1.5">
+                <Section title="封面图" defaultOpen>
+                  <Field label="图片排版">
+                    <Seg
+                      value={coverText.imageLayout ?? 'overlay'}
+                      options={[
+                        { value: 'overlay' as const, label: '图上叠字' },
+                        { value: 'separate' as const, label: '图文分开' },
+                      ]}
+                      onChange={(v) => setCoverText({ imageLayout: v })}
+                    />
+                  </Field>
+                  <div className="mt-1.5">
                       <Field label="图片地址">
                         <TextInput
                           value={coverText.image ?? ''}
@@ -1093,10 +1094,12 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
                     )}
                     {coverImgError && <p className="mt-1 text-[9px] text-red-500">{coverImgError}</p>}
                     <p className="mt-1.5 text-[9px] leading-relaxed text-ink-faint">
-                      建议竖图 3:4；上传会自动压缩到 1600px 并内嵌。外链需允许跨域，否则导出可能失败。
+                      {(coverText.imageLayout ?? 'overlay') === 'overlay'
+                        ? '图片铺满封面，文字自动切白；遮罩用于保证可读性。'
+                        : '图文分开：常规版式图在上、文在下；竖排版式左图右字。'}
+                      建议竖图 3:4，上传会自动压缩到 1600px 并内嵌。外链需允许跨域，否则导出可能失败。
                     </p>
                   </Section>
-                )}
 
                 <Section title="封面文案" defaultOpen>
                   <Field label="标题">
@@ -1162,12 +1165,14 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
                   标题 ≤20 · 正文 ≤1000 · 图片 {pageCount}/18
                   {pageCount > 18 ? '（超过上限）' : ''}
                 </div>
+                <div className="mt-0.5 text-[9px] text-ink-faint">自动起草后可继续改，不必从零写</div>
               </div>
               <button
-                className="h-6 rounded-md bg-black/[0.05] px-2 text-[9.5px] text-ink-soft transition-colors hover:bg-black/[0.08]"
-                onClick={fillPublishFromCover}
+                className="tip tip-b h-6 rounded-md bg-ink px-2.5 text-[9.5px] font-medium text-white transition-opacity hover:opacity-85"
+                onClick={regeneratePublish}
+                data-tip="根据正文与封面重新起草，会覆盖当前文案"
               >
-                从封面带入
+                自动起草
               </button>
             </div>
 

@@ -135,7 +135,7 @@ export interface XhsLayout {
       关闭时首个 h1 留在正文，作为章节开头档（居中胶囊条 h1 档） */
   coverOn: boolean
   /** 封面样式：classic 经典 / editorial 杂志 / poster 海报 / jacket 书封 / index 索引 */
-  coverStyle: 'classic' | 'vertical' | 'big' | 'editorial' | 'jacket' | 'index' | 'image'
+  coverStyle: 'classic' | 'vertical' | 'big' | 'editorial' | 'jacket' | 'index'
   /** 经典封面版式位置 */
   cover: 'top' | 'center' | 'bottom'
   /** 封面标题绝对字号 px（设置后不随正文缩放） */
@@ -393,6 +393,10 @@ export function deepMerge<T>(target: T, patch?: DeepPartial<T>): T {
 export function applyXhsOverrides(base: XhsCardTheme, overrides: XhsStyleOverrides): XhsCardTheme {
   const { palette, ...layoutOverrides } = (overrides ?? {}) as XhsStyleOverrides
   const layout = deepMerge(base.layout, layoutOverrides as DeepPartial<XhsLayout>)
+  // 旧存档可能残留已移除的 'image' 版式：回退到经典封面，图片作为背景仍然生效
+  if (!( ['classic', 'vertical', 'big', 'editorial', 'jacket', 'index'] as string[]).includes(layout.coverStyle as string)) {
+    ;(layout as { coverStyle: string }).coverStyle = 'classic'
+  }
   // 中西文分选：西文字体在前、中文字体在后，缺字自动回落到对方
   const stack = [layout.latinFont, layout.cjkFont].filter((f): f is string => !!f)
   return {

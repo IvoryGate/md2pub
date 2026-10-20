@@ -181,7 +181,7 @@ export const useStore = create<{
     }),
     {
       name: 'md2pub-store',
-      version: 2,
+      version: 3,
       // v0 的 overrides = { padding, typography }；迁移到 layout v2 深合并形状
       migrate: (persisted: any, version: number) => {
         // 只对 v0 的旧形状做转换；v1 已经是新形状，不能再次重建（否则会丢掉 coverStyle / palette 等键）
@@ -212,6 +212,10 @@ export const useStore = create<{
             }
             persisted.overrides = next
           }
+        }
+        // v2 → v3：'image' 不再是独立版式，图片改为所有封面的背景层
+        if (version < 3 && persisted?.overrides?.coverStyle === 'image') {
+          persisted.overrides.coverStyle = 'classic'
         }
         // v1 → v2：新增发布文案。旧存档不继承示例文案，避免把示例标题带进用户自己的文章。
         if (version < 2 && persisted && persisted.publish === undefined) {
