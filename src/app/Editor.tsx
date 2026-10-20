@@ -9,7 +9,7 @@ import { inlineMathPreview } from './cm/inlineMath'
 import { inlineRender } from './cm/inlineRender'
 import { livePreview } from './cm/livePreview'
 import { codeBlockStyler, fencedLines } from './cm/codeBlock'
-import type { LineBus } from './scrollSync'
+import { animateScroll, type LineBus } from './scrollSync'
 import { ReadView } from './ReadView'
 import { useStore } from '../store'
 
@@ -420,17 +420,33 @@ export const EditorPanel = ({
                 })
               }
               view.scrollDOM.addEventListener('scroll', onScroll, { passive: true })
+              // 点击块级部件（表格/公式/图表/代码）→ 光标落入该块，装饰自动退回源码
+              const onWidgetDown = (e: MouseEvent) => {
+                const t = (e.target as HTMLElement | null)?.closest('.cm-block-widget') as HTMLElement | null
+                if (!t) return
+                try {
+                  const pos = view.posAtDOM(t, 0)
+                  view.dispatch({ selection: { anchor: pos } })
+                  view.focus()
+                  e.preventDefault()
+                } catch {
+                  /* ignore */
+                }
+              }
+              view.contentDOM.addEventListener('mousedown', onWidgetDown, true)
               const unsub = bus.onLine((src, line) => {
                 if (src === 'editor' || bus.info.applying) return
                 bus.info.applying = true
                 const target = Math.min(Math.max(1, line + 1), view.state.doc.lines)
-                view.dispatch({ effects: EditorView.scrollIntoView(view.state.doc.line(target).from, { y: 'start' }) })
+                const block = view.lineBlockAt(view.state.doc.line(target).from)
+                animateScroll(view.scrollDOM, Math.max(0, block.top - 6), 340)
                 window.setTimeout(() => {
                   bus.info.applying = false
-                }, 90)
+                }, 360)
               })
               syncRef.current = () => {
                 view.scrollDOM.removeEventListener('scroll', onScroll)
+                view.contentDOM.removeEventListener('mousedown', onWidgetDown, true)
                 unsub()
                 if (raf) cancelAnimationFrame(raf)
               }

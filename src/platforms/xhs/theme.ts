@@ -106,6 +106,15 @@ export interface XhsLayout {
     showPageNum: boolean
     /** 页码锚点（默认右下） */
     pageNumPos: ChromePos
+    /** 话题标签锚点与样式 */
+    tagPos: ChromePos
+    tagSize: number
+    tagOpacity: number
+    tagTracking: number
+    /** 页码样式 */
+    pageSize: number
+    pageOpacity: number
+    pageTracking: number
     height: number
   }
   watermark: {
@@ -114,6 +123,10 @@ export interface XhsLayout {
     /** 封面水印：独立开关 + 独立位置 */
     cover: boolean
     coverPos: ChromePos
+    /** 字号 / 透明度 / 字距 */
+    size: number
+    opacity: number
+    tracking: number
   }
   /** 封面：显式开关（不再由首个 h1 隐式决定）。
       关闭时首个 h1 留在正文，作为章节开头档（居中胶囊条 h1 档） */
@@ -230,8 +243,20 @@ const baseLayout: XhsLayout = {
   table: { sizeRatio: 0.8, cellPad: 16 },
   image: { fullBleed: false, radius: 12, outline: true, marginY: 16 },
   divider: { gapY: 26 },
-  header: { showTag: true, showPageNum: true, pageNumPos: 'bottom-right', height: 56 },
-  watermark: { enabled: true, pos: 'bottom-left', cover: true, coverPos: 'bottom-left' },
+  header: {
+    showTag: true,
+    showPageNum: true,
+    pageNumPos: 'bottom-right',
+    tagPos: 'top-left',
+    tagSize: 28,
+    tagOpacity: 1,
+    tagTracking: 5,
+    pageSize: 26,
+    pageOpacity: 0.85,
+    pageTracking: 2,
+    height: 56,
+  },
+  watermark: { enabled: true, pos: 'bottom-left', cover: true, coverPos: 'bottom-left', size: 26, opacity: 0.72, tracking: 1 },
   coverOn: true,
   coverStyle: 'classic',
   cover: 'center',

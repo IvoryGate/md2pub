@@ -42,6 +42,7 @@ export const XhsMeasureLayer = ({ doc, theme, sizeName, cover, onCardSet }: Meas
   const rootRef = useRef<HTMLDivElement>(null)
   const onCardSetRef = useRef(onCardSet)
   onCardSetRef.current = onCardSet
+  const prevDocRef = useRef<unknown>(null)
 
   const contentWidth = computeContentMetrics(XHS_CARD_SIZES[sizeName], theme).contentWidth
   const visibleCount = doc.blocks.filter(b => b.type !== 'pagebreak').length
@@ -146,8 +147,10 @@ export const XhsMeasureLayer = ({ doc, theme, sizeName, cover, onCardSet }: Meas
   useEffect(() => {
     const root = rootRef.current
     if (!root) return
-    // 初测防抖：连续输入时让出主线程；异步内容仍由 ResizeObserver 跟踪
-    const t = window.setTimeout(measure, 140)
+    // 文档变化防抖（让出主线程）；样式变化立即重排，字距/字号拖动即时生效
+    const delay = prevDocRef.current === doc ? 0 : 130
+    prevDocRef.current = doc
+    const t = window.setTimeout(measure, delay)
     const ro = new ResizeObserver(() => measure())
     Array.from(root.children).forEach(w => ro.observe(w))
     if (document.fonts?.status === 'loading') document.fonts.ready.then(measure).catch(() => {})

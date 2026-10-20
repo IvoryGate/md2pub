@@ -16,7 +16,7 @@ import {
   safeFilename,
   type XhsCardSet,
 } from '../platforms/xhs'
-import type { LineBus } from './scrollSync'
+import { animateScroll, type LineBus } from './scrollSync'
 import { useStore } from '../store'
 import { useShallow } from 'zustand/react/shallow'
 
@@ -82,10 +82,10 @@ export const XhsPreview = ({ bus }: { bus: LineBus }) => {
       let idx = 0
       for (let i = 0; i < startLines.length; i++) if ((startLines[i] ?? 0) <= line) idx = i
       const el = cardRefs.current[idx]
-      if (el) rail.scrollTop = Math.max(0, topOf(el) - 8)
+      if (el) animateScroll(rail, Math.max(0, topOf(el) - 8), 340)
       window.setTimeout(() => {
         bus.info.applying = false
-      }, 90)
+      }, 360)
     })
     return () => {
       rail.removeEventListener('scroll', onScroll)

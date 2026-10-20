@@ -103,7 +103,7 @@ const Num = ({
           if (!d) return
           const dx = e.clientX - d.x
           if (!d.moved && Math.abs(dx) > 3) d.moved = true
-          if (d.moved) onChange(clampOf(d.v + Math.round(dx / 3) * step, min, max, step))
+          if (d.moved) onChange(clampOf(d.v + (dx / 90) * (max - min), min, max, step))
         }}
         onPointerUp={() => (drag.current = null)}
         onKeyDown={(e) => {
@@ -660,25 +660,11 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
                   <Num value={L.padding.right} min={40} max={200} suffix="px" onChange={(v) => patch({ padding: { right: v } })} />
                 </Field>
               </Pair>
-              <p className="text-[9px] leading-relaxed text-ink-faint">页眉标签、页码与水印在「高级」页签中设置</p>
-            </Section>
-
-            {/* 元素 */}
-            <Section title="正文水印" defaultOpen inspectKey="watermark">
-              <ToggleRow label="显示水印" value={L.watermark.enabled} onChange={(v) => patch({ watermark: { enabled: v } })} />
-              <Field label="位置">
-                <PosGrid value={normalizeChromePos(L.watermark.pos)} onChange={(v) => patch({ watermark: { pos: v } })} />
-              </Field>
-              <div className="mt-1.5">
-                <Field label="文案">
-                  <TextInput value={watermark} placeholder="@你的账号" onChange={setWatermark} />
-                </Field>
-              </div>
             </Section>
 
             <Section title="页眉页脚" defaultOpen inspectKey="header">
               <Pair>
-                <Field label="页眉标签">
+                <Field label="话题标签">
                   <Seg
                     value={L.header.showTag ? 'on' : 'off'}
                     options={[
@@ -699,12 +685,72 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
                   />
                 </Field>
               </Pair>
-              <Field label="页码位置">
-                <PosGrid value={normalizeChromePos(L.header.pageNumPos)} onChange={(v) => patch({ header: { pageNumPos: v } })} />
-              </Field>
+              {L.header.showTag && (
+                <>
+                  <Field label="标签位置">
+                    <PosGrid value={normalizeChromePos(L.header.tagPos ?? 'top-left')} onChange={(v) => patch({ header: { tagPos: v } })} />
+                  </Field>
+                  <div className="mt-1.5">
+                    <Pair>
+                      <Field label="字号">
+                        <Num value={L.header.tagSize ?? 28} min={16} max={48} suffix="px" onChange={(v) => patch({ header: { tagSize: v } })} />
+                      </Field>
+                      <Field label="字距">
+                        <Num value={L.header.tagTracking ?? 5} min={0} max={14} step={0.5} suffix="px" onChange={(v) => patch({ header: { tagTracking: v } })} />
+                      </Field>
+                    </Pair>
+                    <Field label="透明度">
+                      <Num value={L.header.tagOpacity ?? 1} min={0.2} max={1} step={0.05} onChange={(v) => patch({ header: { tagOpacity: v } })} />
+                    </Field>
+                  </div>
+                </>
+              )}
+              {L.header.showPageNum && (
+                <>
+                  <Field label="页码位置">
+                    <PosGrid value={normalizeChromePos(L.header.pageNumPos)} onChange={(v) => patch({ header: { pageNumPos: v } })} />
+                  </Field>
+                  <div className="mt-1.5">
+                    <Pair>
+                      <Field label="字号">
+                        <Num value={L.header.pageSize ?? 26} min={16} max={40} suffix="px" onChange={(v) => patch({ header: { pageSize: v } })} />
+                      </Field>
+                      <Field label="字距">
+                        <Num value={L.header.pageTracking ?? 2} min={0} max={12} step={0.5} suffix="px" onChange={(v) => patch({ header: { pageTracking: v } })} />
+                      </Field>
+                    </Pair>
+                    <Field label="透明度">
+                      <Num value={L.header.pageOpacity ?? 0.85} min={0.2} max={1} step={0.05} onChange={(v) => patch({ header: { pageOpacity: v } })} />
+                    </Field>
+                  </div>
+                </>
+              )}
             </Section>
 
-            <Section title="列表 · 引用">
+            <Section title="水印" defaultOpen inspectKey="watermark">
+              <ToggleRow label="显示水印" value={L.watermark.enabled} onChange={(v) => patch({ watermark: { enabled: v } })} />
+              <Field label="位置">
+                <PosGrid value={normalizeChromePos(L.watermark.pos)} onChange={(v) => patch({ watermark: { pos: v } })} />
+              </Field>
+              <div className="mt-1.5">
+                <Pair>
+                  <Field label="字号">
+                    <Num value={L.watermark.size ?? 26} min={14} max={48} suffix="px" onChange={(v) => patch({ watermark: { size: v } })} />
+                  </Field>
+                  <Field label="字距">
+                    <Num value={L.watermark.tracking ?? 1} min={0} max={12} step={0.5} suffix="px" onChange={(v) => patch({ watermark: { tracking: v } })} />
+                  </Field>
+                </Pair>
+                <Field label="透明度">
+                  <Num value={L.watermark.opacity ?? 0.72} min={0.15} max={1} step={0.05} onChange={(v) => patch({ watermark: { opacity: v } })} />
+                </Field>
+                <Field label="文案">
+                  <TextInput value={watermark} placeholder="@你的账号" onChange={setWatermark} />
+                </Field>
+              </div>
+            </Section>
+
+            <Section title="列表">
               <Pair>
                 <Field label="条目间距">
                   <Num value={L.list.itemGap} min={0} max={40} suffix="px" onChange={(v) => patch({ list: { itemGap: v } })} />
@@ -713,42 +759,48 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
                   <Num value={L.divider.gapY} min={0} max={64} suffix="px" onChange={(v) => patch({ divider: { gapY: v } })} />
                 </Field>
               </Pair>
+            </Section>
+
+            <Section title="引用">
               <Pair>
-                <Field label="引用内边距">
+                <Field label="内边距">
                   <Num value={L.quote.pad} min={10} max={48} suffix="px" onChange={(v) => patch({ quote: { pad: v } })} />
                 </Field>
-                <Field label="引用圆角">
+                <Field label="圆角">
                   <Num value={L.quote.radius} min={0} max={24} suffix="px" onChange={(v) => patch({ quote: { radius: v } })} />
                 </Field>
               </Pair>
             </Section>
 
-            <Section title="代码 · 表格">
+            <Section title="代码">
               <Pair>
-                <Field label="代码字号比">
+                <Field label="字号比">
                   <Num value={L.code.sizeRatio} min={0.4} max={1.0} step={0.02} suffix="×" onChange={(v) => patch({ code: { sizeRatio: v } })} />
                 </Field>
-                <Field label="代码内边距">
+                <Field label="内边距">
                   <Num value={L.code.pad} min={8} max={48} suffix="px" onChange={(v) => patch({ code: { pad: v } })} />
                 </Field>
               </Pair>
               <Pair>
-                <Field label="代码圆角">
+                <Field label="圆角">
                   <Num value={L.code.radius} min={0} max={28} suffix="px" onChange={(v) => patch({ code: { radius: v } })} />
-                </Field>
-                <Field label="表格字号比">
-                  <Num value={L.table.sizeRatio} min={0.45} max={0.9} step={0.02} suffix="×" onChange={(v) => patch({ table: { sizeRatio: v } })} />
-                </Field>
-              </Pair>
-              <Pair>
-                <Field label="单元格边距">
-                  <Num value={L.table.cellPad} min={6} max={28} suffix="px" onChange={(v) => patch({ table: { cellPad: v } })} />
                 </Field>
                 <Field label="块前后留白">
                   <Num value={L.blocks.marginY} min={0} max={48} suffix="px" onChange={(v) => patch({ blocks: { marginY: v } })} />
                 </Field>
               </Pair>
-              <ToggleRow label="代码语言标签" value={L.code.showLang} onChange={(v) => patch({ code: { showLang: v } })} />
+              <ToggleRow label="语言标签" value={L.code.showLang} onChange={(v) => patch({ code: { showLang: v } })} />
+            </Section>
+
+            <Section title="表格">
+              <Pair>
+                <Field label="字号比">
+                  <Num value={L.table.sizeRatio} min={0.45} max={0.9} step={0.02} suffix="×" onChange={(v) => patch({ table: { sizeRatio: v } })} />
+                </Field>
+                <Field label="单元格边距">
+                  <Num value={L.table.cellPad} min={6} max={28} suffix="px" onChange={(v) => patch({ table: { cellPad: v } })} />
+                </Field>
+              </Pair>
             </Section>
 
             <Section title="图片">

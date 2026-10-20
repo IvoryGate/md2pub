@@ -5,7 +5,7 @@ import { renderInline, stripInline } from '../../core/document/parse'
 import { highlightCodeLines } from '../../core/highlight'
 import { advanceWidth } from '../../core/typeset'
 import type { XhsCard, XhsCardBlock } from './layout'
-import type { ChromePos, XhsCardTheme, XhsHeadingStyle, XhsLayout } from './theme'
+import type { ChromePos, XhsCardTheme, XhsHeadingStyle } from './theme'
 import { normalizeChromePos } from './theme'
 import { xhsMermaidVars } from './theme'
 import { useDiagramSvg } from '../shared-blocks'
@@ -658,34 +658,28 @@ const CardHeader = ({ card, theme, tags }: { card: XhsCard; theme: XhsCardTheme;
   const L = theme.layout
   const p = theme.palette
   if (!L.header.showTag) return null
-  // 页眉只保留话题标签（左上）；页码/水印由六向锚点系统定位
-  const bandHeight = Math.max(24, L.padding.top - 8)
-  const height = Math.min(L.header.height, bandHeight)
+  const list = (tags ?? '').trim() ? (tags ?? '').split(/[,，\s]+/).filter(Boolean) : (card.meta?.tags ?? [])
+  const text = list[0] ? `#${list[0]}#` : ''
+  if (!text) return null
   return (
     <div
       style={{
-        position: 'absolute',
-        top: Math.max(4, Math.round((L.padding.top - height) / 2)),
-        left: L.padding.left,
-        right: L.padding.right,
-        display: 'flex',
-        alignItems: 'center',
-        height,
+        ...chromeAnchor(normalizeChromePos(L.header.tagPos ?? 'top-left'), L),
+        color: p.accent,
+        fontSize: L.header.tagSize ?? 28,
+        letterSpacing: L.header.tagTracking ?? 5,
+        opacity: L.header.tagOpacity ?? 1,
+        fontWeight: 600,
+        whiteSpace: 'nowrap',
         pointerEvents: 'none',
       }}
     >
-      <div style={{ color: p.accent, fontSize: 28, letterSpacing: 5, fontWeight: 600 }}>
-        {(() => {
-          const list = (tags ?? '').trim() ? (tags ?? '').split(/[,，\s]+/).filter(Boolean) : (card.meta?.tags ?? [])
-          return list[0] ? `#${list[0]}#` : ''
-        })()}
-      </div>
+      {text}
     </div>
   )
 }
-
 /** 六向锚点：页眉/页脚元素共用的定位系统（相对卡片，落在边距带内） */
-const chromeAnchor = (pos: ChromePos, L: XhsLayout): CSSProperties => {
+const chromeAnchor = (pos: ChromePos, L: { padding: { top: number; bottom: number; left: number; right: number } }): CSSProperties => {
   const line = 32
   const vertical = pos.startsWith('top')
     ? { top: Math.max(8, Math.round((L.padding.top - line) / 2)) }
@@ -705,10 +699,10 @@ const Watermark = ({ theme, text, pos }: { theme: XhsCardTheme; text?: string; p
     <div
       style={{
         ...chromeAnchor(pos, theme.layout),
-        fontSize: 26,
+        fontSize: theme.layout.watermark.size ?? 26,
         color: theme.palette.muted,
-        opacity: 0.72,
-        letterSpacing: 1,
+        opacity: theme.layout.watermark.opacity ?? 0.72,
+        letterSpacing: theme.layout.watermark.tracking ?? 1,
         whiteSpace: 'nowrap',
         pointerEvents: 'none',
       }}
@@ -723,10 +717,10 @@ const PageNumber = ({ theme, page, total, pos }: { theme: XhsCardTheme; page: nu
   <div
     style={{
       ...chromeAnchor(pos, theme.layout),
-      fontSize: 26,
+      fontSize: theme.layout.header.pageSize ?? 26,
       color: theme.palette.muted,
-      opacity: 0.85,
-      letterSpacing: 2,
+      opacity: theme.layout.header.pageOpacity ?? 0.85,
+      letterSpacing: theme.layout.header.pageTracking ?? 2,
       whiteSpace: 'nowrap',
       pointerEvents: 'none',
     }}

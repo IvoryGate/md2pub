@@ -29,7 +29,7 @@ const fontCss = (f: TypesetFont) => `${f.weight} ${f.size}px ${f.family}`
 /** 文本串的前进宽度 px（含逐字符 letter-spacing） */
 export const advanceWidth = (text: string, f: TypesetFont): number => {
   if (!text) return 0
-  const key = `${f.weight}|${f.size}|${f.family}|${text}`
+  const key = `${f.weight}|${f.size}|${f.family}|${f.letterSpacing}|${text}`
   const hit = cache.get(key)
   if (hit != null) return hit
   const c = canvas()

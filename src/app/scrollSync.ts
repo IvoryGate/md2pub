@@ -96,3 +96,19 @@ export function createLineBus(): LineBus {
     },
   }
 }
+
+
+/** 缓动滚动（easeInOutCubic，接近贝塞尔手感） */
+export function animateScroll(el: HTMLElement, target: number, duration = 380): void {
+  const start = el.scrollTop
+  const delta = Math.max(0, target) - start
+  if (Math.abs(delta) < 1) return
+  const t0 = performance.now()
+  const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2)
+  const step = (now: number) => {
+    const p = Math.min(1, (now - t0) / duration)
+    el.scrollTop = start + delta * ease(p)
+    if (p < 1) requestAnimationFrame(step)
+  }
+  requestAnimationFrame(step)
+}
