@@ -170,6 +170,8 @@ export interface XhsPalette {
   accent2?: string
   /** 方案第三色：表头等辅助装饰（缺省回退 accent） */
   accent3?: string
+  /** 方案第四色：仅配色工具/色板展示（四角方案） */
+  accent4?: string
 }
 
 export interface XhsCardTheme {

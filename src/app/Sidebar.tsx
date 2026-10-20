@@ -11,12 +11,13 @@ import {
   COLOR_PRESETS,
   SCHEMES,
   paletteRampsFromPalette,
+  neutralStrip,
   paletteOf,
   derivePalette,
   contrastOf,
   type ColorScheme,
-  type PaperTone,
   type PaletteTone,
+  type XhsPalette,
   CJK_FONTS,
   LATIN_FONTS,
 } from '../platforms/xhs'
@@ -339,24 +340,261 @@ const ColorWheel = ({
   )
 }
 
-const ColorRow = ({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) => (
-  <div className="flex h-6 items-center gap-1.5">
-    <span className="w-11 shrink-0 text-[10px] text-ink-soft">{label}</span>
-    <input
-      type="color"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="h-5 w-5 shrink-0 cursor-pointer rounded-[4px] border border-black/[0.12] bg-transparent p-0"
-    />
-    <input
-      className="h-6 min-w-0 flex-1 rounded-md bg-black/[0.045] px-1.5 font-mono text-[10px] uppercase tracking-wide text-ink-soft outline-none focus:bg-white focus:ring-1 focus:ring-black/[0.14]"
-      value={value.toUpperCase()}
-      onChange={(e) => {
-        if (/^#[0-9a-f]{6}$/i.test(e.target.value)) onChange(e.target.value)
-      }}
-    />
+const rgbToHsl = (r: number, g: number, b: number) => {
+  const rr = r / 255, gg = g / 255, bb = b / 255
+  const max = Math.max(rr, gg, bb), min = Math.min(rr, gg, bb)
+  const l = (max + min) / 2
+  const d = max - min
+  let h = 0
+  let s = 0
+  if (d) {
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
+    if (max === rr) h = ((gg - bb) / d) % 6
+    else if (max === gg) h = (bb - rr) / d + 2
+    else h = (rr - gg) / d + 4
+    h *= 60
+    if (h < 0) h += 360
+  }
+  return { h, s, l }
+}
+const hslToHex = (h: number, s: number, l: number) => {
+  const c = (1 - Math.abs(2 * l - 1)) * s
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1))
+  const m = l - c / 2
+  const [r, g, b] = h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x] : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x]
+  return rgbToHex((r + m) * 255, (g + m) * 255, (b + m) * 255)
+}
+
+/** Paletton 式关系轮：底盘 = 色相/饱和度，点 = 当前色板的各色族 */
+const HarmonyWheel = ({
+  palette,
+  size = 184,
+  onChange,
+}: {
+  palette: XhsPalette
+  size?: number
+  onChange: (hex: string) => void
+}) => {
+  const R = size / 2
+  const families = [
+    { color: palette.accent, label: '主色' },
+    { color: palette.accent2 ?? palette.italic, label: '第二色' },
+    { color: palette.accent3 ?? palette.strong, label: '第三色' },
+    ...(palette.accent4 ? [{ color: palette.accent4, label: '第四色' }] : []),
+  ].filter((m, i, arr) => arr.findIndex((x) => x.color.toLowerCase() === m.color.toLowerCase()) === i)
+
+  const shadeL = [0.86, 0.72, 0.56, 0.4]
+  const shadeC = [0.35, 0.6, 1, 0.8]
+  const shadeName = ['浅', '中', '深', '更暗']
+  const shadeRadius = (l: number) => (0.18 + (1 - l) * 0.8) * (R - 10)
+
+  const familiesPts = families.map((f) => {
+    const { h, c, l } = hexToOklch(f.color)
+    return [0, 1, 2, 3].map((i) => {
+      const color = i === 2 ? f.color : oklchToHex(shadeL[i]!, c * shadeC[i]!, h)
+      const lv = i === 2 ? l : shadeL[i]!
+      const r = shadeRadius(lv)
+      const rad = (h * Math.PI) / 180
+      return { color, x: R + Math.sin(rad) * r, y: R - Math.cos(rad) * r, label: `${f.label} · ${shadeName[i]}` }
+    })
+  })
+  const basePts = familiesPts.map((f) => f[2]!)
+
+  const pick = (e: React.PointerEvent<HTMLDivElement>) => {
+    const box = e.currentTarget.getBoundingClientRect()
+    const dx = e.clientX - (box.left + R)
+    const dy = e.clientY - (box.top + R)
+    let hue = (Math.atan2(dx, -dy) * 180) / Math.PI
+    if (hue < 0) hue += 360
+    const sat = Math.min(1, Math.hypot(dx, dy) / R)
+    onChange(oklchToHex(0.58, 0.03 + sat * 0.25, hue))
+  }
+
+  return (
+    <div className="flex flex-col items-center">
+      <div
+        className="relative shrink-0 cursor-crosshair rounded-full ring-1 ring-black/[0.08]"
+        style={{
+          width: size,
+          height: size,
+          background:
+            'radial-gradient(circle at 50% 50%, rgba(255,255,255,0.97) 0%, rgba(255,255,255,0.82) 15%, rgba(255,255,255,0) 64%), conic-gradient(from 90deg, #f43f5e, #f59e0b, #84cc16, #06b6d4, #3b82f6, #a855f7, #f43f5e)',
+        }}
+        onPointerDown={(e) => {
+          ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+          pick(e)
+        }}
+        onPointerMove={(e) => {
+          if (e.buttons & 1) pick(e)
+        }}
+      >
+        <svg className="pointer-events-none absolute inset-0" width={size} height={size}>
+          {familiesPts.map((f, i) => (
+            <polyline
+              key={i}
+              points={f.map((p) => `${p.x},${p.y}`).join(' ')}
+              fill="none"
+              stroke={families[i]!.color}
+              strokeOpacity="0.3"
+              strokeWidth="1.5"
+            />
+          ))}
+          {basePts.length > 1 && (
+            <polygon
+              points={basePts.map((p) => `${p.x},${p.y}`).join(' ')}
+              fill="none"
+              stroke="rgba(0,0,0,0.28)"
+              strokeWidth="1"
+              strokeDasharray="3 3"
+            />
+          )}
+        </svg>
+        {familiesPts.flat().map((p, i) => {
+          const isBase = i % 4 === 2
+          return (
+            <span
+              key={`${i}-${p.color}`}
+              title={p.label}
+              className={`pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow ${
+                isBase ? 'h-3 w-3' : 'h-2 w-2'
+              }`}
+              style={{ left: p.x, top: p.y, background: p.color }}
+            />
+          )
+        })}
+      </div>
+      <div className="mt-1 text-[8.5px] text-ink-faint">每个色族 4 阶明暗 · 拖动色轮选主色</div>
+    </div>
+  )
+}
+
+const ColorStrip = ({ label, colors }: { label: string; colors: string[] }) => (
+  <div className="flex items-center gap-2">
+    <span className="w-9 shrink-0 text-[9px] text-ink-soft">{label}</span>
+    <div className="flex h-7 flex-1 overflow-hidden rounded-md ring-1 ring-black/[0.06]">
+      {colors.map((c, i) => (
+        <span key={`${c}-${i}`} className="flex-1" style={{ background: c }} />
+      ))}
+    </div>
   </div>
 )
+
+/** 自由选色：HEX / RGB / HSV / HSL */
+const FreeColorInputs = ({
+  color,
+  model,
+  onChange,
+}: {
+  color: string
+  model: 'hex' | 'rgb' | 'hsv' | 'hsl'
+  onChange: (hex: string) => void
+}) => {
+  const box =
+    'h-7 w-full min-w-0 rounded-md bg-black/[0.045] px-1.5 text-[10px] tabular-nums text-ink outline-none focus:bg-white focus:ring-1 focus:ring-black/[0.14]'
+  if (model === 'hex') {
+    return (
+      <input
+        className={`${box} font-mono uppercase tracking-wide`}
+        value={color.toUpperCase()}
+        onChange={(e) => {
+          if (/^#[0-9a-f]{6}$/i.test(e.target.value)) onChange(e.target.value)
+        }}
+      />
+    )
+  }
+  const rgb = hexToRgb(color)
+  if (model === 'rgb') {
+    return (
+      <div className="grid grid-cols-3 gap-1">
+        {(['R', 'G', 'B'] as const).map((label, i) => (
+          <label key={label} className="block">
+            <span className="mb-0.5 block text-[8px] text-ink-faint">{label}</span>
+            <input
+              type="number"
+              min={0}
+              max={255}
+              className={box}
+              value={Math.round(rgb[i]!)}
+              onChange={(e) => {
+                const next = [...rgb] as [number, number, number]
+                next[i] = Math.max(0, Math.min(255, Number(e.target.value) || 0))
+                onChange(rgbToHex(next[0], next[1], next[2]))
+              }}
+            />
+          </label>
+        ))}
+      </div>
+    )
+  }
+  if (model === 'hsv') {
+    const hsv = rgbToHsv(rgb[0], rgb[1], rgb[2])
+    return (
+      <div className="grid grid-cols-3 gap-1">
+        {(
+          [
+            ['H', hsv.h, 360],
+            ['S', hsv.s * 100, 100],
+            ['V', hsv.v * 100, 100],
+          ] as const
+        ).map(([label, value, max], i) => (
+          <label key={label} className="block">
+            <span className="mb-0.5 block text-[8px] text-ink-faint">
+              {label} {i === 0 ? '°' : '%'}
+            </span>
+            <input
+              type="number"
+              min={0}
+              max={max}
+              className={box}
+              value={Math.round(value)}
+              onChange={(e) => {
+                const v = Math.max(0, Math.min(max, Number(e.target.value) || 0))
+                const next = [hsv.h, hsv.s, hsv.v]
+                if (i === 0) next[0] = v
+                if (i === 1) next[1] = v / 100
+                if (i === 2) next[2] = v / 100
+                onChange(hsvToHex(next[0]!, next[1]!, next[2]!))
+              }}
+            />
+          </label>
+        ))}
+      </div>
+    )
+  }
+  const hsl = rgbToHsl(rgb[0], rgb[1], rgb[2])
+  return (
+    <div className="grid grid-cols-3 gap-1">
+      {(
+        [
+          ['H', hsl.h, 360],
+          ['S', hsl.s * 100, 100],
+          ['L', hsl.l * 100, 100],
+        ] as const
+      ).map(([label, value, max], i) => (
+        <label key={label} className="block">
+          <span className="mb-0.5 block text-[8px] text-ink-faint">
+            {label} {i === 0 ? '°' : '%'}
+          </span>
+          <input
+            type="number"
+            min={0}
+            max={max}
+            className={box}
+            value={Math.round(value)}
+            onChange={(e) => {
+              const v = Math.max(0, Math.min(max, Number(e.target.value) || 0))
+              const next = [hsl.h, hsl.s, hsl.l]
+              if (i === 0) next[0] = v
+              if (i === 1) next[1] = v / 100
+              if (i === 2) next[2] = v / 100
+              onChange(hslToHex(next[0]!, next[1]!, next[2]!))
+            }}
+          />
+        </label>
+      ))}
+    </div>
+  )
+}
 
 type HAlign = 'left' | 'center' | 'right'
 /** 装饰成套：每种装饰声明适用的对齐方式，面板按当前对齐过滤 */
@@ -371,6 +609,23 @@ const DECORATIONS: Array<{ value: HeadingDecoration; label: string; aligns: HAli
   { value: 'bar-right', label: '右竖条', aligns: ['right'] },
 ]
 const alignDefaultDeco = (a: HAlign): HeadingDecoration => (a === 'left' ? 'bar' : a === 'right' ? 'bar-right' : 'pill')
+
+const COLOR_ROLES = [
+  ['bg', '纸色'],
+  ['text', '正文'],
+  ['heading', '标题'],
+  ['accent', '主色'],
+  ['accent2', '第二色'],
+  ['accent3', '第三色'],
+  ['muted', '次要'],
+  ['strong', '加粗'],
+  ['italic', '斜体'],
+  ['quoteBg', '引用底'],
+  ['codeBg', '代码底'],
+  ['codeFg', '代码字'],
+] as const
+type ColorRole = (typeof COLOR_ROLES)[number][0]
+const COLOR_ROLE_LABEL: Record<ColorRole, string> = Object.fromEntries(COLOR_ROLES) as Record<ColorRole, string>
 
 type TabKey = 'basic' | 'cover' | 'color' | 'advanced'
 
@@ -420,13 +675,16 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
   const [savingPreset, setSavingPreset] = useState(false)
   const [seed, setSeed] = useState(P.accent)
   const [scheme, setScheme] = useState<ColorScheme>('complement')
-  const [paper, setPaper] = useState<PaperTone>('warm')
   const [tone, setTone] = useState<PaletteTone>(contrastOf(P.bg, '#000000') < 3 ? 'dark' : 'light')
+  const [distance, setDistance] = useState(30)
+  const [freeRole, setFreeRole] = useState<ColorRole>('accent')
+  const [model, setModel] = useState<'hex' | 'rgb' | 'hsv' | 'hsl'>('hex')
+  const [schemeTouched, setSchemeTouched] = useState(false)
   // 画廊/预设可能直接换了 palette，色轮种子要跟着走，避免显示旧颜色
   useEffect(() => {
     setSeed(P.accent)
   }, [P.accent])
-  const applyColor = (s = seed, sc = scheme, pp = paper, tn = tone) => patch({ palette: derivePalette(s, sc, pp, tn) })
+  const applyColor = (s = seed, sc = scheme, tn = tone, dist = distance) => patch({ palette: derivePalette(s, sc, 'warm', tn, dist) })
   const patch = (p: XhsStyleOverrides) => patchLayout(p)
   const H = L.headings[headingTab]
   const [coverImgError, setCoverImgError] = useState('')
@@ -445,14 +703,24 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
 
   const headingSize = H.size ?? Math.round(L.body.size * H.sizeRatio)
   const coverTitlePx = L.coverTitleSize ?? Math.round(L.body.size * 2.35)
-  const warmColor = COLOR_PRESETS.find((c) => c.id === 'chase-mono')
+  const warmColor = COLOR_PRESETS.find((c) => c.id === 'xuanzhi')
   const coolColor = COLOR_PRESETS.find((c) => c.id === 'dailan')
   const defaultPalette = XHS_THEMES[0]!.palette
-  const ramps = paletteRampsFromPalette(P, tone)
+  const stripsTone: PaletteTone = contrastOf(P.bg, '#000000') < 2.6 ? 'dark' : 'light'
+  const ramps = paletteRampsFromPalette(P, stripsTone)
+  const neutral = neutralStrip(P)
+  const roleValue = (role: ColorRole): string => {
+    if (role === 'accent2') return P.accent2 ?? P.italic
+    if (role === 'accent3') return P.accent3 ?? P.strong
+    return (P[role] as string | undefined) ?? P.accent
+  }
+  const freeColor = roleValue(freeRole)
+  const setRoleColor = (hex: string) => patch({ palette: { [freeRole]: hex } as Partial<XhsPalette> })
   const wheelPalette = [
     { color: P.accent, label: '主色' },
     { color: P.accent2 ?? P.italic, label: '第二色' },
     { color: P.accent3 ?? P.strong, label: '第三色' },
+    ...(P.accent4 ? [{ color: P.accent4, label: '第四色' }] : []),
     { color: P.strong, label: '强调' },
   ].filter((m, i, arr) => arr.findIndex((x) => x.color.toLowerCase() === m.color.toLowerCase()) === i)
   const galleryThumbs = [
@@ -804,6 +1072,20 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
                   <Num value={L.padding.right} min={40} max={200} suffix="px" onChange={(v) => patch({ padding: { right: v } })} />
                 </Field>
               </Pair>
+              <div className="mt-1.5">
+                <ToggleRow label="纸面颗粒" value={L.paperTexture} onChange={(v) => patch({ paperTexture: v })} />
+                {L.paperTexture && (
+                  <Field label="颗粒强度">
+                    <Num
+                      value={L.paperTextureStrength ?? 5}
+                      min={1}
+                      max={10}
+                      suffix="/10"
+                      onChange={(v) => patch({ paperTextureStrength: Math.round(v) })}
+                    />
+                  </Field>
+                )}
+              </div>
             </Section>
 
             <Section title="页眉页脚" defaultOpen inspectKey="header">
@@ -1208,10 +1490,9 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
         {tab === 'color' && (
           <>
             <Section title="配色方案" defaultOpen>
-              <div className="grid grid-cols-3 gap-1">
+              <div className="grid grid-cols-3 gap-1.5">
                 {COLOR_PRESETS.map((preset) => {
-                  const pal = preset.isDefault ? defaultPalette : paletteOf(preset, tone)
-                  const swatches = [pal.bg, pal.accent, pal.accent2 ?? pal.strong, pal.accent3 ?? pal.italic]
+                  const pal = preset.isDefault ? defaultPalette : paletteOf(preset, preset.dark ? 'dark' : 'light')
                   const active = preset.isDefault
                     ? !overrides.palette
                     : pal.accent.toLowerCase() === P.accent.toLowerCase()
@@ -1219,133 +1500,102 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
                     <button
                       key={preset.id}
                       onClick={() => {
-                        setSeed(preset.seed)
-                        setScheme(preset.scheme)
-                        setPaper(preset.paper)
-                        if (preset.isDefault) {
-                          setTone('light')
-                          patch({ palette: undefined })
-                        } else {
-                          patch({ palette: paletteOf(preset, tone) })
-                        }
+                        setSeed(pal.accent)
+                        setTone(contrastOf(pal.bg, '#000000') < 2.6 ? 'dark' : 'light')
+                        setDistance(scheme === 'tetrad' ? 70 : 30)
+                        setSchemeTouched(false)
+                        patch({ palette: preset.isDefault ? undefined : pal })
                       }}
-                      className={`rounded-md border p-1.5 text-left transition-colors hover:bg-white ${
-                        active ? 'border-black/[0.2] ring-1 ring-black/[0.04]' : 'border-black/[0.06] hover:border-black/[0.14]'
-                      }`}
+                      className="group text-left"
                     >
-                      <div className="flex h-5 overflow-hidden rounded-[3px] ring-1 ring-black/[0.05]">
-                        {swatches.map((c, i) => (
-                          <span key={i} className="flex-1" style={{ background: c }} />
-                        ))}
-                      </div>
-                      <div className="mt-1 truncate text-[8.5px] font-medium text-ink">{preset.name}</div>
+                      <span
+                        className={`relative block h-12 overflow-hidden rounded-lg ring-1 transition-transform group-hover:-translate-y-0.5 ${
+                          active ? 'ring-black/[0.24]' : 'ring-black/[0.06]'
+                        }`}
+                        style={{ background: pal.bg }}
+                      >
+                        <span
+                          className="absolute left-2 top-3 h-5 w-5 rounded-full shadow-sm ring-2 ring-white/70"
+                          style={{ background: pal.accent }}
+                        />
+                        <span
+                          className="absolute left-6 top-2 h-5 w-5 rounded-full shadow-sm ring-2 ring-white/60"
+                          style={{ background: pal.accent2 ?? pal.strong }}
+                        />
+                        <span
+                          className="absolute left-10 top-3.5 h-4 w-4 rounded-full shadow-sm ring-2 ring-white/50"
+                          style={{ background: pal.accent3 ?? pal.italic }}
+                        />
+                        <span
+                          className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full"
+                          style={{ background: pal.text }}
+                        />
+                      </span>
+                      <span
+                        className={`mt-1 block truncate text-[9px] ${
+                          active ? 'font-semibold text-ink' : 'text-ink-soft'
+                        }`}
+                      >
+                        {preset.name}
+                      </span>
                     </button>
                   )
                 })}
               </div>
               <p className="mt-1.5 text-[9px] leading-relaxed text-ink-faint">
-                点选即换整套配色；色轮会标出主色、第二色、第三色与强调色。
+                赤橙黄绿青蓝紫、双色、三色与明暗；纸色和文字都带色相，直接体现在卡片上。
               </p>
             </Section>
 
-            <Section title="方案色板" defaultOpen>
-              {ramps.length === 1 ? (
-                <div>
-                  <div className="flex h-9 overflow-hidden rounded-md ring-1 ring-black/[0.06]">
-                    {ramps[0]!.colors.map((c) => (
-                      <span key={c} className="flex-1" style={{ background: c }} />
-                    ))}
-                  </div>
-                  <div className="mt-1 text-center text-[8.5px] text-ink-faint">5 阶明度</div>
-                </div>
-              ) : (
-                <div
-                  className={`grid gap-1 ${
-                    ramps.length === 2 ? 'grid-cols-2' : ramps.length === 3 ? 'grid-cols-3' : 'grid-cols-4'
-                  }`}
-                >
-                  {ramps.map((r) => (
-                    <div key={r.name}>
-                      <div className="flex h-16 flex-col overflow-hidden rounded-[4px] ring-1 ring-black/[0.06]">
-                        {r.colors.map((c) => (
-                          <span key={c} className="flex-1" style={{ background: c }} />
-                        ))}
-                      </div>
-                      <div className="mt-1 text-center text-[8px] text-ink-faint">{r.name}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-              <p className="mt-1.5 text-[9px] leading-relaxed text-ink-faint">
-                引用与双子塔用第二色，表头用第三色；每个色族 5 阶明度。默认素笺不强制套用。
-              </p>
-            </Section>
-
-            <Section title="自定义" defaultOpen>
-              <Field label="种子色">
-                <div className="flex items-center gap-1">
-                  <input
-                    type="color"
-                    className="h-6 w-6 cursor-pointer rounded-[4px] border border-black/[0.12] bg-transparent p-0"
-                    value={seed}
-                    onChange={(e) => {
-                      setSeed(e.target.value)
-                      applyColor(e.target.value)
+            <Section title="配色工具" defaultOpen>
+              <HarmonyWheel
+                palette={P}
+                onChange={(hex) => {
+                  setSeed(hex)
+                  setSchemeTouched(true)
+                  applyColor(hex, scheme, tone, distance)
+                }}
+              />
+              <div className="mt-2 grid grid-cols-7 gap-0.5">
+                {SCHEMES.map((sc) => (
+                  <button
+                    key={sc.id}
+                    onClick={() => {
+                      const nextDistance = sc.id === 'tetrad' ? 70 : 30
+                      setScheme(sc.id)
+                      setDistance(nextDistance)
+                      setSchemeTouched(true)
+                      applyColor(seed, sc.id, tone, nextDistance)
                     }}
-                  />
-                  <input
-                    className="h-6 min-w-0 flex-1 rounded-md bg-black/[0.045] px-2 font-mono text-[10.5px] uppercase text-ink outline-none focus:bg-white focus:ring-1 focus:ring-black/[0.14]"
-                    value={seed.toUpperCase()}
-                    onChange={(e) => {
-                      if (/^#[0-9a-f]{6}$/i.test(e.target.value)) {
-                        setSeed(e.target.value)
-                        applyColor(e.target.value)
-                      }
-                    }}
-                  />
-                </div>
-              </Field>
-              <div className="mt-1.5">
-                <Field label="色相关系">
-                  <div className="grid grid-cols-7 gap-0.5">
-                    {SCHEMES.map((sc) => (
-                      <button
-                        key={sc.id}
-                        onClick={() => {
-                          setScheme(sc.id)
-                          applyColor(seed, sc.id)
-                        }}
-                        className={`h-6 rounded-[4px] text-[9px] transition-colors ${
-                          scheme === sc.id
-                            ? 'bg-ink font-medium text-white'
-                            : 'bg-black/[0.045] text-ink-soft hover:bg-black/[0.08]'
-                        }`}
-                      >
-                        {sc.label}
-                      </button>
-                    ))}
-                  </div>
-                  <p className="mt-1 text-[9px] leading-relaxed text-ink-faint">
-                    {SCHEMES.find((sc) => sc.id === scheme)?.hint}
-                  </p>
-                </Field>
+                    className={`h-6 rounded-[4px] text-[9px] transition-colors ${
+                      scheme === sc.id && schemeTouched
+                        ? 'bg-ink font-medium text-white'
+                        : 'bg-black/[0.045] text-ink-soft hover:bg-black/[0.08]'
+                    }`}
+                  >
+                    {sc.label}
+                  </button>
+                ))}
               </div>
-              <div className="mt-1.5">
-                <Field label="纸色温度">
-                  <Seg
-                    value={paper}
-                    options={[
-                      { value: 'warm' as const, label: '暖纸' },
-                      { value: 'cool' as const, label: '冷纸' },
-                    ]}
+              <p className="mt-1 text-[9px] leading-relaxed text-ink-faint">
+                {schemeTouched
+                  ? SCHEMES.find((sc) => sc.id === scheme)?.hint
+                  : '当前为预设配色；点选方案或拖动色轮会重新派生一套色板。'}
+              </p>
+              <Pair>
+                <Field label="间距">
+                  <Num
+                    value={distance}
+                    min={15}
+                    max={90}
+                    suffix="°"
                     onChange={(v) => {
-                      setPaper(v)
-                      applyColor(seed, scheme, v)
+                      setDistance(v)
+                      setSchemeTouched(true)
+                      applyColor(seed, scheme, tone, v)
                     }}
                   />
                 </Field>
-              </div>
-              <div className="mt-1.5">
                 <Field label="明暗">
                   <Seg
                     value={tone}
@@ -1355,119 +1605,94 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
                     ]}
                     onChange={(v) => {
                       setTone(v)
-                      applyColor(seed, scheme, paper, v)
+                      setSchemeTouched(true)
+                      applyColor(seed, scheme, v, distance)
                     }}
                   />
                 </Field>
-              </div>
-              <div className="mt-2">
-                <Field label="色轮">
-                  <ColorWheel
-                    seed={seed}
-                    palette={wheelPalette}
-                    onChange={(hex) => {
-                      setSeed(hex)
-                      applyColor(hex)
-                    }}
-                  />
-                </Field>
-                <div className="mt-1.5 flex flex-wrap gap-1">
-                  {wheelPalette.map((m) => (
-                    <span
-                      key={m.label}
-                      className="flex items-center gap-1 rounded-full bg-black/[0.035] px-1.5 py-0.5 text-[8.5px] text-ink-soft"
-                    >
-                      <span className="h-2.5 w-2.5 rounded-full ring-1 ring-black/10" style={{ background: m.color }} />
-                      {m.label}
-                    </span>
-                  ))}
-                </div>
-              </div>
-              <div className="mt-1.5">
-                <ToggleRow label="纸面颗粒" value={L.paperTexture} onChange={(v) => patch({ paperTexture: v })} />
-                {L.paperTexture && (
-                  <div className="mt-1 grid grid-cols-2 items-end gap-1.5">
-                    <Field label="颗粒强度">
-                      <Num
-                        value={L.paperTextureStrength ?? 5}
-                        min={1}
-                        max={10}
-                        suffix="/10"
-                        onChange={(v) => patch({ paperTextureStrength: Math.round(v) })}
-                      />
-                    </Field>
-                  </div>
-                )}
+              </Pair>
+              <div className="flex flex-wrap gap-1">
+                {wheelPalette.map((m) => (
+                  <span
+                    key={m.label}
+                    className="flex items-center gap-1 rounded-full bg-black/[0.035] px-1.5 py-0.5 text-[8.5px] text-ink-soft"
+                  >
+                    <span className="h-2.5 w-2.5 rounded-full ring-1 ring-black/10" style={{ background: m.color }} />
+                    {m.label}
+                  </span>
+                ))}
               </div>
               <p className="mt-1.5 text-[9px] leading-relaxed text-ink-faint">
-                色轮定色相；切换方案会用当前种子色重新派生整套色板。
+                拖动色轮选主色；第二色/第三色按方案自动排布，间距控制相似、分裂与四角。
               </p>
             </Section>
 
-            <Section title="中性色" defaultOpen>
-              <div className="flex overflow-hidden rounded-md ring-1 ring-black/[0.08]">
-                {[0.97, 0.9, 0.8, 0.65, 0.45, 0.3, 0.2].map((l) => {
-                  const hex = oklchToHex(l, 0.012, hexToOklch(P.accent).h)
-                  return <div key={l} className="h-8 flex-1" style={{ background: hex }} title={`${hex.toUpperCase()} · L ${l}`} />
+            <Section title="色板" defaultOpen>
+              <ColorStrip label="中性" colors={neutral} />
+              <div className="mt-1 flex justify-between pl-11 text-[8px] text-ink-faint">
+                <span>纸色</span>
+                <span>浅调</span>
+                <span>中调</span>
+                <span>文字</span>
+              </div>
+              <div className="mt-2 space-y-1.5">
+                {ramps.map((r) => (
+                  <ColorStrip key={r.name} label={r.name} colors={r.colors} />
+                ))}
+              </div>
+              <p className="mt-1.5 text-[9px] leading-relaxed text-ink-faint">
+                同一组 OKLCH 明度阶：不同色相也有接近的黑白强度，方便判断层级。
+              </p>
+            </Section>
+
+            <Section title="自由选色" defaultOpen>
+              <div className="grid grid-cols-4 gap-1">
+                {COLOR_ROLES.map(([role, label]) => {
+                  const c = roleValue(role)
+                  const active = freeRole === role
+                  return (
+                    <button
+                      key={role}
+                      onClick={() => setFreeRole(role)}
+                      className={`flex h-6 items-center gap-1 rounded-md px-1.5 text-[9px] transition-colors ${
+                        active ? 'bg-ink font-medium text-white' : 'bg-black/[0.045] text-ink-soft hover:bg-black/[0.08]'
+                      }`}
+                    >
+                      <span className="h-2 w-2 shrink-0 rounded-full ring-1 ring-black/10" style={{ background: c }} />
+                      <span className="truncate">{label}</span>
+                    </button>
+                  )
                 })}
               </div>
-              <div className="mt-1 flex justify-between text-[9px] text-ink-faint">
-                <span>纸色</span>
-                <span>浅灰</span>
-                <span>中灰</span>
-                <span>墨色</span>
+              <div className="mt-1.5">
+                <Seg
+                  value={model}
+                  options={[
+                    { value: 'hex' as const, label: 'HEX' },
+                    { value: 'rgb' as const, label: 'RGB' },
+                    { value: 'hsv' as const, label: 'HSV' },
+                    { value: 'hsl' as const, label: 'HSL' },
+                  ]}
+                  onChange={setModel}
+                />
               </div>
-              <p className="mt-1 text-[9px] leading-relaxed text-ink-faint">沿种子色相自动派生，供正文/次要文字与分隔线使用。</p>
-            </Section>
-
-            <Section title="角色色" defaultOpen>
-              <div className="space-y-1">
-                <ColorRow label="纸色" value={P.bg} onChange={(v) => patch({ palette: { bg: v } })} />
-                <ColorRow label="正文" value={P.text} onChange={(v) => patch({ palette: { text: v } })} />
-                <ColorRow label="标题" value={P.heading} onChange={(v) => patch({ palette: { heading: v } })} />
-                <ColorRow label="次要" value={P.muted} onChange={(v) => patch({ palette: { muted: v } })} />
-                <ColorRow label="强调" value={P.accent} onChange={(v) => patch({ palette: { accent: v } })} />
-                <ColorRow label="第二色" value={P.accent2 ?? P.italic} onChange={(v) => patch({ palette: { accent2: v } })} />
-                <ColorRow label="第三色" value={P.accent3 ?? P.strong} onChange={(v) => patch({ palette: { accent3: v } })} />
-                <ColorRow label="加粗" value={P.strong} onChange={(v) => patch({ palette: { strong: v } })} />
-                <ColorRow label="斜体" value={P.italic} onChange={(v) => patch({ palette: { italic: v } })} />
-                <ColorRow label="引用底" value={P.quoteBg} onChange={(v) => patch({ palette: { quoteBg: v } })} />
-                <ColorRow label="代码底" value={P.codeBg} onChange={(v) => patch({ palette: { codeBg: v } })} />
-                <ColorRow label="代码字" value={P.codeFg} onChange={(v) => patch({ palette: { codeFg: v } })} />
+              <div className="mt-2">
+                <ColorWheel
+                  seed={freeColor}
+                  palette={[{ color: freeColor, label: COLOR_ROLE_LABEL[freeRole] }]}
+                  onChange={setRoleColor}
+                />
               </div>
-              <button
-                className="mt-2 flex h-6 w-full items-center justify-center rounded-md border border-dashed border-black/[0.14] text-[10px] text-ink-soft transition-colors hover:border-black/[0.24] hover:text-ink"
-                onClick={() => {
-                  setTone('light')
-                  patch({ palette: undefined })
-                }}
-              >
-                恢复主题配色
-              </button>
-            </Section>
-
-            <Section title="可读性" defaultOpen>
-              {(
-                [
-                  ['正文 / 纸', P.text, P.bg, 4.5],
-                  ['标题 / 纸', P.heading, P.bg, 4.5],
-                  ['强调 / 纸', P.accent, P.bg, 3],
-                  ['第二色 / 纸', P.accent2 ?? P.italic, P.bg, 3],
-                  ['第三色 / 纸', P.accent3 ?? P.strong, P.bg, 3],
-                  ['次要 / 纸', P.muted, P.bg, 3],
-                ] as Array<[string, string, string, number]>
-              ).map(([label, fg, bg, need]) => {
-                const ratio = contrastOf(fg, bg)
-                const ok = ratio >= need
-                return (
-                  <div key={label} className="flex h-6 items-center justify-between text-[10.5px]">
-                    <span className="text-ink-soft">{label}</span>
-                    <span className={ok ? 'font-medium text-[#3a7d44]' : 'font-medium text-[#b45309]'}>
-                      {ratio.toFixed(1)}:1 {ok ? 'AA' : '偏低'}
-                    </span>
-                  </div>
-                )
-              })}
+              <div className="mt-1.5">
+                <FreeColorInputs color={freeColor} model={model} onChange={setRoleColor} />
+              </div>
+              <div className="mt-1 flex items-center justify-between text-[9px] text-ink-faint">
+                <span>{COLOR_ROLE_LABEL[freeRole]}</span>
+                <span className="font-mono uppercase">{freeColor}</span>
+              </div>
+              <p className="mt-1.5 text-[9px] leading-relaxed text-ink-faint">
+                选中元素后，用色轮或数值模型定义它；只改这一个角色，不影响其他颜色。
+              </p>
             </Section>
           </>
         )}
@@ -1552,15 +1777,14 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
             if (preset.colorId) {
               const cp = COLOR_PRESETS.find((c) => c.id === preset.colorId)
               if (cp) {
-                setSeed(cp.seed)
-                setScheme(cp.scheme)
-                setPaper(cp.paper)
-                setTone(preset.tone ?? 'light')
+                const pal = paletteOf(cp, cp.dark ? 'dark' : 'light')
+                setSeed(pal.accent)
+                setTone(contrastOf(pal.bg, '#000000') < 2.6 ? 'dark' : 'light')
+                setDistance(scheme === 'tetrad' ? 70 : 30)
+                setSchemeTouched(false)
               }
             } else {
               setSeed('#ff2e4d')
-              setScheme('complement')
-              setPaper('warm')
               setTone('light')
             }
             applyStylePreset(preset.themeId, next)
