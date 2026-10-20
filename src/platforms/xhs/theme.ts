@@ -112,6 +112,9 @@ export interface XhsLayout {
     tagOpacity: number
     tagTracking: number
     /** 页码样式 */
+    pageStyle: 'slash' | 'dash' | 'cn' | 'plain'
+    /** 话题标签文案（空 = 取封面标签） */
+    tagText: string
     pageSize: number
     pageOpacity: number
     pageTracking: number
@@ -139,6 +142,11 @@ export interface XhsLayout {
   coverTitleSize?: number
   /** 分页策略：全局最优（DP）/ 顺序贪心 */
   pagination: 'optimal' | 'greedy'
+  /** 字体：中文 / 西文分开选择（空 = 跟随主题字体栈） */
+  cjkFont?: string
+  latinFont?: string
+  /** 封面专属边距（缺省等于页面边距） */
+  coverPadding: { top: number; right: number; bottom: number; left: number }
   /** 纸面颗粒质感（导出可见） */
   paperTexture: boolean
   /** 颗粒强度 1–10（默认 5） */
@@ -251,6 +259,8 @@ const baseLayout: XhsLayout = {
     tagSize: 28,
     tagOpacity: 1,
     tagTracking: 5,
+    pageStyle: 'slash',
+    tagText: '',
     pageSize: 26,
     pageOpacity: 0.85,
     pageTracking: 2,
@@ -261,6 +271,9 @@ const baseLayout: XhsLayout = {
   coverStyle: 'classic',
   cover: 'center',
   pagination: 'optimal',
+  cjkFont: '"LXGW WenKai"',
+  latinFont: '',
+  coverPadding: { top: 112, right: 88, bottom: 124, left: 88 },
   paperTexture: false,
   paperTextureStrength: 5,
 }
@@ -295,6 +308,8 @@ export const XHS_THEMES: XhsCardTheme[] = [
     layout: {
       ...structuredClone(baseLayout),
       padding: { top: 104, right: 96, bottom: 104, left: 96 },
+      cjkFont: '"Source Han Serif SC", "Noto Serif SC", SimSun, serif',
+      latinFont: '',
       body: { ...baseLayout.body, size: 36, lineRatio: 1.85, letterSpacing: 1.2, align: 'justify' },
       headings: {
         ...baseLayout.headings,
@@ -377,9 +392,13 @@ export function deepMerge<T>(target: T, patch?: DeepPartial<T>): T {
 
 export function applyXhsOverrides(base: XhsCardTheme, overrides: XhsStyleOverrides): XhsCardTheme {
   const { palette, ...layoutOverrides } = (overrides ?? {}) as XhsStyleOverrides
+  const layout = deepMerge(base.layout, layoutOverrides as DeepPartial<XhsLayout>)
+  // 中西文分选：西文字体在前、中文字体在后，缺字自动回落到对方
+  const stack = [layout.latinFont, layout.cjkFont].filter((f): f is string => !!f)
   return {
     ...base,
-    layout: deepMerge(base.layout, layoutOverrides as DeepPartial<XhsLayout>),
+    layout,
+    fontFamily: stack.length ? `${stack.join(', ')}, ${base.fontFamily}` : base.fontFamily,
     palette: { ...base.palette, ...(palette ?? {}) },
   }
 }
@@ -401,3 +420,18 @@ export function computeContentMetrics(size: { width: number; height: number }, t
   const availableHeight = size.height - padding.top - padding.bottom
   return { contentWidth, availableHeight, body, headerVisible }
 }
+
+
+/** 字体选项（系统字体为准，避免额外 web 字体负担；中文默认霞鹜文楷） */
+export const CJK_FONTS = [
+  { id: 'wenkai', name: '霞鹜文楷', stack: '"LXGW WenKai"' },
+  { id: 'serif', name: '宋体', stack: '"Source Han Serif SC", "Noto Serif SC", SimSun, serif' },
+  { id: 'sans', name: '黑体', stack: 'PingFang SC, Microsoft YaHei, "Noto Sans SC", sans-serif' },
+] as const
+
+export const LATIN_FONTS = [
+  { id: 'inherit', name: '跟随中文', stack: '' },
+  { id: 'system', name: '系统', stack: 'system-ui, -apple-system, "Segoe UI"' },
+  { id: 'serif', name: '衬线', stack: 'Georgia, "Times New Roman", serif' },
+  { id: 'mono', name: '等宽', stack: '"JetBrains Mono", Consolas, monospace' },
+] as const

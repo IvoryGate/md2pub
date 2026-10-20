@@ -659,7 +659,8 @@ const CardHeader = ({ card, theme, tags }: { card: XhsCard; theme: XhsCardTheme;
   const p = theme.palette
   if (!L.header.showTag) return null
   const list = (tags ?? '').trim() ? (tags ?? '').split(/[,，\s]+/).filter(Boolean) : (card.meta?.tags ?? [])
-  const text = list[0] ? `#${list[0]}#` : ''
+  const custom = (L.header.tagText ?? '').trim()
+  const text = custom || (list[0] ? `#${list[0]}#` : '')
   if (!text) return null
   return (
     <div
@@ -725,7 +726,23 @@ const PageNumber = ({ theme, page, total, pos }: { theme: XhsCardTheme; page: nu
       pointerEvents: 'none',
     }}
   >
-    {page} <span style={{ opacity: 0.5 }}>/ {total ?? page}</span>
+    {(() => {
+      const totalN = total ?? page
+      switch (theme.layout.header.pageStyle ?? 'slash') {
+        case 'dash':
+          return `— ${page} —`
+        case 'cn':
+          return `第 ${page} 页 / 共 ${totalN} 页`
+        case 'plain':
+          return `${page}`
+        default:
+          return (
+            <>
+              {page} <span style={{ opacity: 0.5 }}>/ {totalN}</span>
+            </>
+          )
+      }
+    })()}
   </div>
 )
 
@@ -792,12 +809,16 @@ const CoverCard = ({
   coverText,
   guides,
   inspect,
+  pageW,
+  pageH,
 }: {
   theme: XhsCardTheme
   watermark?: string
   coverText?: CoverTextInfo
   guides?: boolean
   inspect?: string | null
+  pageW?: number
+  pageH?: number
 }) => {
   const p = theme.palette
   const L = theme.layout
@@ -830,15 +851,16 @@ const CoverCard = ({
   const ink = p.heading
   const accent = p.accent
 
+  const coverPad = L.coverPadding ?? L.padding
   const shellStyle: CSSProperties = {
     width: '100%',
     height: '100%',
     backgroundColor: p.bg,
     ...paperGrainStyle(theme),
-    paddingTop: L.padding.top,
-    paddingLeft: L.padding.left,
-    paddingRight: L.padding.right,
-    paddingBottom: L.padding.bottom,
+    paddingTop: coverPad.top,
+    paddingLeft: coverPad.left,
+    paddingRight: coverPad.right,
+    paddingBottom: coverPad.bottom,
     fontFamily: theme.fontFamily,
     color: p.text,
     ...xhsCssVars(theme),
@@ -1130,60 +1152,137 @@ const CoverCard = ({
     >
       {body}
       {L.watermark.cover && <Watermark theme={theme} text={watermark} pos={normalizeChromePos(L.watermark.coverPos)} />}
-      {guides && <GuideOverlay theme={theme} inspect={inspect} cover />}
+      {guides && <GuideOverlay theme={theme} inspect={inspect} cover w={pageW} h={pageH} />}
     </div>
   )
 }
 
-const GuideLabel = ({ theme, style, text }: { theme: XhsCardTheme; style: CSSProperties; text: string }) => (
-  <div
-    style={{
-      position: 'absolute',
-      fontFamily: 'ui-monospace, Consolas, monospace',
-      fontSize: 15,
-      lineHeight: 1.2,
-      color: theme.palette.accent,
-      background: `${theme.palette.bg}d9`,
-      padding: '1px 5px',
-      borderRadius: 3,
-      ...style,
-    }}
-  >
-    {text}
-  </div>
-)
-
-/** 参考线：边距带、版心框、页眉/页脚带 */
-const GuideOverlay = ({ theme, inspect, cover }: { theme: XhsCardTheme; inspect?: string | null; cover?: boolean }) => {
+/**
+ * 参考线：工程制图式尺寸标注。
+ * 六条独立尺寸线，全部在版心之外：
+ *   天头/地脚（竖直，放在左侧边距里）、左/右边距（水平，放在上下边距里）、
+ *   版心宽（水平，放在下边距里）、版心高（竖直，放在右边距里）
+ * 每条尺寸线都有延伸线从被测量边引出、端部刻度、以及沿线的数字标注。
+ */
+const GuideOverlay = ({
+  theme,
+  inspect,
+  cover,
+  w = 1080,
+  h = 1440,
+}: {
+  theme: XhsCardTheme
+  inspect?: string | null
+  cover?: boolean
+  w?: number
+  h?: number
+}) => {
   const L = theme.layout
   const p = theme.palette
-  const on = (k: string) => (inspect === k ? '1f' : '0c')
+  const pad = cover ? (L.coverPadding ?? L.padding) : L.padding
+  const accent = p.accent
+  const hot = inspect === (cover ? 'cover' : 'padding')
+  const alpha = hot ? 1 : 0.68
+  const cw = Math.max(1, w - pad.left - pad.right)
+  const ch = Math.max(1, h - pad.top - pad.bottom)
+
+  const solid = (style: CSSProperties, a = alpha) => (
+    <div style={{ position: 'absolute', background: accent, opacity: a, ...style }} />
+  )
+  /** 尺寸线端部刻度：{vertical:true} 竖直刻度（用于水平尺寸线） */
+  const tick = (x: number, y: number, vertical: boolean) =>
+    solid(vertical ? { left: x, top: y - 7, width: 1.5, height: 14 } : { left: x - 7, top: y, width: 14, height: 1.5 })
+  const label = (text: string, style: CSSProperties) => (
+    <div
+      style={{
+        position: 'absolute',
+        fontFamily: 'ui-monospace, Consolas, monospace',
+        fontSize: 21,
+        lineHeight: 1.15,
+        whiteSpace: 'nowrap',
+        color: accent,
+        background: `${p.bg}ee`,
+        padding: '2px 7px',
+        borderRadius: 4,
+        boxShadow: `0 0 0 1px ${accent}3d`,
+        ...style,
+      }}
+    >
+      {text}
+    </div>
+  )
+
+  const xL = Math.max(22, Math.round(pad.left / 2))
+  const xR = Math.max(22, Math.round(pad.right / 2))
+  const yT = Math.max(22, Math.round(pad.top / 2))
+  const yB = Math.max(22, Math.round(pad.bottom / 2))
+
   return (
     <div className="xhs-guide" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 4 }}>
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: L.padding.top, background: `${p.accent}${on('header')}` }} />
-      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: L.padding.bottom, background: `${p.accent}${on(cover ? 'cover' : 'watermark')}` }} />
-      <div style={{ position: 'absolute', top: L.padding.top, bottom: L.padding.bottom, left: 0, width: L.padding.left, background: `${p.accent}${on('padding')}` }} />
-      <div style={{ position: 'absolute', top: L.padding.top, bottom: L.padding.bottom, right: 0, width: L.padding.right, background: `${p.accent}${on('padding')}` }} />
+      {/* 版心框（只描边，不放数字） */}
       <div
         style={{
           position: 'absolute',
-          top: L.padding.top,
-          left: L.padding.left,
-          right: L.padding.right,
-          bottom: L.padding.bottom,
-          border: `1px dashed ${p.accent}99`,
+          left: pad.left,
+          top: pad.top,
+          width: cw,
+          height: ch,
+          border: `1px dashed ${accent}55`,
         }}
       />
-      <GuideLabel theme={theme} text={`${L.padding.top}`} style={{ top: L.padding.top / 2 - 9, left: L.padding.left + 8 }} />
-      <GuideLabel theme={theme} text={`${L.padding.bottom}`} style={{ bottom: L.padding.bottom / 2 - 9, left: L.padding.left + 8 }} />
-      <GuideLabel theme={theme} text={`${L.padding.left}`} style={{ top: L.padding.top + 10, left: 8 }} />
-      <GuideLabel theme={theme} text={`${L.padding.right}`} style={{ top: L.padding.top + 10, right: 8 }} />
-      {!cover && <GuideLabel theme={theme} text="版心" style={{ bottom: L.padding.bottom + 8, right: L.padding.right + 8 }} />}
+
+      {/* ① 天头：竖直尺寸线放在左边距内（x = 左边距中点），从页顶到版心上沿 */}
+      {solid({ left: xL, top: 0, width: 1.5, height: pad.top })}
+      {solid({ left: 0, top: 0, width: pad.left, height: 1 }, 0.35)}
+      {solid({ left: 0, top: pad.top, width: pad.left, height: 1 }, 0.35)}
+      {tick(xL, 0, false)}
+      {tick(xL, pad.top, false)}
+      {label(`上 ${pad.top}`, { left: xL - 64, top: Math.round(pad.top / 2) - 12, transform: 'rotate(-90deg)' })}
+
+      {/* ② 地脚：竖直尺寸线，页底到版心下沿 */}
+      {solid({ left: xL, bottom: 0, width: 1.5, height: pad.bottom })}
+      {solid({ left: 0, bottom: pad.bottom, width: pad.left, height: 1 }, 0.35)}
+      {solid({ left: 0, bottom: 0, width: pad.left, height: 1 }, 0.35)}
+      {tick(xL, h - pad.bottom, false)}
+      {tick(xL, h, false)}
+      {label(`下 ${pad.bottom}`, { left: xL - 64, bottom: Math.round(pad.bottom / 2) - 12, transform: 'rotate(-90deg)' })}
+
+      {/* ③ 左边距：水平尺寸线放在中线处（页左到版心左） */}
+      {solid({ top: Math.round(h / 2), left: 0, height: 1.5, width: pad.left })}
+      {solid({ left: 0, top: Math.round(h / 2) - 14, width: 1, height: 28 }, 0.35)}
+      {solid({ left: pad.left, top: Math.round(h / 2) - 14, width: 1, height: 28 }, 0.35)}
+      {tick(0, Math.round(h / 2), true)}
+      {tick(pad.left, Math.round(h / 2), true)}
+      {label(`左 ${pad.left}`, { left: 8, top: Math.round(h / 2) - 38 })}
+
+      {/* ④ 右边距：水平尺寸线放在上边距中线处（版心右到页右） */}
+      {solid({ top: yT, left: w - pad.right, height: 1.5, width: pad.right })}
+      {solid({ left: w - pad.right, top: yT - 14, width: 1, height: 28 }, 0.35)}
+      {solid({ left: w - 1, top: yT - 14, width: 1, height: 28 }, 0.35)}
+      {tick(w - pad.right, yT, true)}
+      {tick(w, yT, true)}
+      {label(`右 ${pad.right}`, { right: 8, top: yT - 38 })}
+
+      {/* ⑤ 版心宽：水平尺寸线放在地脚中线处（版心左到版心右） */}
+      {solid({ top: h - yB, left: pad.left, height: 1.5, width: cw })}
+      {solid({ left: pad.left, top: h - pad.bottom, width: 1, height: yB }, 0.35)}
+      {solid({ left: pad.left + cw, top: h - pad.bottom, width: 1, height: yB }, 0.35)}
+      {tick(pad.left, h - yB, true)}
+      {tick(pad.left + cw, h - yB, true)}
+      {label(`版心宽 ${cw}`, { left: Math.round(w / 2 - 58), top: h - yB - 38 })}
+
+      {/* ⑥ 版心高：竖直尺寸线放在右边距内（版心上沿到版心下沿） */}
+      {solid({ left: w - xR, top: pad.top, width: 1.5, height: ch })}
+      {solid({ left: w - pad.right, top: pad.top, width: xR, height: 1 }, 0.35)}
+      {solid({ left: w - pad.right, top: pad.top + ch, width: xR, height: 1 }, 0.35)}
+      {tick(w - xR, pad.top, false)}
+      {tick(w - xR, pad.top + ch, false)}
+      {label(`版心高 ${ch}`, { left: w - xR + 10, top: pad.top + Math.round(ch / 2) - 12, transform: 'rotate(90deg)' })}
     </div>
   )
 }
 
-export const CardPage = ({ card, theme, watermark, coverText, guides, inspect }: { card: XhsCard; theme: XhsCardTheme; watermark?: string; coverText?: CoverTextInfo; guides?: boolean; inspect?: string | null }) => {
+export const CardPage = ({ card, theme, watermark, coverText, guides, inspect, pageW, pageH }: { card: XhsCard; theme: XhsCardTheme; watermark?: string; coverText?: CoverTextInfo; guides?: boolean; inspect?: string | null; pageW?: number; pageH?: number }) => {
   const p = theme.palette
   const L = theme.layout
   /* KP 排版需要渲染前知道内容宽：卡片根自测（clientWidth − 左右 padding），
@@ -1200,7 +1299,7 @@ export const CardPage = ({ card, theme, watermark, coverText, guides, inspect }:
     return () => ro.disconnect()
   }, [L.padding.left, L.padding.right])
 
-  if (card.kind === 'cover') return <CoverCard theme={theme} watermark={watermark} coverText={coverText} guides={guides} inspect={inspect} />
+  if (card.kind === 'cover') return <CoverCard theme={theme} watermark={watermark} coverText={coverText} guides={guides} inspect={inspect} pageW={pageW} pageH={pageH} />
 
   return (
     <div
@@ -1245,7 +1344,7 @@ export const CardPage = ({ card, theme, watermark, coverText, guides, inspect }:
       {L.header.showPageNum && (
         <PageNumber theme={theme} page={card.page} total={card.totalPages} pos={normalizeChromePos(L.header.pageNumPos)} />
       )}
-      {guides && <GuideOverlay theme={theme} inspect={inspect} />}
+      {guides && <GuideOverlay theme={theme} inspect={inspect} w={pageW} h={pageH} />}
     </div>
   )
 }

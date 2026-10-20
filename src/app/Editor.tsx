@@ -439,10 +439,12 @@ export const EditorPanel = ({
                 bus.info.applying = true
                 const target = Math.min(Math.max(1, line + 1), view.state.doc.lines)
                 const block = view.lineBlockAt(view.state.doc.line(target).from)
-                animateScroll(view.scrollDOM, Math.max(0, block.top - 6), 340)
-                window.setTimeout(() => {
-                  bus.info.applying = false
-                }, 360)
+                animateScroll(view.scrollDOM, Math.max(0, block.top - 6), 340).then(() => {
+                  // 动画结束再静默 80ms，吞掉尾部 scroll 回声
+                  window.setTimeout(() => {
+                    bus.info.applying = false
+                  }, 80)
+                })
               })
               syncRef.current = () => {
                 view.scrollDOM.removeEventListener('scroll', onScroll)

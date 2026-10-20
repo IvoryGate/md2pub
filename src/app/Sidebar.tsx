@@ -15,6 +15,8 @@ import {
   type ColorScheme,
   type PaperTone,
   type PaletteTone,
+  CJK_FONTS,
+  LATIN_FONTS,
 } from '../platforms/xhs'
 import { Check, ChevronDown, RotateCcw, SlidersHorizontal, Trash2, Plus, X, Undo2, Redo2 } from 'lucide-react'
 import { useStore } from '../store'
@@ -169,19 +171,37 @@ const CHROME_LABEL: Record<ChromePos, string> = {
   'bottom-right': '右下',
 }
 
-const PosGrid = ({ value, onChange }: { value: ChromePos; onChange: (v: ChromePos) => void }) => (
+const PosGrid = ({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: ChromePos
+  onChange: (v: ChromePos) => void
+  /** 被其他元素占用的位置（当前位置除外） */
+  disabled?: ChromePos[]
+}) => (
   <div className="grid grid-cols-3 gap-1">
-    {(Object.keys(CHROME_LABEL) as ChromePos[]).map((p) => (
-      <button
-        key={p}
-        onClick={() => onChange(p)}
-        className={`h-6 rounded-[5px] text-[10px] transition-colors ${
-          p === value ? 'bg-[#1d1d1f] font-medium text-white' : 'bg-black/[0.045] text-ink-soft hover:bg-black/[0.08]'
-        }`}
-      >
-        {CHROME_LABEL[p]}
-      </button>
-    ))}
+    {(Object.keys(CHROME_LABEL) as ChromePos[]).map((p) => {
+      const blocked = !!disabled?.includes(p) && p !== value
+      return (
+        <button
+          key={p}
+          onClick={() => onChange(p)}
+          disabled={blocked}
+          title={blocked ? '该位置已被其他元素占用' : ''}
+          className={`h-6 rounded-[5px] text-[10px] transition-colors ${
+            p === value
+              ? 'bg-[#1d1d1f] font-medium text-white'
+              : blocked
+                ? 'cursor-not-allowed bg-black/[0.02] text-ink-faint/50'
+                : 'bg-black/[0.045] text-ink-soft hover:bg-black/[0.08]'
+          }`}
+        >
+          {CHROME_LABEL[p]}
+        </button>
+      )
+    })}
   </div>
 )
 
@@ -363,6 +383,9 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
 
   const headingSize = H.size ?? Math.round(L.body.size * H.sizeRatio)
   const coverTitlePx = L.coverTitleSize ?? Math.round(L.body.size * 2.35)
+  const tagPos = normalizeChromePos(L.header.tagPos ?? 'top-left')
+  const pagePos = normalizeChromePos(L.header.pageNumPos)
+  const wmPos = normalizeChromePos(L.watermark.pos)
 
   /** 拖正文只改正文：首次调整时把标题/封面标题的当前字号落定为绝对值 */
   const setBodySize = (v: number) => {
@@ -687,8 +710,17 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
               </Pair>
               {L.header.showTag && (
                 <>
+                  <div className="mt-1.5">
+                    <Field label="标签内容">
+                      <TextInput
+                        value={L.header.tagText ?? ''}
+                        placeholder="留空使用封面标签"
+                        onChange={(v) => patch({ header: { tagText: v } })}
+                      />
+                    </Field>
+                  </div>
                   <Field label="标签位置">
-                    <PosGrid value={normalizeChromePos(L.header.tagPos ?? 'top-left')} onChange={(v) => patch({ header: { tagPos: v } })} />
+                    <PosGrid value={tagPos} onChange={(v) => patch({ header: { tagPos: v } })} disabled={[pagePos, wmPos]} />
                   </Field>
                   <div className="mt-1.5">
                     <Pair>
@@ -707,8 +739,20 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
               )}
               {L.header.showPageNum && (
                 <>
+                  <Field label="页码样式">
+                    <Seg
+                      value={L.header.pageStyle ?? 'slash'}
+                      options={[
+                        { value: 'slash' as const, label: '1/10' },
+                        { value: 'dash' as const, label: '—1—' },
+                        { value: 'cn' as const, label: '第 1 页' },
+                        { value: 'plain' as const, label: '1' },
+                      ]}
+                      onChange={(v) => patch({ header: { pageStyle: v } })}
+                    />
+                  </Field>
                   <Field label="页码位置">
-                    <PosGrid value={normalizeChromePos(L.header.pageNumPos)} onChange={(v) => patch({ header: { pageNumPos: v } })} />
+                    <PosGrid value={pagePos} onChange={(v) => patch({ header: { pageNumPos: v } })} disabled={[tagPos, wmPos]} />
                   </Field>
                   <div className="mt-1.5">
                     <Pair>
@@ -725,12 +769,13 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
                   </div>
                 </>
               )}
+              <p className="mt-1.5 text-[9px] leading-relaxed text-ink-faint">位置互斥：被其他元素占用的方向不可选。</p>
             </Section>
 
             <Section title="水印" defaultOpen inspectKey="watermark">
               <ToggleRow label="显示水印" value={L.watermark.enabled} onChange={(v) => patch({ watermark: { enabled: v } })} />
               <Field label="位置">
-                <PosGrid value={normalizeChromePos(L.watermark.pos)} onChange={(v) => patch({ watermark: { pos: v } })} />
+                <PosGrid value={wmPos} onChange={(v) => patch({ watermark: { pos: v } })} disabled={[tagPos, pagePos]} />
               </Field>
               <div className="mt-1.5">
                 <Pair>
@@ -746,6 +791,25 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
                 </Field>
                 <Field label="文案">
                   <TextInput value={watermark} placeholder="@你的账号" onChange={setWatermark} />
+                </Field>
+              </div>
+            </Section>
+
+            <Section title="字体" defaultOpen>
+              <Field label="中文">
+                <Seg
+                  value={L.cjkFont ?? CJK_FONTS[0].stack}
+                  options={CJK_FONTS.map((f) => ({ value: f.stack as string, label: f.name }))}
+                  onChange={(v) => patch({ cjkFont: v })}
+                />
+              </Field>
+              <div className="mt-1.5">
+                <Field label="西文">
+                  <Seg
+                    value={L.latinFont ?? LATIN_FONTS[0].stack}
+                    options={LATIN_FONTS.map((f) => ({ value: f.stack as string, label: f.name }))}
+                    onChange={(v) => patch({ latinFont: v })}
+                  />
                 </Field>
               </div>
             </Section>
@@ -822,6 +886,9 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
           <>
             <Section title="封面" defaultOpen inspectKey="cover">
               <ToggleRow label="显示封面" value={L.coverOn} onChange={(v) => patch({ coverOn: v })} />
+              {!L.coverOn && (
+                <p className="mt-1.5 text-[9px] leading-relaxed text-ink-faint">开启封面后可编辑文案、版式、边距与封面水印。</p>
+              )}
               {L.coverOn && (
                 <div className="mt-1.5 space-y-1.5">
                   <Field label="标题">
@@ -887,10 +954,30 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
                       </Field>
                     </div>
                   )}
+
+                  <div className="mt-2 border-t border-black/[0.055] pt-2">
+                    <Pair>
+                      <Field label="封面上边距">
+                        <Num value={L.coverPadding.top} min={40} max={220} suffix="px" onChange={(v) => patch({ coverPadding: { top: v } })} />
+                      </Field>
+                      <Field label="封面下边距">
+                        <Num value={L.coverPadding.bottom} min={40} max={220} suffix="px" onChange={(v) => patch({ coverPadding: { bottom: v } })} />
+                      </Field>
+                    </Pair>
+                    <Pair>
+                      <Field label="封面左边距">
+                        <Num value={L.coverPadding.left} min={40} max={220} suffix="px" onChange={(v) => patch({ coverPadding: { left: v } })} />
+                      </Field>
+                      <Field label="封面右边距">
+                        <Num value={L.coverPadding.right} min={40} max={220} suffix="px" onChange={(v) => patch({ coverPadding: { right: v } })} />
+                      </Field>
+                    </Pair>
+                  </div>
                 </div>
               )}
             </Section>
 
+            {L.coverOn && (
             <Section title="封面水印" defaultOpen>
               <ToggleRow label="显示水印" value={L.watermark.cover} onChange={(v) => patch({ watermark: { cover: v } })} />
               <Field label="位置">
@@ -902,6 +989,7 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
                 </Field>
               </div>
             </Section>
+            )}
           </>
         )}
 

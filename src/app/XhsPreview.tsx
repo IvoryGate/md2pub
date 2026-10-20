@@ -82,10 +82,12 @@ export const XhsPreview = ({ bus }: { bus: LineBus }) => {
       let idx = 0
       for (let i = 0; i < startLines.length; i++) if ((startLines[i] ?? 0) <= line) idx = i
       const el = cardRefs.current[idx]
-      if (el) animateScroll(rail, Math.max(0, topOf(el) - 8), 340)
-      window.setTimeout(() => {
-        bus.info.applying = false
-      }, 360)
+      const run = el ? animateScroll(rail, Math.max(0, topOf(el) - 8), 340) : Promise.resolve()
+      run.then(() => {
+        window.setTimeout(() => {
+          bus.info.applying = false
+        }, 80)
+      })
     })
     return () => {
       rail.removeEventListener('scroll', onScroll)
@@ -243,7 +245,7 @@ export const XhsPreview = ({ bus }: { bus: LineBus }) => {
               onExportSingle={handleExportOne}
               exporting={exporting}
             >
-              <CardPage card={card} theme={theme} watermark={watermark} coverText={coverText} guides={showGuides} inspect={inspect} />
+              <CardPage card={card} theme={theme} watermark={watermark} coverText={coverText} guides={showGuides} inspect={inspect} pageW={cardSet?.size.width} pageH={cardSet?.size.height} />
             </CardFrame>
           ))}
           {cardSet && <div className="h-8" />}
