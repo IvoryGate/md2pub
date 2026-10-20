@@ -4,7 +4,12 @@ import { Image as ImageIcon, LayoutGrid, X } from 'lucide-react'
 import { applyXhsOverrides, getTheme, type XhsCardTheme } from '../platforms/xhs'
 import { COVER_TEMPLATES, STYLE_PRESETS, resolvePreset, type GalleryPreset } from '../content/gallery'
 
-const titleText = '把复杂的事\n讲清楚'
+const demo = {
+  title: '纸上有光',
+  subtitle: '关于阅读与留白的笔记',
+  author: '云不归',
+  tag: '# 阅读 #',
+}
 
 /* ---------- 缩略预览 ---------- */
 
@@ -27,20 +32,23 @@ const MiniContent = ({ theme }: { theme: XhsCardTheme }) => {
         boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.05)',
       }}
     >
-      <div style={{ fontSize: 5.5, letterSpacing: 1, color: p.accent, fontWeight: 700 }}># 写作 #</div>
-      <div style={{ marginTop: 9, fontSize: 13, lineHeight: 1.2, fontWeight: 800, color: p.heading, whiteSpace: 'pre-line' }}>
-        {titleText}
+      <div style={{ fontSize: 5.5, letterSpacing: 1.2, color: p.accent, fontWeight: 700 }}>{demo.tag}</div>
+      <div style={{ marginTop: 8, fontSize: 16, lineHeight: 1.15, fontWeight: 800, color: p.heading, letterSpacing: 1 }}>
+        {demo.title}
       </div>
-      <div style={{ width: 26, height: 2.5, borderRadius: 2, background: p.accent, marginTop: 6 }} />
+      <div style={{ marginTop: 3, fontSize: 5.8, color: p.text, opacity: 0.52, letterSpacing: 0.4 }}>{demo.subtitle}</div>
+      <div style={{ width: 26, height: 2.5, borderRadius: 2, background: p.accent, marginTop: 7 }} />
       <div style={{ marginTop: 9, display: 'flex', flexDirection: 'column', gap: 4.5 }}>
         {line(100)}
         {line(92)}
-        {line(96)}
-        {line(72)}
+        {line(86)}
       </div>
       <div style={{ marginTop: 8, padding: '5px 6px', borderLeft: `2px solid ${p.accent}`, background: p.quoteBg }}>
-        <div style={{ height: 2.5, width: '80%', borderRadius: 2, background: p.text, opacity: 0.26 }} />
-        <div style={{ height: 2.5, width: '58%', borderRadius: 2, background: p.text, opacity: 0.26, marginTop: 3 }} />
+        <div style={{ fontSize: 5.8, lineHeight: 1.6, fontStyle: 'italic', color: p.text, opacity: 0.72 }}>
+          版式不是装饰，
+          <br />
+          而是把注意力放好。
+        </div>
       </div>
       <div style={{ marginTop: 9, display: 'flex', alignItems: 'center', gap: 3 }}>
         <span style={{ width: 2, height: 7, borderRadius: 1, background: p.accent }} />
@@ -48,11 +56,8 @@ const MiniContent = ({ theme }: { theme: XhsCardTheme }) => {
       </div>
       <div style={{ marginTop: 5, display: 'flex', flexDirection: 'column', gap: 3.5 }}>
         {line(94)}
-        {line(86)}
-        {line(68)}
-      </div>
-      <div style={{ marginTop: 4, fontSize: 5.5, color: p.text, opacity: 0.5, letterSpacing: 0.2 }}>
-        01 教程型　02 复盘型　03 清单型
+        {line(82)}
+        {line(66)}
       </div>
       <div
         style={{
@@ -67,8 +72,8 @@ const MiniContent = ({ theme }: { theme: XhsCardTheme }) => {
           letterSpacing: 0.4,
         }}
       >
-        <span>IvoryGate</span>
-        <span>01 / 08</span>
+        <span>{demo.author}</span>
+        <span>01 / 09</span>
       </div>
     </div>
   )
@@ -91,22 +96,22 @@ const MiniCover = ({ theme }: { theme: XhsCardTheme }) => {
     display: 'flex',
     flexDirection: 'column',
   }
-  const tag = <div style={{ fontSize: 5.5, letterSpacing: 1.2, color: p.accent, fontWeight: 700 }}># 写作 #</div>
-  const author = <div style={{ fontSize: 5.5, color: p.text, opacity: 0.62, letterSpacing: 0.6 }}>IvoryGate</div>
+  const tag = <div style={{ fontSize: 5.5, letterSpacing: 1.4, color: p.accent, fontWeight: 700 }}>{demo.tag}</div>
+  const author = <div style={{ fontSize: 5.5, color: p.text, opacity: 0.62, letterSpacing: 0.8 }}>{demo.author}</div>
+  const subtitle = <div style={{ fontSize: 5.8, color: p.text, opacity: 0.55, letterSpacing: 0.5 }}>{demo.subtitle}</div>
   const bar = <div style={{ width: 26, height: 2.5, borderRadius: 2, background: p.accent }} />
   const title = (size: number, align: 'left' | 'center' = 'left') => (
     <div
       style={{
         fontSize: size,
-        lineHeight: 1.16,
+        lineHeight: 1.18,
         fontWeight: 800,
-        letterSpacing: 0.2,
+        letterSpacing: 1,
         color: p.heading,
         textAlign: align,
-        whiteSpace: 'pre-line',
       }}
     >
-      {titleText}
+      {demo.title}
     </div>
   )
 
@@ -120,27 +125,27 @@ const MiniCover = ({ theme }: { theme: XhsCardTheme }) => {
             top: 12,
             bottom: 12,
             writingMode: 'vertical-rl',
-            fontSize: 14,
-            lineHeight: 1.25,
+            fontSize: 18,
+            lineHeight: 1.3,
             fontWeight: 700,
-            letterSpacing: 2,
+            letterSpacing: 3,
             color: p.heading,
           }}
         >
-          {titleText.replace('\n', '')}
+          {demo.title}
         </div>
         <div
           style={{
             position: 'absolute',
-            right: 36,
+            right: 40,
             top: 12,
             writingMode: 'vertical-rl',
             fontSize: 5.5,
-            letterSpacing: 1.4,
+            letterSpacing: 1.5,
             color: p.accent,
           }}
         >
-          #写作# #排版# #内容设计#
+          # 阅读 # 留白 # 耐心
         </div>
         <div style={{ position: 'absolute', left: 11, bottom: 9 }}>{author}</div>
         <div style={{ position: 'absolute', right: 12, bottom: 12, width: 10, height: 10, borderRadius: 2, background: p.accent }} />
@@ -152,11 +157,11 @@ const MiniCover = ({ theme }: { theme: XhsCardTheme }) => {
     return (
       <div style={base}>
         {tag}
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>{title(23)}</div>
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>{title(28)}</div>
         <div style={{ height: 1, background: `${p.text}26`, marginBottom: 6 }} />
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
           {author}
-          <span style={{ fontSize: 5.5, color: p.text, opacity: 0.55 }}>一份结构清单</span>
+          {subtitle}
         </div>
       </div>
     )
@@ -168,9 +173,9 @@ const MiniCover = ({ theme }: { theme: XhsCardTheme }) => {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>{tag}{author}</div>
         <div style={{ height: 1, background: `${p.text}24`, marginTop: 7 }} />
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 7 }}>
-          {title(18)}
+          {title(22)}
           {bar}
-          <div style={{ fontSize: 6, color: p.text, opacity: 0.55, letterSpacing: 0.4 }}>一份内容卡片的结构清单</div>
+          {subtitle}
         </div>
         <div style={{ height: 1, background: `${p.text}24`, marginBottom: 6 }} />
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 5, color: p.muted }}>
@@ -194,7 +199,7 @@ const MiniCover = ({ theme }: { theme: XhsCardTheme }) => {
           }}
         >
           {tag}
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', textAlign: 'center' }}>{title(16, 'center')}</div>
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', textAlign: 'center' }}>{title(20, 'center')}</div>
           <div style={{ width: 18, height: 2, background: `${p.accent}88`, marginBottom: 5 }} />
           {author}
         </div>
@@ -211,10 +216,10 @@ const MiniCover = ({ theme }: { theme: XhsCardTheme }) => {
         </div>
         <div style={{ height: 1, background: `${p.text}24`, marginTop: 6 }} />
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 5 }}>
-          {title(17)}
-          <div style={{ fontSize: 6, color: p.text, opacity: 0.55 }}>一份内容卡片的结构清单</div>
+          {title(20)}
+          {subtitle}
           <div style={{ marginTop: 6 }}>
-            {['写作', '排版', '内容设计'].map((t, i) => (
+            {['阅读', '留白', '耐心'].map((t, i) => (
               <div
                 key={t}
                 style={{
@@ -242,13 +247,39 @@ const MiniCover = ({ theme }: { theme: XhsCardTheme }) => {
   return (
     <div style={{ ...base, alignItems: 'center', justifyContent: 'center', gap: 6, textAlign: 'center' }}>
       {tag}
-      {title(17, 'center')}
-      <div style={{ fontSize: 6, color: p.text, opacity: 0.55 }}>一份内容卡片的结构清单</div>
+      {title(20, 'center')}
+      {subtitle}
       {bar}
       {author}
     </div>
   )
 }
+
+/* ---------- 预览容器：暗色预设做明暗斜切 ---------- */
+
+const Preview = ({ theme, kind }: { theme: XhsCardTheme; kind: 'style' | 'cover' }) =>
+  kind === 'cover' ? <MiniCover theme={theme} /> : <MiniContent theme={theme} />
+
+const SplitPreview = ({ dark, light, kind }: { dark: XhsCardTheme; light: XhsCardTheme; kind: 'style' | 'cover' }) => (
+  <div style={{ position: 'relative', borderRadius: 8, overflow: 'hidden' }}>
+    <Preview theme={dark} kind={kind} />
+    <div style={{ position: 'absolute', inset: 0, clipPath: 'polygon(0 0, 100% 0, 0 100%)' }}>
+      <Preview theme={light} kind={kind} />
+    </div>
+    <div
+      style={{
+        position: 'absolute',
+        inset: 0,
+        background:
+          'linear-gradient(to bottom right, transparent calc(50% - 0.5px), rgba(255,255,255,0.5) 50%, transparent calc(50% + 0.5px))',
+        pointerEvents: 'none',
+      }}
+    />
+    <span className="absolute right-1.5 top-1.5 rounded-full bg-black/35 px-1.5 py-0.5 text-[7px] tracking-wide text-white backdrop-blur-sm">
+      明 / 暗
+    </span>
+  </div>
+)
 
 /* ---------- 画廊 ---------- */
 
@@ -332,18 +363,23 @@ export const Gallery = ({
           <div className="grid grid-cols-3 gap-x-4 gap-y-5">
             {list.map((preset) => {
               const theme = applyXhsOverrides(getTheme(preset.themeId), resolvePreset(preset))
+              const isDark = preset.tone === 'dark'
+              const lightTheme = isDark
+                ? applyXhsOverrides(getTheme(preset.themeId), resolvePreset({ ...preset, tone: 'light' }))
+                : theme
               return (
                 <button key={preset.id} className="group min-w-0 text-left" onClick={() => onApply(preset)}>
                   <div className="rounded-[13px] border border-black/[0.07] bg-white p-1.5 shadow-[0_2px_8px_rgba(0,0,0,0.03)] transition-all group-hover:-translate-y-0.5 group-hover:shadow-[0_14px_30px_-16px_rgba(0,0,0,0.25)]">
-                    {preset.kind === 'cover' ? <MiniCover theme={theme} /> : <MiniContent theme={theme} />}
+                    {isDark ? (
+                      <SplitPreview dark={theme} light={lightTheme} kind={preset.kind} />
+                    ) : (
+                      <Preview theme={theme} kind={preset.kind} />
+                    )}
                   </div>
                   <div className="mt-2 flex items-center gap-1">
                     <span className="truncate text-[11px] font-medium text-ink">{preset.name}</span>
                     {preset.colorId && (
-                      <span
-                        className="h-1.5 w-1.5 shrink-0 rounded-full"
-                        style={{ background: theme.palette.accent }}
-                      />
+                      <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: theme.palette.accent }} />
                     )}
                   </div>
                   <div className="mt-0.5 line-clamp-2 text-[9px] leading-snug text-ink-faint">{preset.note}</div>
@@ -362,4 +398,3 @@ export const Gallery = ({
     document.body,
   )
 }
-

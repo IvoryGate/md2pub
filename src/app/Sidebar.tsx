@@ -2,7 +2,6 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import {
   XHS_THEMES,
   applyXhsOverrides,
-  getTheme,
   normalizeChromePos,
   type XhsLayout,
   type XhsStyleOverrides,
@@ -407,9 +406,13 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
 
   const headingSize = H.size ?? Math.round(L.body.size * H.sizeRatio)
   const coverTitlePx = L.coverTitleSize ?? Math.round(L.body.size * 2.35)
-  const galleryThumbs = STYLE_PRESETS.slice(0, 3).map(
-    (p) => applyXhsOverrides(getTheme(p.themeId), resolvePreset(p)).palette,
-  )
+  const warmColor = CLASSICAL_COLORS.find((c) => c.id === 'chase')
+  const coolColor = CLASSICAL_COLORS.find((c) => c.id === 'dailan')
+  const galleryThumbs = [
+    warmColor ? paletteOf(warmColor) : P,
+    coolColor ? paletteOf(coolColor) : P,
+    coolColor ? paletteOf(coolColor, 'dark') : P,
+  ]
 
   const tagPos = normalizeChromePos(L.header.tagPos ?? 'top-left')
   const pagePos = normalizeChromePos(L.header.pageNumPos)
@@ -507,16 +510,19 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
                     <button
                       key={t.id}
                       onClick={() => setThemeId(t.id)}
-                      className={`flex h-8 items-center gap-2 rounded-md border px-1.5 text-left transition-colors ${
+                      className={`flex h-9 items-center gap-2 rounded-md border px-1.5 text-left transition-colors ${
                         active ? 'border-black/[0.18] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]' : 'border-transparent hover:bg-black/[0.04]'
                       }`}
                     >
                       <span
-                        className="flex h-5 w-5 shrink-0 flex-col items-center justify-center gap-[2px] rounded-[5px]"
-                        style={{ background: t.palette.bg, boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.08)' }}
+                        className="relative h-8 w-6 shrink-0 overflow-hidden rounded-[5px] shadow-[0_0_0_1px_rgba(0,0,0,0.08)]"
+                        style={{ background: t.palette.bg }}
                       >
-                        <span className="h-0.5 w-2.5 rounded-full" style={{ background: t.palette.heading }} />
-                        <span className="h-[2px] w-3 rounded-full" style={{ background: t.palette.accent }} />
+                        <span className="absolute inset-y-0 right-0 w-[5px] bg-black/[0.07]" />
+                        <span className="absolute left-1 top-1.5 h-[2px] w-3 rounded-full" style={{ background: t.palette.heading }} />
+                        <span className="absolute left-1 top-[9px] h-[1.5px] w-3.5 rounded-full" style={{ background: t.palette.text, opacity: 0.28 }} />
+                        <span className="absolute left-1 top-[13px] h-[1.5px] w-2.5 rounded-full" style={{ background: t.palette.text, opacity: 0.18 }} />
+                        <span className="absolute bottom-1.5 left-1 h-[2px] w-4 rounded-full" style={{ background: t.palette.accent }} />
                       </span>
                       <span className={`flex-1 text-[11px] ${active ? 'font-medium text-ink' : 'text-ink-soft'}`}>{t.name}</span>
                       {active && <Check className="h-3 w-3 text-ink" strokeWidth={2.4} />}
@@ -532,16 +538,22 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
                 }}
                 className="group mt-2 flex w-full items-center gap-2.5 rounded-[10px] border border-black/[0.08] bg-white p-2 text-left shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition-all hover:border-black/[0.14] hover:shadow-[0_10px_24px_-16px_rgba(0,0,0,0.3)]"
               >
-                <span className="flex h-8 shrink-0 items-center">
+                <span className="relative flex h-11 w-[54px] shrink-0 items-center justify-center overflow-hidden rounded-[7px] bg-[#f1efe9]">
                   {galleryThumbs.map((pal, i) => (
                     <span
                       key={i}
-                      className="relative -ml-1.5 h-8 w-5 overflow-hidden rounded-[4px] shadow-[0_0_0_1px_rgba(0,0,0,0.06)] first:ml-0"
-                      style={{ background: pal.bg }}
+                      className="absolute top-[3px] h-9 w-5 overflow-hidden rounded-[4px] shadow-[0_2px_6px_rgba(0,0,0,0.18)] ring-1 ring-black/[0.08]"
+                      style={{
+                        left: 7 + i * 10,
+                        background: pal.bg,
+                        transform: `rotate(${(i - 1) * 8}deg)`,
+                        transformOrigin: 'bottom center',
+                        zIndex: i === 1 ? 3 : i === 2 ? 2 : 1,
+                      }}
                     >
                       <span className="absolute left-1 top-1.5 h-[2px] w-3 rounded-full" style={{ background: pal.heading }} />
-                      <span className="absolute left-1 top-[11px] h-[2px] w-2.5 rounded-full" style={{ background: pal.text, opacity: 0.35 }} />
-                      <span className="absolute bottom-1.5 left-1 h-[2px] w-2 rounded-full" style={{ background: pal.accent }} />
+                      <span className="absolute left-1 top-[10px] h-[1.5px] w-2 rounded-full" style={{ background: pal.text, opacity: 0.35 }} />
+                      <span className="absolute bottom-1.5 left-1 h-[2px] w-2.5 rounded-full" style={{ background: pal.accent }} />
                     </span>
                   ))}
                 </span>
