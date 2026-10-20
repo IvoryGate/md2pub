@@ -30,7 +30,7 @@ export const ReadView = ({ markdown, bus }: { markdown: string; bus: LineBus }) 
       if (raf) return
       raf = requestAnimationFrame(() => {
         raf = 0
-        if (bus.info.applying) return
+        if (bus.info.applying && bus.info.driver !== 'editor') return
         const top = el.scrollTop + 8
         let idx = 0
         const list = kids()
@@ -45,6 +45,7 @@ export const ReadView = ({ markdown, bus }: { markdown: string; bus: LineBus }) 
     const unsub = bus.onLine((src, line) => {
       if (src === 'editor' || bus.info.applying) return
       bus.info.applying = true
+      bus.info.driver = src
       let idx = 0
       doc.blocks.forEach((b, i) => {
         if ((b.line ?? 0) <= line) idx = i
@@ -53,6 +54,8 @@ export const ReadView = ({ markdown, bus }: { markdown: string; bus: LineBus }) 
       if (child) el.scrollTop = Math.max(0, child.offsetTop - 8)
       window.setTimeout(() => {
         bus.info.applying = false
+        bus.info.driver = undefined
+        bus.flushPending()
       }, 90)
     })
     return () => {

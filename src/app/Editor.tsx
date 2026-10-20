@@ -407,13 +407,19 @@ export const EditorPanel = ({
             onCreateEditor={(view) => {
               viewRef.current = view
               syncRef.current?.()
+              // 整篇归一化文本缓存（Text 对象不可变，编辑后自动失效）
+              const normDocRef: { doc: typeof view.state.doc | null; out: string; map: number[] } = {
+                doc: null,
+                out: '',
+                map: [],
+              }
               // 位置级联动：上报顶部可见行；接收轨道行号并滚动到对应位置
               let raf = 0
               const onScroll = () => {
                 if (raf) return
                 raf = requestAnimationFrame(() => {
                   raf = 0
-                  if (bus.info.applying) return
+                  if (bus.info.applying && bus.info.driver !== 'editor') return
                   // 采样点要避开顶部内边距；若正好落在标点/空行，往下探几行直到拿到有效文字
                   const rect = view.scrollDOM.getBoundingClientRect()
                   let pos: number | null = null
@@ -453,27 +459,33 @@ export const EditorPanel = ({
               const unsub = bus.onLine((src, line, anchor) => {
                 if (src === 'editor' || bus.info.applying) return
                 bus.info.applying = true
+                bus.info.driver = src
                 let targetPos: number | null = null
                 if (anchor) {
-                  const total = view.state.doc.lines
-                  const start = Math.min(Math.max(1, line + 1 - 6), total)
-                  // 先向下找（分页卡多在报告行之后），再回头找；避免撞上标题里的同名词
-                  const ranges: Array<[number, number]> = [
-                    [start, total],
-                    [1, start - 1],
-                  ]
-                  outer: for (const [from, to] of ranges) {
-                    for (let lnNo = from; lnNo <= to; lnNo++) {
-                      const ln = view.state.doc.line(lnNo)
-                      if (!ln.text) continue
-                      const { out, map } = normalizeWithMap(ln.text)
-                      const idx = out.indexOf(anchor)
-                      if (idx >= 0) {
-                        targetPos = ln.from + (map[idx] ?? 0)
-                        break outer
-                      }
-                    }
+                  // 整篇归一化后搜索：锚点可能跨行（标题+下一段），逐行搜索会漏
+                  // 文档对象不可变，按 doc 缓存归一化结果，滚动时零重建
+                  if (normDocRef.doc !== view.state.doc) {
+                    const n = normalizeWithMap(view.state.doc.toString())
+                    normDocRef.doc = view.state.doc
+                    normDocRef.out = n.out
+                    normDocRef.map = n.map
                   }
+                  const { out, map } = normDocRef
+                  const linePos = view.state.doc.line(Math.min(Math.max(1, line + 1), view.state.doc.lines)).from
+                  let idx = out.indexOf(anchor)
+                  let best: number | null = null
+                  let bestDist = Infinity
+                  let guard = 0
+                  while (idx >= 0 && guard++ < 400) {
+                    const pos = map[idx] ?? 0
+                    const dist = Math.abs(pos - linePos)
+                    if (dist < bestDist) {
+                      best = pos
+                      bestDist = dist
+                    }
+                    idx = out.indexOf(anchor, idx + 1)
+                  }
+                  targetPos = best
                 }
                 if (targetPos == null) {
                   const target = Math.min(Math.max(1, line + 1), view.state.doc.lines)
@@ -490,6 +502,8 @@ export const EditorPanel = ({
                 animateScroll(view.scrollDOM, Math.max(0, targetScroll), 320).then(() => {
                   window.setTimeout(() => {
                     bus.info.applying = false
+                    bus.info.driver = undefined
+                    bus.flushPending()
                   }, 80)
                 })
               })

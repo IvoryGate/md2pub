@@ -72,7 +72,7 @@ export const XhsPreview = ({ bus }: { bus: LineBus }) => {
       if (raf) return
       raf = requestAnimationFrame(() => {
         raf = 0
-        if (bus.info.applying) return
+        if (bus.info.applying && bus.info.driver !== 'rail') return
         const y = rail.scrollTop + 8
         let idx = 0
         for (let i = 0; i < cardRefs.current.length; i++) {
@@ -115,6 +115,7 @@ export const XhsPreview = ({ bus }: { bus: LineBus }) => {
     const unsub = bus.onLine((src, line, anchor) => {
       if (src === 'rail' || bus.info.applying) return
       bus.info.applying = true
+      bus.info.driver = src
       let target: HTMLElement | null = null
       if (anchor) {
         for (const card of cardRefs.current) {
@@ -135,6 +136,8 @@ export const XhsPreview = ({ bus }: { bus: LineBus }) => {
       run.then(() => {
         window.setTimeout(() => {
           bus.info.applying = false
+          bus.info.driver = undefined
+          bus.flushPending()
         }, 80)
       })
     })

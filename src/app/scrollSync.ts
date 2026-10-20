@@ -74,20 +74,35 @@ export const bindSyncScroll: ScrollBusHandler = (el, side, bus) => {
 /* ---------- 位置级联动（按源码行） ---------- */
 
 export interface LineBus {
-  info: { applying: boolean }
+  /** driver：当前动画的驱动侧；动画期间只有驱动侧的新位置会被排队 */
+  info: { applying: boolean; driver?: ScrollSource }
   /** line：源码行（0 基）；anchor：可见文字的归一化片段（用于跨分页精确对齐） */
   reportLine(source: ScrollSource, line: number, anchor?: string): void
   onLine(fn: (source: ScrollSource, line: number, anchor?: string) => void): () => void
+  /** 动画结束后调用：补上动画期间驱动侧最后一次滚动位置 */
+  flushPending(): void
 }
 
 export function createLineBus(): LineBus {
   const subs = new Set<(source: ScrollSource, line: number, anchor?: string) => void>()
-  const info = { applying: false }
+  const info: { applying: boolean; driver?: ScrollSource } = { applying: false }
+  let pending: { source: ScrollSource; line: number; anchor?: string } | null = null
   return {
     info,
     reportLine(source, line, anchor) {
-      if (info.applying) return
+      if (info.applying) {
+        // 只保留驱动侧的最新位置：对侧是动画回声，不排队
+        if (info.driver === source) pending = { source, line, anchor }
+        return
+      }
+      pending = null
       for (const fn of subs) fn(source, line, anchor)
+    },
+    flushPending() {
+      if (!pending) return
+      const p = pending
+      pending = null
+      for (const fn of subs) fn(p.source, p.line, p.anchor)
     },
     onLine(fn) {
       subs.add(fn)
