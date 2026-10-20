@@ -152,13 +152,13 @@ const ToggleRow = ({ label, value, onChange }: { label: string; value: boolean; 
   </div>
 )
 
-const TextInput = ({ value, placeholder, onChange, multiline }: { value: string; placeholder: string; onChange: (v: string) => void; multiline?: boolean }) => {
+const TextInput = ({ value, placeholder, onChange, multiline, maxLength }: { value: string; placeholder: string; onChange: (v: string) => void; multiline?: boolean; maxLength?: number }) => {
   const cls =
     'w-full rounded-md bg-black/[0.045] px-2 text-[11px] text-ink outline-none transition-colors placeholder:text-ink-faint hover:bg-black/[0.07] focus:bg-white focus:ring-1 focus:ring-black/[0.14]'
   return multiline ? (
-    <textarea rows={2} className={`${cls} resize-none py-1.5 leading-relaxed`} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} />
+    <textarea rows={2} maxLength={maxLength} className={`${cls} resize-none py-1.5 leading-relaxed`} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} />
   ) : (
-    <input className={`${cls} h-6`} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} />
+    <input className={`${cls} h-6`} maxLength={maxLength} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} />
   )
 }
 
@@ -330,12 +330,13 @@ const DECORATIONS: Array<{ value: HeadingDecoration; label: string; aligns: HAli
 ]
 const alignDefaultDeco = (a: HAlign): HeadingDecoration => (a === 'left' ? 'bar' : a === 'right' ? 'bar-right' : 'pill')
 
-type TabKey = 'basic' | 'cover' | 'color' | 'advanced'
+type TabKey = 'basic' | 'cover' | 'publish' | 'color' | 'advanced'
 
 export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
   const {
     themeId, setThemeId, overrides, patchLayout, resetOverrides,
     watermark, setWatermark, coverText, setCoverText,
+    publish, setPublish, pageCount,
     customPresets, savePreset, deletePreset, applyPreset,
     past, future, undoLayout, redoLayout, exportScale, setExportScale, exportFormat, setExportFormat,
     customCss, setCustomCss,
@@ -350,6 +351,9 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
       setWatermark: s.setWatermark,
       coverText: s.coverText,
       setCoverText: s.setCoverText,
+      publish: s.publish,
+      setPublish: s.setPublish,
+      pageCount: s.pageCount,
       customPresets: s.customPresets,
       savePreset: s.savePreset,
       deletePreset: s.deletePreset,
@@ -380,9 +384,87 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
   const applyColor = (s = seed, sc = scheme, pp = paper, tn = tone) => patch({ palette: derivePalette(s, sc, pp, tn) })
   const patch = (p: XhsStyleOverrides) => patchLayout(p)
   const H = L.headings[headingTab]
+  const [coverImgError, setCoverImgError] = useState('')
+  const coverFileRef = useRef<HTMLInputElement>(null)
+  const [copied, setCopied] = useState('')
+  const copyTimer = useRef<number | null>(null)
+
+  const onCoverFile = (file?: File) => {
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      setCoverImgError('请选择图片文件')
+      return
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      setCoverImgError('图片需小于 8MB')
+      return
+    }
+    const reader = new FileReader()
+    reader.onload = () => {
+      const src = String(reader.result ?? '')
+      const img = new Image()
+      img.onload = () => {
+        // 压缩到最长边 1600px 的 JPEG，避免 data URL 撑爆 localStorage
+        const max = 1600
+        const scale = Math.min(1, max / Math.max(img.width, img.height))
+        const w = Math.max(1, Math.round(img.width * scale))
+        const h = Math.max(1, Math.round(img.height * scale))
+        const canvas = document.createElement('canvas')
+        canvas.width = w
+        canvas.height = h
+        const ctx = canvas.getContext('2d')
+        if (!ctx) {
+          setCoverText({ image: src })
+          return
+        }
+        ctx.fillStyle = '#ffffff'
+        ctx.fillRect(0, 0, w, h)
+        ctx.drawImage(img, 0, 0, w, h)
+        setCoverText({ image: canvas.toDataURL('image/jpeg', 0.86) })
+        setCoverImgError('')
+      }
+      img.onerror = () => setCoverImgError('图片解析失败，请换一张')
+      img.src = src
+    }
+    reader.onerror = () => setCoverImgError('读取失败，请重试')
+    reader.readAsDataURL(file)
+  }
+
+  const doCopy = async (text: string, key: string) => {
+    if (!text.trim()) return
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopied(key)
+      if (copyTimer.current) window.clearTimeout(copyTimer.current)
+      copyTimer.current = window.setTimeout(() => setCopied(''), 1600)
+    } catch {
+      setCopied('error')
+    }
+  }
 
   const headingSize = H.size ?? Math.round(L.body.size * H.sizeRatio)
   const coverTitlePx = L.coverTitleSize ?? Math.round(L.body.size * 2.35)
+
+  const publishTitleLen = [...publish.title].length
+  const publishBodyLen = [...publish.body].length
+  const hashTags = publish.tags
+    .split(/[,，\s]+/)
+    .filter(Boolean)
+    .map((t) => `#${t.replace(/^#+|#+$/g, '')}#`)
+    .join(' ')
+  const mentionText = publish.mention.trim()
+    ? publish.mention.trim().startsWith('@')
+      ? publish.mention.trim()
+      : `@${publish.mention.trim()}`
+    : ''
+  const publishAll = [publish.title.trim(), publish.body.trim(), hashTags, mentionText].filter(Boolean).join('\n\n')
+  const fillPublishFromCover = () =>
+    setPublish({
+      title: [...coverText.title].slice(0, 20).join(''),
+      tags: coverText.tags,
+      mention:
+        coverText.author && !coverText.author.startsWith('@') ? `@${coverText.author}` : coverText.author,
+    })
   const tagPos = normalizeChromePos(L.header.tagPos ?? 'top-left')
   const pagePos = normalizeChromePos(L.header.pageNumPos)
   const wmPos = normalizeChromePos(L.watermark.pos)
@@ -451,6 +533,7 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
           [
             ['basic', '基础'],
             ['cover', '封面'],
+            ['publish', '发布'],
             ['color', '颜色'],
             ['advanced', '高级'],
           ] as const
@@ -666,7 +749,7 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
             </Section>
 
             {/* 页面 */}
-            <Section title="页面" inspectKey="padding">
+            <Section title="页面" defaultOpen inspectKey="padding">
               <Pair>
                 <Field label="上边距">
                   <Num value={L.padding.top} min={40} max={200} suffix="px" onChange={(v) => patch({ padding: { top: v } })} />
@@ -884,6 +967,16 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
 
         {tab === 'cover' && (
           <>
+            <input
+              ref={coverFileRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                onCoverFile(e.target.files?.[0])
+                e.target.value = ''
+              }}
+            />
             {/* 顶层开关：关闭后本页一切设置都不显示 */}
             <div className="flex h-11 items-center justify-between border-b border-black/[0.055] px-3">
               <div>
@@ -904,6 +997,7 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
                         ['big', '巨字'],
                         ['editorial', '杂志'],
                         ['jacket', '书封'],
+                        ['image', '图封'],
                         ['index', '索引'],
                       ] as const
                     ).map(([value, label]) => (
@@ -943,6 +1037,66 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
                     </div>
                   )}
                 </Section>
+
+                {L.coverStyle === 'image' && (
+                  <Section title="封面图" defaultOpen>
+                    <Field label="图文布局">
+                      <Seg
+                        value={coverText.imageLayout ?? 'overlay'}
+                        options={[
+                          { value: 'overlay' as const, label: '图上叠字' },
+                          { value: 'separate' as const, label: '图文分开' },
+                        ]}
+                        onChange={(v) => setCoverText({ imageLayout: v })}
+                      />
+                    </Field>
+                    <div className="mt-1.5">
+                      <Field label="图片地址">
+                        <TextInput
+                          value={coverText.image ?? ''}
+                          placeholder="粘贴图片 URL"
+                          onChange={(v) => setCoverText({ image: v })}
+                        />
+                      </Field>
+                    </div>
+                    <div className="mt-1 flex items-center gap-1">
+                      <button
+                        className="h-6 flex-1 rounded-md bg-[#1d1d1f] text-[9.5px] font-medium text-white transition-opacity hover:opacity-85"
+                        onClick={() => coverFileRef.current?.click()}
+                      >
+                        上传图片
+                      </button>
+                      {coverText.image && (
+                        <button
+                          className="h-6 rounded-md border border-black/10 bg-white px-2 text-[9.5px] text-ink-soft hover:bg-black/[0.04]"
+                          onClick={() => setCoverText({ image: '' })}
+                        >
+                          移除
+                        </button>
+                      )}
+                    </div>
+                    {coverText.image && (
+                      <img src={coverText.image} alt="" className="mt-1.5 h-20 w-full rounded-md object-cover" />
+                    )}
+                    {(coverText.imageLayout ?? 'overlay') === 'overlay' && (
+                      <div className="mt-1.5">
+                        <Field label="遮罩强度">
+                          <Num
+                            value={coverText.imageScrim ?? 55}
+                            min={0}
+                            max={90}
+                            suffix="%"
+                            onChange={(v) => setCoverText({ imageScrim: v })}
+                          />
+                        </Field>
+                      </div>
+                    )}
+                    {coverImgError && <p className="mt-1 text-[9px] text-red-500">{coverImgError}</p>}
+                    <p className="mt-1.5 text-[9px] leading-relaxed text-ink-faint">
+                      建议竖图 3:4；上传会自动压缩到 1600px 并内嵌。外链需允许跨域，否则导出可能失败。
+                    </p>
+                  </Section>
+                )}
 
                 <Section title="封面文案" defaultOpen>
                   <Field label="标题">
@@ -996,6 +1150,95 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
             ) : (
               <div className="px-3 py-3 text-[9.5px] leading-relaxed text-ink-faint">开启封面后，可在这里设置样式、文案、边距与水印。</div>
             )}
+          </>
+        )}
+
+        {tab === 'publish' && (
+          <>
+            <div className="flex h-11 items-center justify-between border-b border-black/[0.055] px-3">
+              <div>
+                <div className="text-[10.5px] font-semibold tracking-[0.06em] text-[#6d6d66]">发布文案</div>
+                <div className={`mt-0.5 text-[9px] ${pageCount > 18 ? 'text-red-500' : 'text-ink-faint'}`}>
+                  标题 ≤20 · 正文 ≤1000 · 图片 {pageCount}/18
+                  {pageCount > 18 ? '（超过上限）' : ''}
+                </div>
+              </div>
+              <button
+                className="h-6 rounded-md bg-black/[0.05] px-2 text-[9.5px] text-ink-soft transition-colors hover:bg-black/[0.08]"
+                onClick={fillPublishFromCover}
+              >
+                从封面带入
+              </button>
+            </div>
+
+            <Section title="标题" defaultOpen>
+              <Field label={`标题 · ${publishTitleLen}/20`}>
+                <TextInput
+                  value={publish.title}
+                  placeholder="一句话说清这篇讲什么"
+                  maxLength={20}
+                  onChange={(v) => setPublish({ title: v })}
+                />
+              </Field>
+              <p className="mt-1 text-[9px] leading-relaxed text-ink-faint">
+                标题在信息流里单独出现，别依赖正文补充语境。
+              </p>
+            </Section>
+
+            <Section title="正文" defaultOpen>
+              <textarea
+                value={publish.body}
+                maxLength={1000}
+                rows={6}
+                placeholder="发布时的正文：补充背景、给出 CTA，或列关键点"
+                onChange={(e) => setPublish({ body: e.target.value })}
+                className="w-full resize-y rounded-md bg-black/[0.045] px-2 py-1.5 text-[10.5px] leading-relaxed text-ink outline-none transition-colors placeholder:text-ink-faint hover:bg-black/[0.07] focus:bg-white focus:ring-1 focus:ring-black/[0.14]"
+              />
+              <div className={`mt-1 text-right text-[9px] tabular-nums ${publishBodyLen > 1000 ? 'text-red-500' : 'text-ink-faint'}`}>
+                {publishBodyLen}/1000
+              </div>
+            </Section>
+
+            <Section title="话题与账号" defaultOpen>
+              <Field label="话题（逗号/空格分隔）">
+                <TextInput value={publish.tags} placeholder="写作, 排版" onChange={(v) => setPublish({ tags: v })} />
+              </Field>
+              <div className="mt-1.5">
+                <Field label="@ 账号">
+                  <TextInput value={publish.mention} placeholder="@yourname" onChange={(v) => setPublish({ mention: v })} />
+                </Field>
+              </div>
+              <p className="mt-1.5 text-[9px] leading-relaxed text-ink-faint">话题自动格式化为 #话题#；留空则不追加。</p>
+            </Section>
+
+            <Section title="复制" defaultOpen>
+              <div className="grid grid-cols-2 gap-1">
+                {(
+                  [
+                    ['all', '复制全篇', publishAll],
+                    ['title', '复制标题', publish.title],
+                    ['body', '复制正文', publish.body],
+                    ['tags', '复制话题', hashTags],
+                  ] as const
+                ).map(([key, label, text]) => (
+                  <button
+                    key={key}
+                    onClick={() => doCopy(text, key)}
+                    className={
+                      key === 'all'
+                        ? 'h-6 rounded-md bg-ink text-[9.5px] font-medium text-white transition-opacity hover:opacity-85'
+                        : 'h-6 rounded-md border border-black/10 bg-white text-[9.5px] text-ink-soft transition-colors hover:bg-black/[0.04]'
+                    }
+                  >
+                    {copied === key ? '已复制' : label}
+                  </button>
+                ))}
+              </div>
+              <div className="mt-1.5 max-h-32 overflow-y-auto whitespace-pre-wrap rounded-md bg-black/[0.035] px-2 py-1.5 text-[9px] leading-relaxed text-ink-soft">
+                {publishAll || '填写后这里会显示完整文案…'}
+              </div>
+              {copied === 'error' && <p className="mt-1 text-[9px] text-red-500">复制失败，请手动选中文本。</p>}
+            </Section>
           </>
         )}
 

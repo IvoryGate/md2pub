@@ -1,33 +1,36 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { deepMerge, type XhsStyleOverrides } from './platforms/xhs'
+import { SAMPLE_COVER, SAMPLE_DOC, SAMPLE_PUBLISH } from './content/docs'
+
+export interface CoverText {
+  title: string
+  subtitle: string
+  author: string
+  tags: string
+  /** 图封面：图片地址（上传会转 data URL） */
+  image?: string
+  imageLayout?: 'overlay' | 'separate'
+  /** 叠图遮罩强度 0–90 */
+  imageScrim?: number
+}
+
+export interface PublishText {
+  title: string
+  body: string
+  tags: string
+  mention: string
+}
 
 export interface CustomPreset {
   id: string
   name: string
   themeId: string
   overrides: XhsStyleOverrides
-  coverText: { title: string; subtitle: string; author: string; tags: string }
+  coverText: CoverText
+  publish?: PublishText
 }
 
-const DEFAULT_MD = `# 从展示到安装：买量的几个基础指标
-
-买量这个过程是这样的：你花钱投了广告。用户在刷手机时，看到你的广告，被吸引住了，顺手点了一下。页面随即跳到应用商店。这时 ta 仍对你的这个产品感兴趣，于是点了下载，马上就打开，或者等会儿再打开。
-
-## 核心公式
-
-把上面的指标凑在一起，很容易就能得到下面这个公式：
-
-$$
-CPI = \\frac{CPM}{1000 \\times CTR \\times CVR} = \\frac{CPM}{IPM}
-$$
-
-有了这个公式，面对"买量为什么贵了/便宜了"这样的问题：
-
-- CPM 涨了，CTR/CVR 没动 → 大盘问题
-- CPM 没动，CTR 跌了 → 素材问题
-- CPM、CTR 没动，CVR 跌了 → 产品侧问题
-`
 
 let lastPatchKey = ''
 let lastPatchAt = 0
@@ -39,9 +42,15 @@ export const useStore = create<{
   setThemeId: (id: string) => void
   size: '3:4' | '1:1' | '4:5'
   setSize: (s: '3:4' | '1:1' | '4:5') => void
-  /** 封面文字（与正文解耦：留空则回退到文档元数据；面板「封面」区编辑） */
-  coverText: { title: string; subtitle: string; author: string; tags: string }
-  setCoverText: (p: Partial<{ title: string; subtitle: string; author: string; tags: string }>) => void
+  /** 封面文字（与正文解耦；面板「封面」区编辑） */
+  coverText: CoverText
+  setCoverText: (p: Partial<CoverText>) => void
+  /** 小红书发布文案（标题/正文/话题/@） */
+  publish: PublishText
+  setPublish: (p: Partial<PublishText>) => void
+  /** 当前卡片数量（由预览层同步，用于发布检查） */
+  pageCount: number
+  setPageCount: (n: number) => void
   /** 用户保存的样式预设（主题 + 覆盖 + 封面文字快照） */
   customPresets: CustomPreset[]
   savePreset: (name: string) => void
@@ -81,14 +90,18 @@ export const useStore = create<{
 }>()(
   persist(
     (set) => ({
-      markdown: DEFAULT_MD,
+      markdown: SAMPLE_DOC,
       setMarkdown: (markdown) => set({ markdown }),
       themeId: 'clean',
       setThemeId: (themeId) => set({ themeId }),
       size: '3:4',
       setSize: (size) => set({ size }),
-      coverText: { title: '', subtitle: '', author: '', tags: '' },
+      coverText: { ...SAMPLE_COVER },
       setCoverText: (p) => set((s) => ({ coverText: { ...s.coverText, ...p } })),
+      publish: { ...SAMPLE_PUBLISH },
+      setPublish: (p) => set((s) => ({ publish: { ...s.publish, ...p } })),
+      pageCount: 0,
+      setPageCount: (pageCount) => set({ pageCount }),
       customPresets: [],
       savePreset: (name) =>
         set((s) => ({
@@ -100,6 +113,7 @@ export const useStore = create<{
               themeId: s.themeId,
               overrides: JSON.parse(JSON.stringify(s.overrides)),
               coverText: { ...s.coverText },
+              publish: { ...s.publish },
             },
           ],
         })),
@@ -112,6 +126,7 @@ export const useStore = create<{
             themeId: p.themeId,
             overrides: JSON.parse(JSON.stringify(p.overrides)),
             coverText: { ...p.coverText },
+            publish: p.publish ? { ...p.publish } : s.publish,
             past: [...s.past.slice(-49), s.overrides],
             future: [],
           }
@@ -166,27 +181,44 @@ export const useStore = create<{
     }),
     {
       name: 'md2pub-store',
-      version: 1,
+      version: 2,
       // v0 的 overrides = { padding, typography }；迁移到 layout v2 深合并形状
-      migrate: (persisted: any) => {
-        const o = persisted?.overrides
-        if (o && (o.padding || o.typography)) {
-          const t = o.typography ?? {}
-          persisted.overrides = {
-            ...(o.padding ? { padding: o.padding } : {}),
-            body: {
-              ...(t.bodySize != null ? { size: t.bodySize } : {}),
-              ...(t.lineRatio != null ? { lineRatio: t.lineRatio } : {}),
-              ...(t.letterSpacing != null ? { letterSpacing: t.letterSpacing } : {}),
-              ...(t.paragraphSpacing != null ? { paragraphSpacing: t.paragraphSpacing } : {}),
-            },
-            ...(t.headingSpaceBefore != null
-              ? { headings: { h2: { spaceBefore: t.headingSpaceBefore } } }
-              : {}),
-            ...(t.headingSpaceAfter != null
-              ? { headings: { ...persisted.overrides?.headings, h2: { spaceAfter: t.headingSpaceAfter } } }
-              : {}),
+      migrate: (persisted: any, version: number) => {
+        // 只对 v0 的旧形状做转换；v1 已经是新形状，不能再次重建（否则会丢掉 coverStyle / palette 等键）
+        if (version < 1) {
+          const o = persisted?.overrides
+          if (o && (o.padding || o.typography)) {
+            const t = o.typography ?? {}
+            const next: Record<string, unknown> = {
+              ...o,
+              ...(o.padding ? { padding: o.padding } : {}),
+              body: {
+                ...(o.body ?? {}),
+                ...(t.bodySize != null ? { size: t.bodySize } : {}),
+                ...(t.lineRatio != null ? { lineRatio: t.lineRatio } : {}),
+                ...(t.letterSpacing != null ? { letterSpacing: t.letterSpacing } : {}),
+                ...(t.paragraphSpacing != null ? { paragraphSpacing: t.paragraphSpacing } : {}),
+              },
+            }
+            if (t.headingSpaceBefore != null || t.headingSpaceAfter != null) {
+              next.headings = {
+                ...(o.headings ?? {}),
+                h2: {
+                  ...((o.headings ?? {}).h2 ?? {}),
+                  ...(t.headingSpaceBefore != null ? { spaceBefore: t.headingSpaceBefore } : {}),
+                  ...(t.headingSpaceAfter != null ? { spaceAfter: t.headingSpaceAfter } : {}),
+                },
+              }
+            }
+            persisted.overrides = next
           }
+        }
+        // v1 → v2：新增发布文案。旧存档不继承示例文案，避免把示例标题带进用户自己的文章。
+        if (version < 2 && persisted && persisted.publish === undefined) {
+          persisted.publish =
+            persisted.markdown === SAMPLE_DOC
+              ? { ...SAMPLE_PUBLISH }
+              : { title: '', body: '', tags: '', mention: '' }
         }
         return persisted
       },

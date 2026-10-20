@@ -693,7 +693,7 @@ const chromeAnchor = (pos: ChromePos, L: { padding: { top: number; bottom: numbe
   return { position: 'absolute', lineHeight: `${line}px`, ...vertical, ...horizontal }
 }
 
-const Watermark = ({ theme, text, pos }: { theme: XhsCardTheme; text?: string; pos: ChromePos }) => {
+const Watermark = ({ theme, text, pos, light }: { theme: XhsCardTheme; text?: string; pos: ChromePos; light?: boolean }) => {
   const content = (text ?? '').trim()
   if (!content) return null
   return (
@@ -701,11 +701,12 @@ const Watermark = ({ theme, text, pos }: { theme: XhsCardTheme; text?: string; p
       style={{
         ...chromeAnchor(pos, theme.layout),
         fontSize: theme.layout.watermark.size ?? 26,
-        color: theme.palette.muted,
-        opacity: theme.layout.watermark.opacity ?? 0.72,
+        color: light ? '#ffffff' : theme.palette.muted,
+        opacity: light ? 0.8 : theme.layout.watermark.opacity ?? 0.72,
         letterSpacing: theme.layout.watermark.tracking ?? 1,
         whiteSpace: 'nowrap',
         pointerEvents: 'none',
+        zIndex: 4,
       }}
     >
       {content}
@@ -761,6 +762,11 @@ export interface CoverTextInfo {
   subtitle: string
   author: string
   tags: string
+  /** 图封面：图片地址 */
+  image?: string
+  imageLayout?: 'overlay' | 'separate'
+  /** 叠图遮罩强度 0–90 */
+  imageScrim?: number
 }
 
 /** 括号感知的平衡断行：封面巨字按语义块均分两行，不拆「（三）」这类成对符号 */
@@ -1087,6 +1093,130 @@ const CoverCard = ({
         </div>
       </div>
     )
+  } else if (L.coverStyle === 'image') {
+    /* 图封：图片主导的封面。
+       overlay = 全幅图片 + 暗角遮罩 + 白字；separate = 图片在上、文字在下。 */
+    const image = (ct.image ?? '').trim()
+    const layout = ct.imageLayout ?? 'overlay'
+    const scrim = Math.min(90, Math.max(0, ct.imageScrim ?? 55))
+    const overlay = layout === 'overlay' && !!image
+    const imageEl = (
+      <img
+        src={image}
+        alt=""
+        style={{ display: 'block', width: '100%', height: '100%', objectFit: 'cover' }}
+      />
+    )
+    const titleNode = (
+      <h1
+        style={{
+          color: overlay ? '#ffffff' : ink,
+          fontSize: fitCoverSize(coverPx(2.05)),
+          lineHeight: 1.3,
+          fontWeight: 800,
+          letterSpacing: 1.5,
+          margin: 0,
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+        }}
+      >
+        <TitleLines lines={titleLines} align={overlay ? 'center' : 'left'} />
+      </h1>
+    )
+    body = overlay ? (
+      <>
+        <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
+          {imageEl}
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              background: `linear-gradient(180deg, rgba(0,0,0,${(scrim * 0.22) / 100}) 0%, rgba(0,0,0,${(scrim * 0.55) / 100}) 42%, rgba(0,0,0,${scrim / 100}) 100%)`,
+            }}
+          />
+        </div>
+        <div
+          style={{
+            position: 'relative',
+            zIndex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            flex: 1,
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            textAlign: 'center',
+          }}
+        >
+          <div style={{ alignSelf: 'stretch', display: 'flex', justifyContent: 'center' }}>
+            {tagLine ? (
+              <div style={{ color: 'rgba(255,255,255,0.94)', fontSize: 26, fontWeight: 700, letterSpacing: 5 }}>
+                {tagLine.toUpperCase()}
+              </div>
+            ) : null}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 26 }}>
+            {titleNode}
+            {subtitle && (
+              <div style={{ fontSize: 26, letterSpacing: 3, lineHeight: 1.7, color: 'rgba(255,255,255,0.82)' }}>{subtitle}</div>
+            )}
+            <div style={{ width: 120, height: 7, borderRadius: 4, background: accent }} />
+          </div>
+          <div
+            style={{
+              alignSelf: 'stretch',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              fontSize: 24,
+              letterSpacing: 3,
+              color: 'rgba(255,255,255,0.82)',
+            }}
+          >
+            <span>{author}</span>
+            <span style={{ width: 36, height: 2, background: 'rgba(255,255,255,0.45)' }} />
+          </div>
+        </div>
+      </>
+    ) : (
+      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+        {image ? (
+          <div style={{ height: '52%', flexShrink: 0, overflow: 'hidden', borderRadius: 16, background: p.quoteBg }}>
+            {imageEl}
+          </div>
+        ) : null}
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            flex: 1,
+            justifyContent: 'space-between',
+            paddingTop: image ? 42 : 0,
+          }}
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+            {tagEl(24, 5)}
+            {titleNode}
+            {subtitle && (
+              <div style={{ fontSize: 25, letterSpacing: 2, lineHeight: 1.7, color: p.text, opacity: 0.7 }}>{subtitle}</div>
+            )}
+          </div>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              fontSize: 23,
+              letterSpacing: 3,
+              color: p.text,
+              opacity: 0.7,
+            }}
+          >
+            <span>{author}</span>
+            <div style={{ width: 120, height: 7, borderRadius: 4, background: accent }} />
+          </div>
+        </div>
+      </div>
+    )
   } else {
     /* 经典：上置 / 居中 / 下置 */
     const title = (
@@ -1151,7 +1281,14 @@ const CoverCard = ({
       }}
     >
       {body}
-      {L.watermark.cover && <Watermark theme={theme} text={watermark} pos={normalizeChromePos(L.watermark.coverPos)} />}
+      {L.watermark.cover && (
+        <Watermark
+          theme={theme}
+          text={watermark}
+          pos={normalizeChromePos(L.watermark.coverPos)}
+          light={L.coverStyle === 'image' && (ct.imageLayout ?? 'overlay') === 'overlay' && !!ct.image?.trim()}
+        />
+      )}
       {guides && <GuideOverlay theme={theme} inspect={inspect} cover w={pageW} h={pageH} />}
     </div>
   )

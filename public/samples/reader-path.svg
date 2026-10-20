@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="560" viewBox="0 0 1200 560" fill="none">
+  <g font-family="'LXGW WenKai','PingFang SC','Microsoft YaHei',sans-serif">
+    <text x="60" y="64" font-size="26" font-weight="700" fill="#2b2b2b" letter-spacing="1">读者的四步路径</text>
+    <text x="60" y="98" font-size="19" fill="#8a8a82">每一屏只负责把读者交给下一屏</text>
+
+    <g>
+      <rect x="60" y="150" width="240" height="250" rx="22" fill="#fff7f8" stroke="#ff2e4d" stroke-opacity="0.35"/>
+      <text x="88" y="196" font-size="16" fill="#ff2e4d" font-weight="700" letter-spacing="2">01 · 标题</text>
+      <text x="88" y="248" font-size="34" font-weight="700" fill="#2b2b2b">停一下</text>
+      <text x="88" y="286" font-size="18" fill="#8a8a82">给出一个具体的收益</text>
+      <text x="88" y="312" font-size="18" fill="#8a8a82">或一个反常识的冲突</text>
+      <rect x="88" y="344" width="76" height="5" rx="2.5" fill="#ff2e4d" fill-opacity="0.55"/>
+    </g>
+
+    <g>
+      <rect x="340" y="150" width="240" height="250" rx="22" fill="#ffffff" stroke="#2b2b2b" stroke-opacity="0.1"/>
+      <text x="368" y="196" font-size="16" fill="#8a8a82" font-weight="700" letter-spacing="2">02 · 开头</text>
+      <text x="368" y="248" font-size="34" font-weight="700" fill="#2b2b2b">留下来</text>
+      <text x="368" y="286" font-size="18" fill="#8a8a82">前三句交代阅读契约</text>
+      <text x="368" y="312" font-size="18" fill="#8a8a82">告诉读者能得到什么</text>
+      <rect x="368" y="344" width="76" height="5" rx="2.5" fill="#2b2b2b" fill-opacity="0.22"/>
+    </g>
+
+    <g>
+      <rect x="620" y="150" width="240" height="250" rx="22" fill="#ffffff" stroke="#2b2b2b" stroke-opacity="0.1"/>
+      <text x="648" y="196" font-size="16" fill="#8a8a82" font-weight="700" letter-spacing="2">03 · 主体</text>
+      <text x="648" y="248" font-size="34" font-weight="700" fill="#2b2b2b">读下去</text>
+      <text x="648" y="286" font-size="18" fill="#8a8a82">一段只讲一件事</text>
+      <text x="648" y="312" font-size="18" fill="#8a8a82">用例子与数字落地</text>
+      <rect x="648" y="344" width="76" height="5" rx="2.5" fill="#2b2b2b" fill-opacity="0.22"/>
+    </g>
+
+    <g>
+      <rect x="900" y="150" width="240" height="250" rx="22" fill="#fff7f8" stroke="#ff2e4d" stroke-opacity="0.35"/>
+      <text x="928" y="196" font-size="16" fill="#ff2e4d" font-weight="700" letter-spacing="2">04 · 结尾</text>
+      <text x="928" y="248" font-size="34" font-weight="700" fill="#2b2b2b">做点什么</text>
+      <text x="928" y="286" font-size="18" fill="#8a8a82">给一个今天能做的动作</text>
+      <text x="928" y="312" font-size="18" fill="#8a8a82">而不是一句空泛总结</text>
+      <rect x="928" y="344" width="76" height="5" rx="2.5" fill="#ff2e4d" fill-opacity="0.55"/>
+    </g>
+
+    <g stroke="#2b2b2b" stroke-opacity="0.18" stroke-width="2">
+      <path d="M300 275 H340"/>
+      <path d="M580 275 H620"/>
+      <path d="M860 275 H900"/>
+    </g>
+    <g fill="#2b2b2b" fill-opacity="0.3">
+      <path d="M334 268 L344 275 L334 282 Z"/>
+      <path d="M614 268 L624 275 L614 282 Z"/>
+      <path d="M894 268 L904 275 L894 282 Z"/>
+    </g>
+
+    <path d="M60 454 H1140" stroke="#2b2b2b" stroke-opacity="0.1"/>
+    <text x="60" y="494" font-size="18" fill="#8a8a82">判断标准：把任意一屏单独截出来，读者是否仍然知道该往哪里看？</text>
+  </g>
+</svg>

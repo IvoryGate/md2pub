@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="520" viewBox="0 0 1200 520" fill="none">
+  <g font-family="'LXGW WenKai','PingFang SC','Microsoft YaHei',sans-serif">
+    <text x="60" y="62" font-size="24" font-weight="700" fill="#2b2b2b" letter-spacing="1">正文 34px 时的字号阶梯</text>
+    <text x="60" y="94" font-size="18" fill="#8a8a82">同一条比例链，换字号时层级不会塌</text>
+
+    <g>
+      <text x="60" y="162" font-size="16" fill="#8a8a82" letter-spacing="1">H1 · 53px</text>
+      <text x="205" y="170" font-size="53" font-weight="700" fill="#2b2b2b">把复杂的事讲清楚</text>
+      <text x="1040" y="162" font-size="16" fill="#ff2e4d">1.55×</text>
+      <path d="M60 190 H1140" stroke="#2b2b2b" stroke-opacity="0.08"/>
+    </g>
+
+    <g>
+      <text x="60" y="246" font-size="16" fill="#8a8a82" letter-spacing="1">H2 · 51px</text>
+      <text x="205" y="252" font-size="51" font-weight="700" fill="#2b2b2b">先给读者一条路径</text>
+      <text x="1040" y="246" font-size="16" fill="#ff2e4d">1.50×</text>
+      <path d="M60 274 H1140" stroke="#2b2b2b" stroke-opacity="0.08"/>
+    </g>
+
+    <g>
+      <text x="60" y="326" font-size="16" fill="#8a8a82" letter-spacing="1">H3 · 39px</text>
+      <text x="205" y="331" font-size="39" font-weight="700" fill="#2b2b2b">一段只讲一件事</text>
+      <text x="1040" y="326" font-size="16" fill="#ff2e4d">1.15×</text>
+      <path d="M60 352 H1140" stroke="#2b2b2b" stroke-opacity="0.08"/>
+    </g>
+
+    <g>
+      <text x="60" y="402" font-size="16" fill="#8a8a82" letter-spacing="1">正文 · 34px</text>
+      <text x="205" y="406" font-size="34" fill="#2b2b2b">信息密度不是把字塞满，而是让每一行都有下一步</text>
+      <text x="1040" y="402" font-size="16" fill="#ff2e4d">1.00×</text>
+      <path d="M60 428 H1140" stroke="#2b2b2b" stroke-opacity="0.08"/>
+    </g>
+
+    <g font-size="17" fill="#8a8a82">
+      <text x="60" y="474">行高 1.7× · 段距 22px · 字距 0.5px</text>
+      <text x="1040" y="474" fill="#ff2e4d">清爽版预设</text>
+    </g>
+  </g>
+</svg>
