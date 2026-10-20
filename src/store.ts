@@ -170,7 +170,7 @@ export const useStore = create<{
     }),
     {
       name: 'md2pub-store',
-      version: 4,
+      version: 5,
       // v0 的 overrides = { padding, typography }；迁移到 layout v2 深合并形状
       migrate: (persisted: any, version: number) => {
         // 只对 v0 的旧形状做转换；v1 已经是新形状，不能再次重建（否则会丢掉 coverStyle / palette 等键）
@@ -204,12 +204,16 @@ export const useStore = create<{
         }
         // v3：'image' 不再是独立版式，图片改为所有封面的图层
         // v4：移除发布文案/页数缓存（旧存档残留字段直接清掉）
+        // v5：内置主题只保留「素笺」，旧的杂志/暗夜主题回退到它
         if (version < 3 && persisted?.overrides?.coverStyle === 'image') {
           persisted.overrides.coverStyle = 'classic'
         }
         if (persisted && (persisted.publish !== undefined || persisted.pageCount !== undefined)) {
           delete persisted.publish
           delete persisted.pageCount
+        }
+        if (version < 5 && (persisted?.themeId === 'magazine' || persisted?.themeId === 'dark')) {
+          persisted.themeId = 'clean'
         }
         return persisted
       },

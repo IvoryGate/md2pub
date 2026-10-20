@@ -214,7 +214,6 @@ export const xhsMermaidVars = (theme: XhsCardTheme): Record<string, string> => {
 /* 卡片正文首选霞鹜文楷（由 index.css 引入 @font-face，离线打包可用）；
    后备保持系统黑体族以防分片未就绪 */
 const FONT_SANS = '"LXGW WenKai", PingFang SC, Microsoft YaHei, Noto Sans SC, sans-serif'
-const FONT_SERIF = '"Source Han Serif SC", "Noto Serif SC", SimSun, serif'
 
 /** 通用基准版式（按调研规范取中值；主题在此之上微调） */
 const baseLayout: XhsLayout = {
@@ -281,7 +280,7 @@ const baseLayout: XhsLayout = {
 export const XHS_THEMES: XhsCardTheme[] = [
   {
     id: 'clean',
-    name: '清爽版',
+    name: '素笺',
     fontFamily: FONT_SANS,
     layout: structuredClone(baseLayout),
     palette: {
@@ -300,62 +299,6 @@ export const XHS_THEMES: XhsCardTheme[] = [
     },
     radius: 24,
     bulletSymbol: '•',
-  },
-  {
-    id: 'magazine',
-    name: '文艺杂志版',
-    fontFamily: FONT_SERIF,
-    layout: {
-      ...structuredClone(baseLayout),
-      padding: { top: 104, right: 96, bottom: 104, left: 96 },
-      cjkFont: '"Source Han Serif SC", "Noto Serif SC", SimSun, serif',
-      latinFont: '',
-      body: { ...baseLayout.body, size: 36, lineRatio: 1.85, letterSpacing: 1.2, align: 'justify' },
-      headings: {
-        ...baseLayout.headings,
-        h2: { ...baseLayout.headings.h2, weight: 800, spaceBefore: 56 },
-      },
-      list: { indent: 44, itemGap: 16 },
-      quote: { pad: 26, radius: 4 },
-      image: { fullBleed: true, radius: 8, outline: true, marginY: 18 },
-    },
-    palette: {
-      bg: '#f6f1e7',
-      text: '#4a4238',
-      heading: '#2b2418',
-      accent: '#c2703d',
-      muted: '#a89f8d',
-      quoteBg: '#ece4d4',
-      codeBg: '#3b3025',
-      codeFg: '#f0e8d8',
-      strong: '#a3512a',
-      italic: '#a3779d',
-    },
-    radius: 8,
-    bulletSymbol: '◦',
-  },
-  {
-    id: 'dark',
-    name: '暗夜版',
-    fontFamily: FONT_SANS,
-    layout: {
-      ...structuredClone(baseLayout),
-      headings: { ...baseLayout.headings, h2: { ...baseLayout.headings.h2, decoration: 'underline' } },
-    },
-    palette: {
-      bg: '#191b22',
-      text: '#d8dce4',
-      heading: '#ffffff',
-      accent: '#7ce0c3',
-      muted: '#71798a',
-      quoteBg: '#232631',
-      codeBg: '#262a36',
-      codeFg: '#e6eaf2',
-      strong: '#ff7096',
-      italic: '#c9b8f5',
-    },
-    radius: 24,
-    bulletSymbol: '▸',
   },
 ]
 

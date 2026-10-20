@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import {
   XHS_THEMES,
   applyXhsOverrides,
+  getTheme,
   normalizeChromePos,
   type XhsLayout,
   type XhsStyleOverrides,
@@ -18,7 +19,7 @@ import {
   CJK_FONTS,
   LATIN_FONTS,
 } from '../platforms/xhs'
-import { Check, ChevronDown, LayoutGrid, RotateCcw, SlidersHorizontal, Trash2, Plus, X, Undo2, Redo2 } from 'lucide-react'
+import { Check, ChevronDown, ChevronRight, LayoutGrid, RotateCcw, SlidersHorizontal, Trash2, Plus, X, Undo2, Redo2 } from 'lucide-react'
 import { useStore } from '../store'
 import { imageFileToDataUrl } from '../core/image'
 import { Gallery } from './Gallery'
@@ -406,6 +407,9 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
 
   const headingSize = H.size ?? Math.round(L.body.size * H.sizeRatio)
   const coverTitlePx = L.coverTitleSize ?? Math.round(L.body.size * 2.35)
+  const galleryThumbs = STYLE_PRESETS.slice(0, 3).map(
+    (p) => applyXhsOverrides(getTheme(p.themeId), resolvePreset(p)).palette,
+  )
 
   const tagPos = normalizeChromePos(L.header.tagPos ?? 'top-left')
   const pagePos = normalizeChromePos(L.header.pageNumPos)
@@ -526,10 +530,28 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
                   setGalleryTab('style')
                   setGalleryOpen(true)
                 }}
-                className="mt-1.5 flex h-7 w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-black/[0.16] text-[10px] text-ink-soft transition-colors hover:border-black/[0.24] hover:bg-black/[0.035] hover:text-ink"
+                className="group mt-2 flex w-full items-center gap-2.5 rounded-[10px] border border-black/[0.08] bg-white p-2 text-left shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition-all hover:border-black/[0.14] hover:shadow-[0_10px_24px_-16px_rgba(0,0,0,0.3)]"
               >
-                <LayoutGrid className="h-3 w-3" strokeWidth={1.8} />
-                打开预设画廊 · {STYLE_PRESETS.length + COVER_TEMPLATES.length} 套
+                <span className="flex h-8 shrink-0 items-center">
+                  {galleryThumbs.map((pal, i) => (
+                    <span
+                      key={i}
+                      className="relative -ml-1.5 h-8 w-5 overflow-hidden rounded-[4px] shadow-[0_0_0_1px_rgba(0,0,0,0.06)] first:ml-0"
+                      style={{ background: pal.bg }}
+                    >
+                      <span className="absolute left-1 top-1.5 h-[2px] w-3 rounded-full" style={{ background: pal.heading }} />
+                      <span className="absolute left-1 top-[11px] h-[2px] w-2.5 rounded-full" style={{ background: pal.text, opacity: 0.35 }} />
+                      <span className="absolute bottom-1.5 left-1 h-[2px] w-2 rounded-full" style={{ background: pal.accent }} />
+                    </span>
+                  ))}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[10.5px] font-semibold text-ink">预设画廊</span>
+                  <span className="mt-0.5 block text-[9px] text-ink-faint">
+                    {STYLE_PRESETS.length} 种风格 · {COVER_TEMPLATES.length} 个封面模板
+                  </span>
+                </span>
+                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-ink-faint transition-transform group-hover:translate-x-0.5 group-hover:text-ink" />
               </button>
 
               {customPresets.length > 0 && (
@@ -590,11 +612,16 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
                 </div>
               ) : (
                 <button
-                  className="mt-1.5 flex h-6 w-full items-center justify-center gap-1 rounded-md border border-dashed border-black/[0.14] text-[10px] text-ink-soft transition-colors hover:border-black/[0.24] hover:text-ink"
+                  className="mt-1.5 flex h-7 w-full items-center gap-2 rounded-lg bg-black/[0.035] px-2 text-[9.5px] text-ink-soft transition-colors hover:bg-black/[0.06] hover:text-ink"
                   onClick={() => setSavingPreset(true)}
                 >
-                  <Plus className="h-2.5 w-2.5" strokeWidth={2.2} />
-                  保存当前样式为预设
+                  <span className="flex h-4 w-4 items-center justify-center rounded-full bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.06)]">
+                    <Plus className="h-2.5 w-2.5" strokeWidth={2.2} />
+                  </span>
+                  <span>保存当前样式为预设</span>
+                  <span className="ml-auto text-[8.5px] text-ink-faint">
+                    {customPresets.length ? `${customPresets.length} 个已保存` : '仅本机'}
+                  </span>
                 </button>
               )}
             </Section>
@@ -968,10 +995,14 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
                       setGalleryTab('cover')
                       setGalleryOpen(true)
                     }}
-                    className="mt-1.5 flex h-6 w-full items-center justify-center gap-1 rounded-md border border-dashed border-black/[0.14] text-[9.5px] text-ink-soft transition-colors hover:border-black/[0.22] hover:bg-black/[0.035] hover:text-ink"
+                    className="group mt-2 flex h-8 w-full items-center gap-2 rounded-lg border border-black/[0.07] bg-white px-2.5 text-[9.5px] text-ink-soft transition-all hover:border-black/[0.13] hover:text-ink"
                   >
-                    <LayoutGrid className="h-3 w-3" strokeWidth={1.8} />
-                    从封面模板开始
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-black/[0.04]">
+                      <LayoutGrid className="h-3 w-3" strokeWidth={1.8} />
+                    </span>
+                    <span className="flex-1 text-left">从封面模板开始</span>
+                    <span className="text-[9px] text-ink-faint">{COVER_TEMPLATES.length} 套</span>
+                    <ChevronRight className="h-3 w-3 text-ink-faint transition-transform group-hover:translate-x-0.5" />
                   </button>
                   {L.coverStyle === 'classic' ? (
                     <Pair>
