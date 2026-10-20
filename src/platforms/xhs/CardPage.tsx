@@ -573,14 +573,32 @@ export const BlockView = ({
           </table>
         </div>
       )
-    case 'image':
-      return (
-        <img
-          src={block.url}
-          alt={block.alt ?? ''}
-          style={imageStyle(L, p.muted, start)}
-        />
-      )
+    case 'image': {
+      const style = imageStyle(L, p.muted, start, block.width, block.height)
+      // 只给高度时：用 inline-block 包裹，让宽度按原图比例收缩，而不是被 max-width 拉变形
+      if (block.height && !block.width) {
+        return (
+          <span
+            style={{
+              display: 'inline-block',
+              alignSelf: 'flex-start',
+              height: block.height,
+              maxWidth: '100%',
+              marginTop: style.marginTop,
+              marginBottom: style.marginBottom,
+              verticalAlign: 'top',
+            }}
+          >
+            <img
+              src={block.url}
+              alt={block.alt ?? ''}
+              style={{ ...style, width: 'auto', height: '100%', maxWidth: '100%', marginTop: 0, marginBottom: 0 }}
+            />
+          </span>
+        )
+      }
+      return <img src={block.url} alt={block.alt ?? ''} style={style} />
+    }
     case 'divider':
       return (
         <div
@@ -628,6 +646,8 @@ const imageStyle = (
   L: XhsCardTheme['layout'],
   muted: string,
   start?: boolean,
+  width?: number,
+  height?: number,
 ): CSSProperties => {
   const base: CSSProperties = {
     display: 'block',
@@ -649,6 +669,10 @@ const imageStyle = (
       outlineColor: `${muted}44`,
       outlineOffset: -1,
     })
+  // 自定义尺寸语法：![alt|400x300]（卡片原生 px）
+  if (width) base.width = width
+  if (height) base.height = height
+  if (width && height) base.objectFit = 'cover'
   return base
 }
 

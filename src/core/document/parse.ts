@@ -36,6 +36,18 @@ export function renderInline(text: string): string {
   }
 }
 
+
+/** 解析图片 alt 末尾的尺寸语法：`alt|400x300`、`alt|400x`、`alt|x300`（单位：卡片原生 px） */
+function parseImageAlt(raw: string): { alt?: string; width?: number; height?: number } {
+  const text = raw.trim()
+  const m = /^(.*?)\s*\|\s*(\d+)?\s*(?:x|×)\s*(\d+)?\s*$/i.exec(text)
+  if (!m) return { alt: text || undefined }
+  const width = m[2] ? Number(m[2]) : undefined
+  const height = m[3] ? Number(m[3]) : undefined
+  if (!width && !height) return { alt: text || undefined }
+  return { alt: m[1]?.trim() || undefined, width, height }
+}
+
 function parseFrontMatter(raw: string): { meta: DocMeta; body: string } {
   const meta: DocMeta = { tags: [] }
   const match = /^---\n([\s\S]*?)\n---\n?/.exec(raw.trimStart())
@@ -104,7 +116,7 @@ function scanTokens(tokens: Token[]): Block[] {
           // 段落若只包含一张图片（独立图片行），识别为 image 块
           const imageChild = inline?.children?.find(c => c.type === 'image')
           if (inline?.children && inline.children.filter(c => c.type !== 'text' && c.type !== 'softbreak').length === 1 && imageChild) {
-            pushAt({ type: 'image', url: imageChild.attrGet('src') ?? '', alt: stripInline(imageChild.content || '') || undefined })
+            pushAt({ type: 'image', url: imageChild.attrGet('src') ?? '', ...parseImageAlt(stripInline(imageChild.content || '')) })
           } else if (PAGEBREAK_RE.test((inline?.content ?? '').trim())) {
             // html:false 时，独立成行的 HTML 注释会落在段落里——还原为显式分页
             pushAt({ type: 'pagebreak' })
@@ -210,7 +222,7 @@ function scanTokens(tokens: Token[]): Block[] {
 
         // 图片 token（如由 front-matter/特殊场景产生）
         case 'image': {
-          pushAt({ type: 'image', url: t.attrGet('src') ?? '', alt: stripInline(t.content || '') || undefined })
+          pushAt({ type: 'image', url: t.attrGet('src') ?? '', ...parseImageAlt(stripInline(t.content || '')) })
           i++
           continue
         }

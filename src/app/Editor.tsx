@@ -12,6 +12,7 @@ import { codeBlockStyler, fencedLines } from './cm/codeBlock'
 import { animateScroll, normalizeAnchor, normalizeWithMap, type LineBus } from './scrollSync'
 import { ReadView } from './ReadView'
 import { useStore } from '../store'
+import { imageAltFromFile, imageFileToDataUrl } from '../core/image'
 
 const INK = '#1d1d1f'
 const SOFT = '#6e6e73'
@@ -456,6 +457,46 @@ export const EditorPanel = ({
                 }
               }
               view.contentDOM.addEventListener('mousedown', onWidgetDown, true)
+              // 粘贴/拖入图片：压缩后以内嵌 data URL 写入 Markdown
+              const insertImageFile = async (file: File, at?: number) => {
+                try {
+                  const data = await imageFileToDataUrl(file)
+                  const alt = imageAltFromFile(file)
+                  const pos = at ?? view.state.selection.main.from
+                  const line = view.state.doc.lineAt(pos)
+                  const nl = String.fromCharCode(10)
+                  const lead = line.text.trim() ? nl : ''
+                  const snippet = `${lead}![${alt}](${data})${nl}`
+                  view.dispatch({
+                    changes: { from: pos, insert: snippet },
+                    selection: { anchor: pos + snippet.length },
+                  })
+                  view.focus()
+                } catch {
+                  /* 读取失败时保持原文，不阻塞编辑 */
+                }
+              }
+              const onPasteImage = (e: ClipboardEvent) => {
+                const item = [...(e.clipboardData?.items ?? [])].find((it) => it.type.startsWith('image/'))
+                if (!item) return
+                const file = item.getAsFile()
+                if (!file) return
+                e.preventDefault()
+                void insertImageFile(file)
+              }
+              const onDropImage = (e: DragEvent) => {
+                const file = [...(e.dataTransfer?.files ?? [])].find((f) => f.type.startsWith('image/'))
+                if (!file) return
+                e.preventDefault()
+                const at = view.posAtCoords({ x: e.clientX, y: e.clientY }) ?? view.state.selection.main.from
+                void insertImageFile(file, at)
+              }
+              const onDragOverImage = (e: DragEvent) => {
+                if ([...(e.dataTransfer?.types ?? [])].includes('Files')) e.preventDefault()
+              }
+              view.contentDOM.addEventListener('paste', onPasteImage, true)
+              view.contentDOM.addEventListener('drop', onDropImage, true)
+              view.contentDOM.addEventListener('dragover', onDragOverImage)
               const unsub = bus.onLine((src, line, anchor) => {
                 if (src === 'editor' || bus.info.applying) return
                 bus.info.applying = true
@@ -510,6 +551,9 @@ export const EditorPanel = ({
               syncRef.current = () => {
                 view.scrollDOM.removeEventListener('scroll', onScroll)
                 view.contentDOM.removeEventListener('mousedown', onWidgetDown, true)
+                view.contentDOM.removeEventListener('paste', onPasteImage, true)
+                view.contentDOM.removeEventListener('drop', onDropImage, true)
+                view.contentDOM.removeEventListener('dragover', onDragOverImage)
                 unsub()
                 if (raf) cancelAnimationFrame(raf)
               }

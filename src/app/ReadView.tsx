@@ -215,6 +215,11 @@ const ReadBlockView = ({ block }: { block: Block }) => {
           src={block.url}
           alt={block.alt ?? ''}
           className="my-3 max-w-full rounded-xl border border-black/5"
+          style={{
+            width: block.width,
+            height: block.height,
+            objectFit: block.width && block.height ? 'cover' : undefined,
+          }}
         />
       )
     case 'divider':

@@ -26,16 +26,6 @@ export const SAMPLE_COVER = {
   imageScrim: 55,
 }
 
-/** 示例文档配套的小红书发布文案 */
-export const SAMPLE_PUBLISH = {
-  title: '把复杂的事讲清楚',
-  body:
-    '一份内容卡片的结构清单：从读者路径、三种结构，到分页节奏与操作清单。\n' +
-    '如果你也在写长文，希望这份骨架能帮你少改两遍。',
-  tags: '写作, 排版, 内容设计',
-  mention: '',
-}
-
 export const DOCS: DocEntry[] = [
   {
     slug: 'typesetting-design',

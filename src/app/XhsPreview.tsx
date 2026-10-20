@@ -26,7 +26,7 @@ export const XhsPreview = ({ bus }: { bus: LineBus }) => {
   const {
     markdown, themeId, size, overrides, watermark, coverText,
     previewScale, setPreviewScale, exportScale, exportFormat,
-    showGuides, setShowGuides, inspect, setPageCount,
+    showGuides, setShowGuides, inspect,
   } = useStore(
     useShallow((s) => ({
       markdown: s.markdown,
@@ -42,7 +42,6 @@ export const XhsPreview = ({ bus }: { bus: LineBus }) => {
       showGuides: s.showGuides,
       setShowGuides: s.setShowGuides,
       inspect: s.inspect,
-      setPageCount: s.setPageCount,
     })),
   )
   const [exporting, setExporting] = useState(false)
@@ -52,9 +51,6 @@ export const XhsPreview = ({ bus }: { bus: LineBus }) => {
 
   const [cardSet, setCardSet] = useState<XhsCardSet | null>(null)
 
-  useEffect(() => {
-    setPageCount(cardSet?.cards.length ?? 0)
-  }, [cardSet, setPageCount])
 
   // 卡片轨道滚动 ⇋ 编辑器滚动（按源码行，双向）
   useEffect(() => {

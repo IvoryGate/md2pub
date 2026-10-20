@@ -4,7 +4,7 @@ import katexPlugin from '@vscode/markdown-it-katex'
 import hljs from 'highlight.js'
 import { ArrowLeft, ArrowRight, BookOpen, Clock3, PenLine } from 'lucide-react'
 import { GithubIcon } from './icons'
-import { DOCS, SAMPLE_COVER, SAMPLE_DOC, SAMPLE_PUBLISH, docBySlug, type DocEntry } from '../content/docs'
+import { DOCS, SAMPLE_COVER, SAMPLE_DOC, docBySlug, type DocEntry } from '../content/docs'
 import { GITHUB_URL } from '../content/site'
 import { useStore } from '../store'
 
@@ -54,7 +54,6 @@ const loadSample = () => {
   const st = useStore.getState()
   st.setMarkdown(SAMPLE_DOC)
   st.setCoverText({ ...SAMPLE_COVER })
-  st.setPublish({ ...SAMPLE_PUBLISH })
   window.location.hash = '#/'
 }
 

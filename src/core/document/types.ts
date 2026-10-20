@@ -29,7 +29,7 @@ export type Block = { /** 源码起始行（0 基，滚动联动用） */ line?:
   | { type: 'plantuml'; text: string }
   | { type: 'list'; ordered: boolean; items: string[] }
   | { type: 'table'; head: string[]; rows: string[][] }
-  | { type: 'image'; url: string; alt?: string }
+  | { type: 'image'; url: string; alt?: string; /** 卡片原生 px；只给一边则另一边自适应 */ width?: number; height?: number }
   | { type: 'divider' }
   | { type: 'pagebreak' }
 )

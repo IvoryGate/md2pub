@@ -16,7 +16,10 @@ import { fencedLines } from './codeBlock'
  * 围栏行内不处理。光标压到匹配处 → 该匹配临时回到源码态（可编辑）。
  */
 const inlineRe =
-  /(`+)([^`\n]+?)\1|\*\*([^*\n]+?)\*\*|__([^_\n]+?)__|(?<!\*)\*([^*\n]+?)\*(?!\*)|(?<![_\w])_([^_\n]+?)_(?![\w])|~~([^~\n]+?)~~|\[([^\]\n]+)\]\(([^)\n]+)\)/g
+  /(`+)([^`\n]+?)\1|\*\*([^*\n]+?)\*\*|__([^_\n]+?)__|(?<!\*)\*([^*\n]+?)\*(?!\*)|(?<![_\w])_([^_\n]+?)_(?![\w])|~~([^~\n]+?)~~|(?<!!)\[([^\]\n]+)\]\(([^)\n]+)\)/g
+
+/** 独立图片：隐藏 URL，只留 ![alt]；光标压上去时回到源码 */
+const imageRe = /!\[[^\]\n]*\]\([^)\n]+\)/g
 
 function collect(view: EditorView): DecorationSet {
   const sel = view.state.selection.ranges
@@ -26,12 +29,25 @@ function collect(view: EditorView): DecorationSet {
 
   for (const { from, to } of view.visibleRanges) {
     const text = view.state.doc.sliceString(from, to)
+    // 先收图片：隐藏 URL，避免 data URL 把编辑器撑爆
+    const imageRanges: Array<[number, number]> = []
+    imageRe.lastIndex = 0
+    let im: RegExpExecArray | null
+    while ((im = imageRe.exec(text))) {
+      const start = from + im.index
+      const end = start + im[0].length
+      if (sel.some((r) => r.from < end && r.to > start)) continue
+      const open = start + im[0].lastIndexOf('](') + 1
+      imageRanges.push([start, end])
+      ranges.push([open, end])
+    }
     // 逐行扫描（标记不跨行），围栏行内跳过
     inlineRe.lastIndex = 0
     let m: RegExpExecArray | null
     while ((m = inlineRe.exec(text))) {
       const start = from + m.index
       const end = start + m[0].length
+      if (imageRanges.some(([f, t]) => start < t && end > f)) continue
       if (text.slice(m.index, m.index + m[0].length).includes('\n')) continue
       // 该行是否为围栏行
       const lineNo = view.state.doc.lineAt(start).number
@@ -63,11 +79,14 @@ function collect(view: EditorView): DecorationSet {
 
   ranges.sort((a, b) => a[0] - b[0] || a[1] - b[1])
   const seen = new Set<string>()
+  let lastEnd = -1
   for (const [f, t] of ranges) {
+    if (f < lastEnd) continue
     const key = `${f}:${t}`
     if (seen.has(key)) continue
     seen.add(key)
     builder.add(f, t, Decoration.replace({}))
+    lastEnd = t
   }
   return builder.finish()
 }

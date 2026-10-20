@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { deepMerge, type XhsStyleOverrides } from './platforms/xhs'
-import { SAMPLE_COVER, SAMPLE_DOC, SAMPLE_PUBLISH } from './content/docs'
+import { SAMPLE_COVER, SAMPLE_DOC } from './content/docs'
 
 export interface CoverText {
   title: string
@@ -15,20 +15,12 @@ export interface CoverText {
   imageScrim?: number
 }
 
-export interface PublishText {
-  title: string
-  body: string
-  tags: string
-  mention: string
-}
-
 export interface CustomPreset {
   id: string
   name: string
   themeId: string
   overrides: XhsStyleOverrides
   coverText: CoverText
-  publish?: PublishText
 }
 
 
@@ -40,17 +32,13 @@ export const useStore = create<{
   setMarkdown: (s: string) => void
   themeId: string
   setThemeId: (id: string) => void
+  /** 应用画廊预设：整体替换主题与覆盖（不是深合并） */
+  applyStylePreset: (themeId: string, overrides: XhsStyleOverrides) => void
   size: '3:4' | '1:1' | '4:5'
   setSize: (s: '3:4' | '1:1' | '4:5') => void
   /** 封面文字（与正文解耦；面板「封面」区编辑） */
   coverText: CoverText
   setCoverText: (p: Partial<CoverText>) => void
-  /** 小红书发布文案（标题/正文/话题/@） */
-  publish: PublishText
-  setPublish: (p: Partial<PublishText>) => void
-  /** 当前卡片数量（由预览层同步，用于发布检查） */
-  pageCount: number
-  setPageCount: (n: number) => void
   /** 用户保存的样式预设（主题 + 覆盖 + 封面文字快照） */
   customPresets: CustomPreset[]
   savePreset: (name: string) => void
@@ -94,14 +82,17 @@ export const useStore = create<{
       setMarkdown: (markdown) => set({ markdown }),
       themeId: 'clean',
       setThemeId: (themeId) => set({ themeId }),
+      applyStylePreset: (themeId, overrides) =>
+        set((s) => ({
+          themeId,
+          overrides: JSON.parse(JSON.stringify(overrides)),
+          past: [...s.past.slice(-49), s.overrides],
+          future: [],
+        })),
       size: '3:4',
       setSize: (size) => set({ size }),
       coverText: { ...SAMPLE_COVER },
       setCoverText: (p) => set((s) => ({ coverText: { ...s.coverText, ...p } })),
-      publish: { ...SAMPLE_PUBLISH },
-      setPublish: (p) => set((s) => ({ publish: { ...s.publish, ...p } })),
-      pageCount: 0,
-      setPageCount: (pageCount) => set({ pageCount }),
       customPresets: [],
       savePreset: (name) =>
         set((s) => ({
@@ -113,7 +104,6 @@ export const useStore = create<{
               themeId: s.themeId,
               overrides: JSON.parse(JSON.stringify(s.overrides)),
               coverText: { ...s.coverText },
-              publish: { ...s.publish },
             },
           ],
         })),
@@ -126,7 +116,6 @@ export const useStore = create<{
             themeId: p.themeId,
             overrides: JSON.parse(JSON.stringify(p.overrides)),
             coverText: { ...p.coverText },
-            publish: p.publish ? { ...p.publish } : s.publish,
             past: [...s.past.slice(-49), s.overrides],
             future: [],
           }
@@ -181,7 +170,7 @@ export const useStore = create<{
     }),
     {
       name: 'md2pub-store',
-      version: 3,
+      version: 4,
       // v0 的 overrides = { padding, typography }；迁移到 layout v2 深合并形状
       migrate: (persisted: any, version: number) => {
         // 只对 v0 的旧形状做转换；v1 已经是新形状，不能再次重建（否则会丢掉 coverStyle / palette 等键）
@@ -213,16 +202,14 @@ export const useStore = create<{
             persisted.overrides = next
           }
         }
-        // v2 → v3：'image' 不再是独立版式，图片改为所有封面的背景层
+        // v3：'image' 不再是独立版式，图片改为所有封面的图层
+        // v4：移除发布文案/页数缓存（旧存档残留字段直接清掉）
         if (version < 3 && persisted?.overrides?.coverStyle === 'image') {
           persisted.overrides.coverStyle = 'classic'
         }
-        // v1 → v2：新增发布文案。旧存档不继承示例文案，避免把示例标题带进用户自己的文章。
-        if (version < 2 && persisted && persisted.publish === undefined) {
-          persisted.publish =
-            persisted.markdown === SAMPLE_DOC
-              ? { ...SAMPLE_PUBLISH }
-              : { title: '', body: '', tags: '', mention: '' }
+        if (persisted && (persisted.publish !== undefined || persisted.pageCount !== undefined)) {
+          delete persisted.publish
+          delete persisted.pageCount
         }
         return persisted
       },
