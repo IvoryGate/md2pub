@@ -1,4 +1,4 @@
-import { toPng } from 'html-to-image'
+import { toJpeg, toPng } from 'html-to-image'
 import JSZip from 'jszip'
 
 /**
@@ -6,10 +6,17 @@ import JSZip from 'jszip'
  * 渲染端保证导出根节点带该属性，本模块负责像素与文件产物。
  */
 
-const EXPORT_SCALE = 2
+export interface ExportOptions {
+  scale?: 1 | 2 | 3
+  format?: 'png' | 'jpg'
+}
 
-const nodeToPngDataUrl = (el: HTMLElement) =>
-  toPng(el, { pixelRatio: EXPORT_SCALE, cacheBust: true, backgroundColor: '#ffffff' })
+const nodeToDataUrl = (el: HTMLElement, opts?: ExportOptions) => {
+  const scale = opts?.scale ?? 2
+  if (opts?.format === 'jpg')
+    return toJpeg(el, { pixelRatio: scale, cacheBust: true, quality: 0.95, backgroundColor: '#ffffff' })
+  return toPng(el, { pixelRatio: scale, cacheBust: true, backgroundColor: '#ffffff' })
+}
 
 function triggerDownload(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob)
@@ -25,10 +32,11 @@ export const safeFilename = (text: string): string =>
   text.replace(/[/\\:*?"<>|#\s]+/g, '_').slice(0, 40) || 'untitled'
 
 /** 导出单张卡片 PNG */
-export async function exportCardPng(el: HTMLElement, filename: string): Promise<void> {
-  const dataUrl = await nodeToPngDataUrl(el)
+export async function exportCardPng(el: HTMLElement, filename: string, opts?: ExportOptions): Promise<void> {
+  const dataUrl = await nodeToDataUrl(el, opts)
   const blob = await (await fetch(dataUrl)).blob()
-  triggerDownload(blob, filename.endsWith('.png') ? filename : `${filename}.png`)
+  const ext = opts?.format === 'jpg' ? '.jpg' : '.png'
+  triggerDownload(blob, filename.endsWith('.png') || filename.endsWith('.jpg') ? filename : `${filename}${ext}`)
 }
 
 export interface ZipCardInput {
@@ -40,10 +48,11 @@ export interface ZipCardInput {
 export async function exportCardsZip(
   cards: ZipCardInput[],
   zipName?: string,
+  opts?: ExportOptions,
 ): Promise<void> {
   const zip = new JSZip()
   for (const { el, name } of cards) {
-    const dataUrl = await nodeToPngDataUrl(el)
+    const dataUrl = await nodeToDataUrl(el, opts)
     zip.file(name, dataUrl.split(',')[1]!, { base64: true })
   }
   const blob = await zip.generateAsync({ type: 'blob' })
@@ -84,10 +93,11 @@ export async function exportCardsToDirectory(
   cards: ZipCardInput[],
   dir: DirHandleLike,
   onProgress?: (done: number, total: number) => void,
+  opts?: ExportOptions,
 ): Promise<void> {
   let i = 0
   for (const { el, name } of cards) {
-    const dataUrl = await nodeToPngDataUrl(el)
+    const dataUrl = await nodeToDataUrl(el, opts)
     const blob = await (await fetch(dataUrl)).blob()
     const fh = await dir.getFileHandle(name, { create: true })
     const w = await fh.createWritable()
@@ -99,20 +109,21 @@ export async function exportCardsToDirectory(
 }
 
 /** 单张 PNG：弹出系统保存对话框自选路径；不支持时退回下载 */
-export async function exportCardPngWithPicker(el: HTMLElement, name: string): Promise<'saved' | 'cancelled'> {
+export async function exportCardPngWithPicker(el: HTMLElement, name: string, opts?: ExportOptions): Promise<'saved' | 'cancelled'> {
   const picker = (window as unknown as {
     showSaveFilePicker?: (o: unknown) => Promise<FileHandleLike>
   }).showSaveFilePicker
+  const ext = opts?.format === 'jpg' ? '.jpg' : '.png'
   if (!picker) {
-    await exportCardPng(el, name)
+    await exportCardPng(el, name, opts)
     return 'saved'
   }
   try {
     const handle = await picker({
-      suggestedName: name.endsWith('.png') ? name : `${name}.png`,
-      types: [{ description: 'PNG 图片', accept: { 'image/png': ['.png'] } }],
+      suggestedName: name.endsWith('.png') || name.endsWith('.jpg') ? name : `${name}${ext}`,
+      types: [{ description: '图片', accept: { 'image/png': ['.png'], 'image/jpeg': ['.jpg'] } }],
     })
-    const dataUrl = await nodeToPngDataUrl(el)
+    const dataUrl = await nodeToDataUrl(el, opts)
     const blob = await (await fetch(dataUrl)).blob()
     const w = await handle.createWritable()
     await w.write(blob)
@@ -143,11 +154,12 @@ export async function exportCardsToProject(
   cards: ZipCardInput[],
   subdir: string,
   onProgress?: (done: number, total: number) => void,
+  opts?: ExportOptions,
 ): Promise<{ rel: string; count: number }> {
   const files: Array<{ name: string; data: string }> = []
   let i = 0
   for (const { el, name } of cards) {
-    const dataUrl = await nodeToPngDataUrl(el)
+    const dataUrl = await nodeToDataUrl(el, opts)
     files.push({ name, data: dataUrl.split(',')[1] ?? '' })
     i++
     onProgress?.(i, cards.length)

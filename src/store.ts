@@ -29,6 +29,9 @@ $$
 - CPM、CTR 没动，CVR 跌了 → 产品侧问题
 `
 
+let lastPatchKey = ''
+let lastPatchAt = 0
+
 export const useStore = create<{
   markdown: string
   setMarkdown: (s: string) => void
@@ -53,6 +56,19 @@ export const useStore = create<{
   overrides: XhsStyleOverrides
   patchLayout: (p: XhsStyleOverrides) => void
   resetOverrides: () => void
+  /** 样式历史（撤销/重做；拖拽会按补丁键+时间合并） */
+  past: XhsStyleOverrides[]
+  future: XhsStyleOverrides[]
+  undoLayout: () => void
+  redoLayout: () => void
+  /** 预览缩放（0.42~0.84） */
+  previewScale: number
+  setPreviewScale: (v: number) => void
+  /** 导出设置 */
+  exportScale: 1 | 2 | 3
+  setExportScale: (v: 1 | 2 | 3) => void
+  exportFormat: 'png' | 'jpg'
+  setExportFormat: (v: 'png' | 'jpg') => void
 }>()(
   persist(
     (set) => ({
@@ -83,16 +99,55 @@ export const useStore = create<{
         set((s) => {
           const p = s.customPresets.find((x) => x.id === id)
           if (!p) return {}
-          return { themeId: p.themeId, overrides: JSON.parse(JSON.stringify(p.overrides)), coverText: { ...p.coverText } }
+          return {
+            themeId: p.themeId,
+            overrides: JSON.parse(JSON.stringify(p.overrides)),
+            coverText: { ...p.coverText },
+            past: [...s.past.slice(-49), s.overrides],
+            future: [],
+          }
         }),
       watermark: '@IvoryGate/md2pub',
       setWatermark: (watermark) => set({ watermark }),
       editorMode: 'edit',
       setEditorMode: (editorMode) => set({ editorMode }),
       overrides: {},
+      past: [],
+      future: [],
       patchLayout: (patch) =>
-        set((s) => ({ overrides: deepMerge(s.overrides, patch) })),
-      resetOverrides: () => set({ overrides: {} }),
+        set((s) => {
+          const now = Date.now()
+          const key = JSON.stringify(patch)
+          // 同一个补丁在 700ms 内连续拖拽 → 合并为一步历史
+          const coalesce = key === lastPatchKey && now - lastPatchAt < 700
+          lastPatchKey = key
+          lastPatchAt = now
+          return {
+            overrides: deepMerge(s.overrides, patch),
+            past: coalesce ? s.past : [...s.past.slice(-49), s.overrides],
+            future: [],
+          }
+        }),
+      resetOverrides: () =>
+        set((s) => ({ overrides: {}, past: [...s.past.slice(-49), s.overrides], future: [] })),
+      undoLayout: () =>
+        set((s) => {
+          if (!s.past.length) return {}
+          const prev = s.past[s.past.length - 1]!
+          return { overrides: prev, past: s.past.slice(0, -1), future: [s.overrides, ...s.future].slice(0, 50) }
+        }),
+      redoLayout: () =>
+        set((s) => {
+          if (!s.future.length) return {}
+          const next = s.future[0]!
+          return { overrides: next, past: [...s.past.slice(-49), s.overrides], future: s.future.slice(1) }
+        }),
+      previewScale: 0.42,
+      setPreviewScale: (previewScale) => set({ previewScale }),
+      exportScale: 2,
+      setExportScale: (exportScale) => set({ exportScale }),
+      exportFormat: 'png',
+      setExportFormat: (exportFormat) => set({ exportFormat }),
     }),
     {
       name: 'md2pub-store',

@@ -16,7 +16,7 @@ import {
   type PaperTone,
   type PaletteTone,
 } from '../platforms/xhs'
-import { Check, ChevronDown, RotateCcw, SlidersHorizontal, Trash2, Plus, X } from 'lucide-react'
+import { Check, ChevronDown, RotateCcw, SlidersHorizontal, Trash2, Plus, X, Undo2, Redo2 } from 'lucide-react'
 import { useStore } from '../store'
 
 /**
@@ -208,6 +208,7 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
     themeId, setThemeId, overrides, patchLayout, resetOverrides,
     watermark, setWatermark, coverText, setCoverText,
     customPresets, savePreset, deletePreset, applyPreset,
+    past, future, undoLayout, redoLayout, exportScale, setExportScale, exportFormat, setExportFormat,
   } = useStore()
   const theme = applyXhsOverrides(baseTheme, overrides)
   const L: XhsLayout = theme.layout
@@ -260,6 +261,22 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
         <SlidersHorizontal className="h-3 w-3 text-ink-faint" strokeWidth={1.9} />
         <span className="text-[11.5px] font-semibold tracking-[0.02em]">属性</span>
         <div className="flex-1" />
+        <button
+          className="flex h-6 w-6 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-black/[0.06] hover:text-ink disabled:opacity-30 disabled:hover:bg-transparent"
+          onClick={undoLayout}
+          disabled={!past.length}
+          title="撤销样式改动（Ctrl/Cmd+Z）"
+        >
+          <Undo2 className="h-3 w-3" strokeWidth={2} />
+        </button>
+        <button
+          className="flex h-6 w-6 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-black/[0.06] hover:text-ink disabled:opacity-30 disabled:hover:bg-transparent"
+          onClick={redoLayout}
+          disabled={!future.length}
+          title="重做（Shift+Ctrl/Cmd+Z）"
+        >
+          <Redo2 className="h-3 w-3" strokeWidth={2} />
+        </button>
         <button
           className="flex h-6 w-6 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-black/[0.06] hover:text-ink"
           onClick={resetOverrides}
@@ -823,6 +840,35 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
 
         {tab === 'advanced' && (
           <>
+            <Section title="导出" defaultOpen>
+              <Pair>
+                <Field label="倍率">
+                  <Seg
+                    value={exportScale}
+                    options={[
+                      { value: 1 as const, label: '1×' },
+                      { value: 2 as const, label: '2×' },
+                      { value: 3 as const, label: '3×' },
+                    ]}
+                    onChange={(v) => setExportScale(v as 1 | 2 | 3)}
+                  />
+                </Field>
+                <Field label="格式">
+                  <Seg
+                    value={exportFormat}
+                    options={[
+                      { value: 'png' as const, label: 'PNG' },
+                      { value: 'jpg' as const, label: 'JPG' },
+                    ]}
+                    onChange={setExportFormat}
+                  />
+                </Field>
+              </Pair>
+              <p className="text-[9px] leading-relaxed text-ink-faint">
+                1× 适合快速预览，2× 为推荐清晰度（2160×2880），3× 文件较大。
+              </p>
+            </Section>
+
             <Section title="自动排版" defaultOpen>
               <Field label="分页策略">
                 <Seg

@@ -19,11 +19,10 @@ import {
 import { bindSyncScroll, type ScrollBus } from './scrollSync'
 import { useStore } from '../store'
 
-const PREVIEW_SCALE = 0.42
 
 /** 画布内容：卡片轨道 + 底部悬浮工具条（面板遮避由 App 的 CSS 变量驱动） */
 export const XhsPreview = ({ bus }: { bus: ScrollBus }) => {
-  const { markdown, themeId, size, overrides, watermark, coverText } = useStore()
+  const { markdown, themeId, size, overrides, watermark, coverText, previewScale, setPreviewScale, exportScale, exportFormat } = useStore()
   const [exporting, setExporting] = useState(false)
   const cardRefs = useRef<Array<HTMLElement | null>>([])
   const railRef = useRef<HTMLDivElement>(null)
@@ -69,7 +68,7 @@ export const XhsPreview = ({ bus }: { bus: ScrollBus }) => {
     setExporting(true)
     flash('请选择保存位置…')
     try {
-      const result = await exportCardPngWithPicker(el, `${baseName}-p${String(i + 1).padStart(2, '0')}.png`)
+      const result = await exportCardPngWithPicker(el, `${baseName}-p${String(i + 1).padStart(2, '0')}.${exportFormat === 'jpg' ? 'jpg' : 'png'}`, { scale: exportScale, format: exportFormat })
       if (result === 'saved') flash('已保存当前页 PNG')
       else flash('已取消导出')
     } catch {
@@ -83,7 +82,7 @@ export const XhsPreview = ({ bus }: { bus: ScrollBus }) => {
   const exportZipFiles = async (files: Array<{ el: HTMLElement; name: string }>, reason?: string) => {
     setExporting(true)
     try {
-      await exportCardsZip(files, `${baseName}-${files.length}张.zip`)
+      await exportCardsZip(files, `${baseName}-${files.length}张.zip`, { scale: exportScale, format: exportFormat })
       flash(reason ? `${reason}，已改为下载 ZIP` : `已导出 ${files.length} 张 PNG（ZIP）`)
     } catch {
       flash('导出失败，请重试')
@@ -112,14 +111,15 @@ export const XhsPreview = ({ bus }: { bus: ScrollBus }) => {
       return
     }
 
-    const files = items.map(([el, i]) => ({ el, name: `${baseName}-p${String(i + 1).padStart(2, '0')}.png` }))
+    const ext = exportFormat === 'jpg' ? 'jpg' : 'png'
+    const files = items.map(([el, i]) => ({ el, name: `${baseName}-p${String(i + 1).padStart(2, '0')}.${ext}` }))
     setExporting(true)
     try {
       // 1) 首选：dev server 直接写入项目 exports/ 目录（绕开浏览器下载限制）
       if (await canExportToProject()) {
         const stamp = new Date().toTimeString().slice(0, 8).replace(/:/g, '')
         try {
-          const r = await exportCardsToProject(files, `${baseName}-${stamp}`, (done, total) => setToast(`正在导出 ${done}/${total}…`))
+          const r = await exportCardsToProject(files, `${baseName}-${stamp}`, (done, total) => setToast(`正在导出 ${done}/${total}…`), { scale: exportScale, format: exportFormat })
           flash(`已写入 ${r.rel}（${r.count} 张）`)
           return
         } catch {
@@ -146,7 +146,7 @@ export const XhsPreview = ({ bus }: { bus: ScrollBus }) => {
           return
         }
         try {
-          await exportCardsToDirectory(files, dir, (done, total) => setToast(`正在导出 ${done}/${total}…`))
+          await exportCardsToDirectory(files, dir, (done, total) => setToast(`正在导出 ${done}/${total}…`), { scale: exportScale, format: exportFormat })
           flash(`已导出 ${files.length} 张 PNG →「${dir.name}」`)
         } catch {
           flash('写入目录失败，请重试或改用 ZIP')
@@ -167,7 +167,7 @@ export const XhsPreview = ({ bus }: { bus: ScrollBus }) => {
       <XhsMeasureLayer doc={doc} theme={theme} sizeName={size} cover={theme.layout.coverOn ? 'auto' : 'off'} onCardSet={setCardSet} />
 
       {/* 卡片轨道（左右留白避让浮动面板） */}
-      <div ref={railRef} className="h-full overflow-y-auto">
+      <div ref={railRef} className="h-full overflow-auto">
         <div
           className="mx-auto flex w-fit flex-col gap-6 py-6"
           style={{ paddingLeft: 'var(--rail-pl)', paddingRight: 'var(--rail-pr)' }}
@@ -177,7 +177,7 @@ export const XhsPreview = ({ bus }: { bus: ScrollBus }) => {
               key={i}
               width={cardSet.size.width}
               height={cardSet.size.height}
-              scale={PREVIEW_SCALE}
+              scale={previewScale}
               cardRef={(el) => { cardRefs.current[i] = el }}
               onExportIndex={i}
               onExportSingle={handleExportOne}
@@ -209,6 +209,20 @@ export const XhsPreview = ({ bus }: { bus: ScrollBus }) => {
           </span>
         )}
         <div className="mx-0.5 h-4 w-px bg-black/10" />
+        <label className="flex items-center gap-1 rounded-full border border-black/[0.12] bg-white px-2 py-[3px] text-[10.5px] text-ink-soft">
+          缩放
+          <select
+            className="cursor-pointer bg-transparent text-[10.5px] text-ink outline-none"
+            value={previewScale}
+            onChange={(e) => setPreviewScale(Number(e.target.value))}
+          >
+            {[0.42, 0.56, 0.7, 0.84].map((v) => (
+              <option key={v} value={v}>
+                {Math.round(v * 100)}%
+              </option>
+            ))}
+          </select>
+        </label>
         <button
           className="flex items-center gap-1 rounded-full border border-black/[0.14] bg-white px-3 py-1 text-[11.5px] text-ink transition-colors hover:bg-black/[0.04] disabled:opacity-40"
           onClick={() => handleExportOne(0)}

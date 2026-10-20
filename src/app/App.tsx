@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { PanelLeftOpen } from 'lucide-react'
 import { XhsPreview } from './XhsPreview'
 import { EditorPanel } from './Editor'
@@ -14,6 +14,22 @@ const App = () => {
   const bus = useMemo(() => createScrollBus(), [])
   // 生效主题 = 所选主题预设 + 用户参数覆盖
   const theme = applyXhsOverrides(getTheme(themeId), overrides)
+
+  // 样式撤销/重做：编辑器与输入框内让给原生撤销
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const mod = e.metaKey || e.ctrlKey
+      if (!mod || e.key.toLowerCase() !== 'z') return
+      const t = e.target as HTMLElement | null
+      if (t?.closest('.cm-editor, input, textarea, [contenteditable="true"]')) return
+      e.preventDefault()
+      const st = useStore.getState()
+      if (e.shiftKey) st.redoLayout()
+      else st.undoLayout()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden text-ink">

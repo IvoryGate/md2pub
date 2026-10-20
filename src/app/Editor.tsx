@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Pencil, ChevronLeft, CodeXml, BookOpen, SeparatorHorizontal } from 'lucide-react'
+import { Pencil, ChevronLeft, CodeXml, BookOpen, SeparatorHorizontal, Bold, Italic, Code, Link2, Heading2, List, Quote } from 'lucide-react'
 import CodeMirror from '@uiw/react-codemirror'
 import { EditorView, type ViewUpdate } from '@codemirror/view'
 import { markdown as markdownLang } from '@codemirror/lang-markdown'
@@ -190,6 +190,56 @@ export const EditorPanel = ({
   const viewRef = useRef<EditorView | null>(null)
   const { nums, schedule } = useLineNumbers(viewRef, holderRef)
 
+  /** 在光标处执行编辑动作（阅读模式下先切回编辑） */
+  const withView = (fn: (view: EditorView) => void) => {
+    if (editorMode === 'read') setEditorMode('edit')
+    window.setTimeout(() => {
+      const view = viewRef.current
+      if (!view) return
+      fn(view)
+      view.focus()
+    }, 60)
+  }
+
+  /** 行内标记：**bold** / *italic* / `code` */
+  const wrapInline = (mark: string, placeholder: string) =>
+    withView((view) => {
+      const { from, to } = view.state.selection.main
+      const text = view.state.sliceDoc(from, to) || placeholder
+      const insert = mark + text + mark
+      view.dispatch({
+        changes: { from, to, insert },
+        selection: { anchor: from + mark.length, head: from + mark.length + text.length },
+      })
+    })
+
+  const insertLink = () =>
+    withView((view) => {
+      const { from, to } = view.state.selection.main
+      const text = view.state.sliceDoc(from, to) || '链接文字'
+      const url = 'https://'
+      const insert = `[${text}](${url})`
+      view.dispatch({
+        changes: { from, to, insert },
+        selection: { anchor: from + text.length + 3, head: from + text.length + 3 + url.length },
+      })
+    })
+
+  /** 行首前缀：标题/列表/引用（已存在则移除） */
+  const prefixLine = (prefix: string) =>
+    withView((view) => {
+      const { from } = view.state.selection.main
+      const line = view.state.doc.lineAt(from)
+      if (view.state.sliceDoc(line.from, line.from + prefix.length) === prefix) {
+        view.dispatch({
+          changes: { from: line.from, to: line.from + prefix.length, insert: '' },
+          selection: { anchor: Math.max(line.from, from - prefix.length) },
+        })
+      } else {
+        view.dispatch({ changes: { from: line.from, insert: prefix }, selection: { anchor: from + prefix.length } })
+      }
+    })
+
   /** 在光标处插入分页标记（阅读模式下先切回编辑） */
   const insertPageBreak = () => {
     if (editorMode === 'read') setEditorMode('edit')
@@ -255,13 +305,6 @@ export const EditorPanel = ({
           {fmt(stats.words)} 词 {fmt(stats.chars)} 字符
         </span>
         <div className="ml-auto flex items-center gap-2">
-          <button
-            className="flex h-6 w-6 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-black/[0.06] hover:text-ink"
-            onClick={insertPageBreak}
-            title="在光标处插入分页标记"
-          >
-            <SeparatorHorizontal className="h-3.5 w-3.5" strokeWidth={1.8} />
-          </button>
           {/* 三模式切换（Obsidian 对位）：源码 `</>` / 编辑 / 阅读 */}
           <nav className="segmented icon-only">
             {(['source', 'edit', 'read'] as const).map((m) => (
@@ -296,6 +339,39 @@ export const EditorPanel = ({
           </button>
         </div>
       </div>
+
+      {/* 格式快捷工具条（源码/编辑模式） */}
+      {editorMode !== 'read' && (
+        <div className="flex h-8 shrink-0 items-center gap-0.5 border-b border-black/[0.05] px-2">
+          {[
+            { icon: Bold, title: '加粗 **text**', run: () => wrapInline('**', '加粗') },
+            { icon: Italic, title: '斜体 *text*', run: () => wrapInline('*', '斜体') },
+            { icon: Code, title: '行内代码 `code`', run: () => wrapInline('`', 'code') },
+            { icon: Link2, title: '链接 [text](url)', run: insertLink },
+            { icon: Heading2, title: '标题（## ）', run: () => prefixLine('## ') },
+            { icon: List, title: '列表（- ）', run: () => prefixLine('- ') },
+            { icon: Quote, title: '引用（> ）', run: () => prefixLine('> ') },
+          ].map(({ icon: Icon, title, run }) => (
+            <button
+              key={title}
+              className="flex h-6 w-6 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-black/[0.06] hover:text-ink"
+              onClick={run}
+              title={title}
+            >
+              <Icon className="h-3.5 w-3.5" strokeWidth={1.8} />
+            </button>
+          ))}
+          <div className="mx-1 h-3.5 w-px bg-black/10" />
+          <button
+            className="flex h-6 items-center gap-1 rounded-md px-1.5 text-[10.5px] text-ink-faint transition-colors hover:bg-black/[0.06] hover:text-ink"
+            onClick={insertPageBreak}
+            title="在光标处插入分页标记"
+          >
+            <SeparatorHorizontal className="h-3.5 w-3.5" strokeWidth={1.8} />
+            分页
+          </button>
+        </div>
+      )}
 
       {/* 编辑/源码：CodeMirror + 自绘行号覆盖层；阅读：整页渲染。滚动经 bus 与卡片轨道同步 */}
       {editorMode === 'read' ? (
