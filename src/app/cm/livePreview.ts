@@ -70,7 +70,12 @@ interface Slot {
 
 /** 通用：块高变化后通知行号覆盖层重算（CM 无事务可监听） */
 const bridgeGeometry = (wrap: HTMLElement, onDispose?: () => void) => {
-  const refresh = () => window.dispatchEvent(new Event('cm-ln-refresh'))
+  // 通知行号刷新 + 让 CodeMirror 重新测量块高（否则后续行点击会错位）
+  const refresh = () => {
+    window.dispatchEvent(new Event('cm-ln-refresh'))
+    window.dispatchEvent(new Event('cm-measure'))
+  }
+  requestAnimationFrame(refresh)
   const ro = new ResizeObserver(refresh)
   ro.observe(wrap)
   ;(wrap as HTMLElement & { __dispose?: () => void }).__dispose = () => {

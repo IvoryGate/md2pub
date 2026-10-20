@@ -18,6 +18,8 @@ import {
 } from '../platforms/xhs'
 import { Check, ChevronDown, RotateCcw, SlidersHorizontal, Trash2, Plus, X, Undo2, Redo2 } from 'lucide-react'
 import { useStore } from '../store'
+import { hexToOklch, oklchToHex, rgbToHex, hexToRgb } from '../core/color'
+import { useShallow } from 'zustand/react/shallow'
 
 /**
  * 属性面板（Figma 式信息架构）：
@@ -29,10 +31,25 @@ import { useStore } from '../store'
 
 /* ---------- 控件 ---------- */
 
-const Section = ({ title, children, defaultOpen = false }: { title: string; children: ReactNode; defaultOpen?: boolean }) => {
+const Section = ({
+  title,
+  children,
+  defaultOpen = false,
+  inspectKey,
+}: {
+  title: string
+  children: ReactNode
+  defaultOpen?: boolean
+  inspectKey?: string
+}) => {
   const [open, setOpen] = useState(defaultOpen)
+  const setInspect = useStore((s) => s.setInspect)
   return (
-    <section className="border-b border-black/[0.055] last:border-0">
+    <section
+      className="border-b border-black/[0.055] last:border-0"
+      onMouseEnter={() => inspectKey && setInspect(inspectKey)}
+      onMouseLeave={() => inspectKey && setInspect(null)}
+    >
       <button className="flex h-8 w-full items-center gap-1.5 px-3 text-left" onClick={() => setOpen(!open)}>
         <ChevronDown className={`h-2.5 w-2.5 text-ink-faint transition-transform ${open ? '' : '-rotate-90'}`} strokeWidth={2.4} />
         <h3 className="flex-1 text-[10.5px] font-semibold tracking-[0.06em] text-[#6d6d66]">{title}</h3>
@@ -168,6 +185,98 @@ const PosGrid = ({ value, onChange }: { value: ChromePos; onChange: (v: ChromePo
   </div>
 )
 
+/** HSV ↔ hex（色轮用 HSV；角色色板仍走 OKLCH 派生） */
+const rgbToHsv = (r: number, g: number, b: number) => {
+  const rr = r / 255, gg = g / 255, bb = b / 255
+  const max = Math.max(rr, gg, bb), min = Math.min(rr, gg, bb)
+  const d = max - min
+  let h = 0
+  if (d) {
+    if (max === rr) h = ((gg - bb) / d) % 6
+    else if (max === gg) h = (bb - rr) / d + 2
+    else h = (rr - gg) / d + 4
+    h *= 60
+    if (h < 0) h += 360
+  }
+  return { h, s: max ? d / max : 0, v: max }
+}
+const hsvToHex = (h: number, s: number, v: number) => {
+  const c = v * s
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1))
+  const m = v - c
+  const [r, g, b] = h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x] : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x]
+  return rgbToHex((r + m) * 255, (g + m) * 255, (b + m) * 255)
+}
+
+const ColorWheel = ({ seed, onChange }: { seed: string; onChange: (hex: string) => void }) => {
+  const [rgb] = [hexToRgb(seed)]
+  const hsv = rgbToHsv(rgb[0], rgb[1], rgb[2])
+  const ring = 126
+  const sq = 126
+  const pickRing = (e: React.PointerEvent<HTMLDivElement>) => {
+    const r = e.currentTarget.getBoundingClientRect()
+    const dx = e.clientX - (r.left + r.width / 2)
+    const dy = e.clientY - (r.top + r.height / 2)
+    let h = (Math.atan2(dy, dx) * 180) / Math.PI + 90
+    if (h < 0) h += 360
+    onChange(hsvToHex(h, Math.max(0.15, hsv.s), Math.max(0.35, hsv.v)))
+  }
+  const pickSquare = (e: React.PointerEvent<HTMLDivElement>) => {
+    const r = e.currentTarget.getBoundingClientRect()
+    const s = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width))
+    const v = Math.min(1, Math.max(0.15, 1 - (e.clientY - r.top) / r.height))
+    onChange(hsvToHex(hsv.h, s, v))
+  }
+  return (
+    <div className="flex items-center justify-center gap-3">
+      <div
+        className="relative shrink-0 cursor-crosshair rounded-full"
+        style={{
+          width: ring,
+          height: ring,
+          background: 'conic-gradient(from 90deg, #f43f5e, #f59e0b, #84cc16, #06b6d4, #3b82f6, #a855f7, #f43f5e)',
+        }}
+        onPointerDown={(e) => {
+          ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+          pickRing(e)
+        }}
+        onPointerMove={(e) => {
+          if (e.buttons & 1) pickRing(e)
+        }}
+      >
+        <div className="absolute inset-[18px] rounded-full bg-[#fcfcfa]" />
+        <span
+          className="absolute left-1/2 top-1/2 h-2.5 w-2.5 rounded-full border-2 border-white shadow"
+          style={{
+            background: seed,
+            transform: `translate(-50%,-50%) rotate(${hsv.h}deg) translateY(-${ring / 2 - 9}px)`,
+          }}
+        />
+      </div>
+      <div
+        className="relative shrink-0 cursor-crosshair rounded-md ring-1 ring-black/10"
+        style={{
+          width: sq,
+          height: sq,
+          background: `linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, hsl(${hsv.h} 100% 50%))`,
+        }}
+        onPointerDown={(e) => {
+          ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+          pickSquare(e)
+        }}
+        onPointerMove={(e) => {
+          if (e.buttons & 1) pickSquare(e)
+        }}
+      >
+        <span
+          className="absolute h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow"
+          style={{ left: `${hsv.s * 100}%`, top: `${(1 - hsv.v) * 100}%`, background: seed }}
+        />
+      </div>
+    </div>
+  )
+}
+
 const ColorRow = ({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) => (
   <div className="flex h-6 items-center gap-1.5">
     <span className="w-11 shrink-0 text-[10px] text-ink-soft">{label}</span>
@@ -209,7 +318,34 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
     watermark, setWatermark, coverText, setCoverText,
     customPresets, savePreset, deletePreset, applyPreset,
     past, future, undoLayout, redoLayout, exportScale, setExportScale, exportFormat, setExportFormat,
-  } = useStore()
+    customCss, setCustomCss,
+  } = useStore(
+    useShallow((s) => ({
+      themeId: s.themeId,
+      setThemeId: s.setThemeId,
+      overrides: s.overrides,
+      patchLayout: s.patchLayout,
+      resetOverrides: s.resetOverrides,
+      watermark: s.watermark,
+      setWatermark: s.setWatermark,
+      coverText: s.coverText,
+      setCoverText: s.setCoverText,
+      customPresets: s.customPresets,
+      savePreset: s.savePreset,
+      deletePreset: s.deletePreset,
+      applyPreset: s.applyPreset,
+      past: s.past,
+      future: s.future,
+      undoLayout: s.undoLayout,
+      redoLayout: s.redoLayout,
+      exportScale: s.exportScale,
+      setExportScale: s.setExportScale,
+      exportFormat: s.exportFormat,
+      setExportFormat: s.setExportFormat,
+      customCss: s.customCss,
+      setCustomCss: s.setCustomCss,
+    })),
+  )
   const theme = applyXhsOverrides(baseTheme, overrides)
   const L: XhsLayout = theme.layout
   const P = theme.palette
@@ -507,7 +643,7 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
             </Section>
 
             {/* 页面 */}
-            <Section title="页面">
+            <Section title="页面" inspectKey="padding">
               <Pair>
                 <Field label="上边距">
                   <Num value={L.padding.top} min={40} max={200} suffix="px" onChange={(v) => patch({ padding: { top: v } })} />
@@ -528,6 +664,46 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
             </Section>
 
             {/* 元素 */}
+            <Section title="正文水印" defaultOpen inspectKey="watermark">
+              <ToggleRow label="显示水印" value={L.watermark.enabled} onChange={(v) => patch({ watermark: { enabled: v } })} />
+              <Field label="位置">
+                <PosGrid value={normalizeChromePos(L.watermark.pos)} onChange={(v) => patch({ watermark: { pos: v } })} />
+              </Field>
+              <div className="mt-1.5">
+                <Field label="文案">
+                  <TextInput value={watermark} placeholder="@你的账号" onChange={setWatermark} />
+                </Field>
+              </div>
+            </Section>
+
+            <Section title="页眉页脚" defaultOpen inspectKey="header">
+              <Pair>
+                <Field label="页眉标签">
+                  <Seg
+                    value={L.header.showTag ? 'on' : 'off'}
+                    options={[
+                      { value: 'on' as const, label: '显示' },
+                      { value: 'off' as const, label: '隐藏' },
+                    ]}
+                    onChange={(v) => patch({ header: { showTag: v === 'on' } })}
+                  />
+                </Field>
+                <Field label="页码">
+                  <Seg
+                    value={L.header.showPageNum ? 'on' : 'off'}
+                    options={[
+                      { value: 'on' as const, label: '显示' },
+                      { value: 'off' as const, label: '隐藏' },
+                    ]}
+                    onChange={(v) => patch({ header: { showPageNum: v === 'on' } })}
+                  />
+                </Field>
+              </Pair>
+              <Field label="页码位置">
+                <PosGrid value={normalizeChromePos(L.header.pageNumPos)} onChange={(v) => patch({ header: { pageNumPos: v } })} />
+              </Field>
+            </Section>
+
             <Section title="列表 · 引用">
               <Pair>
                 <Field label="条目间距">
@@ -592,7 +768,7 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
 
         {tab === 'cover' && (
           <>
-            <Section title="封面" defaultOpen>
+            <Section title="封面" defaultOpen inspectKey="cover">
               <ToggleRow label="显示封面" value={L.coverOn} onChange={(v) => patch({ coverOn: v })} />
               {L.coverOn && (
                 <div className="mt-1.5 space-y-1.5">
@@ -778,6 +954,17 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
                   />
                 </Field>
               </div>
+              <div className="mt-2">
+                <Field label="色轮">
+                  <ColorWheel
+                    seed={seed}
+                    onChange={(hex) => {
+                      setSeed(hex)
+                      applyColor(hex)
+                    }}
+                  />
+                </Field>
+              </div>
               <div className="mt-1.5">
                 <ToggleRow label="纸面颗粒" value={L.paperTexture} onChange={(v) => patch({ paperTexture: v })} />
                 {L.paperTexture && (
@@ -791,6 +978,22 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
               <p className="mt-1.5 text-[9px] leading-relaxed text-ink-faint">
                 色轮定关系（OKLCH 等感知步长）；明度建层级、彩度反向补偿；文字对比度自动校验。
               </p>
+            </Section>
+
+            <Section title="中性色" defaultOpen>
+              <div className="flex overflow-hidden rounded-md ring-1 ring-black/[0.08]">
+                {[0.97, 0.9, 0.8, 0.65, 0.45, 0.3, 0.2].map((l) => {
+                  const hex = oklchToHex(l, 0.012, hexToOklch(P.accent).h)
+                  return <div key={l} className="h-8 flex-1" style={{ background: hex }} title={`${hex.toUpperCase()} · L ${l}`} />
+                })}
+              </div>
+              <div className="mt-1 flex justify-between text-[9px] text-ink-faint">
+                <span>纸色</span>
+                <span>浅灰</span>
+                <span>中灰</span>
+                <span>墨色</span>
+              </div>
+              <p className="mt-1 text-[9px] leading-relaxed text-ink-faint">沿种子色相自动派生，供正文/次要文字与分隔线使用。</p>
             </Section>
 
             <Section title="角色色" defaultOpen>
@@ -869,6 +1072,20 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
               </p>
             </Section>
 
+            <Section title="自定义 CSS" defaultOpen={false}>
+              <p className="mb-1.5 text-[9px] leading-relaxed text-ink-faint">
+                直接注入样式（作用于整个页面；谨慎使用）。例如：<br />
+                <code>[data-xhs-theme] em {'{'} letter-spacing: 0.04em {'}'}</code>
+              </p>
+              <textarea
+                rows={6}
+                className="w-full resize-y rounded-md bg-black/[0.045] px-2 py-1.5 font-mono text-[10px] leading-relaxed text-ink outline-none focus:bg-white focus:ring-1 focus:ring-black/[0.14]"
+                placeholder="/* 自定义 CSS */"
+                value={customCss}
+                onChange={(e) => setCustomCss(e.target.value)}
+              />
+            </Section>
+
             <Section title="自动排版" defaultOpen>
               <Field label="分页策略">
                 <Seg
@@ -885,45 +1102,6 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
               </p>
             </Section>
 
-            <Section title="正文水印" defaultOpen>
-              <ToggleRow label="显示水印" value={L.watermark.enabled} onChange={(v) => patch({ watermark: { enabled: v } })} />
-              <Field label="位置">
-                <PosGrid value={normalizeChromePos(L.watermark.pos)} onChange={(v) => patch({ watermark: { pos: v } })} />
-              </Field>
-              <div className="mt-1.5">
-                <Field label="文案">
-                  <TextInput value={watermark} placeholder="@你的账号" onChange={setWatermark} />
-                </Field>
-              </div>
-            </Section>
-
-            <Section title="页眉页脚" defaultOpen>
-              <Pair>
-                <Field label="页眉标签">
-                  <Seg
-                    value={L.header.showTag ? 'on' : 'off'}
-                    options={[
-                      { value: 'on' as const, label: '显示' },
-                      { value: 'off' as const, label: '隐藏' },
-                    ]}
-                    onChange={(v) => patch({ header: { showTag: v === 'on' } })}
-                  />
-                </Field>
-                <Field label="页码">
-                  <Seg
-                    value={L.header.showPageNum ? 'on' : 'off'}
-                    options={[
-                      { value: 'on' as const, label: '显示' },
-                      { value: 'off' as const, label: '隐藏' },
-                    ]}
-                    onChange={(v) => patch({ header: { showPageNum: v === 'on' } })}
-                  />
-                </Field>
-              </Pair>
-              <Field label="页码位置">
-                <PosGrid value={normalizeChromePos(L.header.pageNumPos)} onChange={(v) => patch({ header: { pageNumPos: v } })} />
-              </Field>
-            </Section>
           </>
         )}
       </div>

@@ -8,8 +8,8 @@ import { tags } from '@lezer/highlight'
 import { inlineMathPreview } from './cm/inlineMath'
 import { inlineRender } from './cm/inlineRender'
 import { livePreview } from './cm/livePreview'
-import { codeBlockStyler, fencedLines, FENCE_HEAD_PAD } from './cm/codeBlock'
-import { bindSyncScroll, type ScrollBus } from './scrollSync'
+import { codeBlockStyler, fencedLines } from './cm/codeBlock'
+import type { LineBus } from './scrollSync'
 import { ReadView } from './ReadView'
 import { useStore } from '../store'
 
@@ -124,17 +124,18 @@ function useLineNumbers(
       }
       const line = doc.lineAt(view.posAtDOM(el, 0))
       const isFence = fenced.has(line.number)
-      // 头部色带内建有 padding（带体向上生长），编号对准带内的 ```lang 文字行
-      const headPad = el.classList.contains('cm-fence-head') ? FENCE_HEAD_PAD : 0
+      // 行的垂直间距改用 padding（CM 不测量 margin），编号对准 padding 之后的文字行
+      const cs = getComputedStyle(el)
+      const padTop = parseFloat(cs.paddingTop) || 0
       const mh = isFence ? null : /^(#{1,6})(\s|$)/.exec(line.text)
       // 标题单行 → 条带=块高；段落软换行 → 条带=首视觉行；围栏行 → 该行实测高
       const rowH = mh
-        ? Math.min(r.height, BASE_ROW_H * HEADING_MULT[Math.min(6, mh[1].length) - 1]!)
+        ? Math.min(r.height, BASE_ROW_H * HEADING_MULT[Math.min(6, mh[1].length) - 1]! + padTop)
         : Math.min(r.height, BASE_ROW_H)
       out.push({
         n: line.number,
-        top: r.top - base + headPad,
-        h: rowH,
+        top: r.top - base + padTop,
+        h: Math.max(12, rowH - padTop),
         active: line.number === activeN,
       })
     }
@@ -155,12 +156,15 @@ function useLineNumbers(
     if (!holder) return
     // 块级渲染部件（mermaid 等）异步插入 svg 后会改变几何——监听刷新事件
     window.addEventListener('cm-ln-refresh', schedule)
+    const onMeasure = () => viewRef.current?.requestMeasure()
+    window.addEventListener('cm-measure', onMeasure)
     const ro = new ResizeObserver(schedule)
     ro.observe(holder)
     schedule()
     return () => {
       ro.disconnect()
       window.removeEventListener('cm-ln-refresh', schedule)
+      window.removeEventListener('cm-measure', onMeasure)
       if (rafRef.current) {
         cancelAnimationFrame(rafRef.current)
         rafRef.current = 0
@@ -177,7 +181,7 @@ export const EditorPanel = ({
   bus,
 }: {
   onCollapse: () => void
-  bus: ScrollBus
+  bus: LineBus
 }) => {
   const markdown = useStore((s) => s.markdown)
   const setMarkdown = useStore((s) => s.setMarkdown)
@@ -188,6 +192,8 @@ export const EditorPanel = ({
 
   const holderRef = useRef<HTMLDivElement | null>(null)
   const viewRef = useRef<EditorView | null>(null)
+  const syncRef = useRef<(() => void) | null>(null)
+  useEffect(() => () => syncRef.current?.(), [])
   const { nums, schedule } = useLineNumbers(viewRef, holderRef)
 
   /** 在光标处执行编辑动作（阅读模式下先切回编辑） */
@@ -260,6 +266,8 @@ export const EditorPanel = ({
   // 块级渲染部件（mermaid / 表格 / 公式）点击即回到源码态：
   // CM 对块部件下半个区域的点击会映射到块之后，这里在捕获阶段拦截，
   // 直接把光标放进块起始位置（选区与块相交 → 块退回源码）。
+  useEffect(() => () => syncRef.current?.(), [])
+
   useEffect(() => {
     const holder = holderRef.current
     if (!holder) return
@@ -398,7 +406,34 @@ export const EditorPanel = ({
             }}
             onCreateEditor={(view) => {
               viewRef.current = view
-              bindSyncScroll(view.scrollDOM, 'editor', bus)
+              syncRef.current?.()
+              // 位置级联动：上报顶部可见行；接收轨道行号并滚动到对应位置
+              let raf = 0
+              const onScroll = () => {
+                if (raf) return
+                raf = requestAnimationFrame(() => {
+                  raf = 0
+                  if (bus.info.applying) return
+                  const block = view.lineBlockAtHeight(view.scrollDOM.scrollTop + 6)
+                  const line = view.state.doc.lineAt(block.from).number - 1
+                  bus.reportLine('editor', line)
+                })
+              }
+              view.scrollDOM.addEventListener('scroll', onScroll, { passive: true })
+              const unsub = bus.onLine((src, line) => {
+                if (src === 'editor' || bus.info.applying) return
+                bus.info.applying = true
+                const target = Math.min(Math.max(1, line + 1), view.state.doc.lines)
+                view.dispatch({ effects: EditorView.scrollIntoView(view.state.doc.line(target).from, { y: 'start' }) })
+                window.setTimeout(() => {
+                  bus.info.applying = false
+                }, 90)
+              })
+              syncRef.current = () => {
+                view.scrollDOM.removeEventListener('scroll', onScroll)
+                unsub()
+                if (raf) cancelAnimationFrame(raf)
+              }
               view.scrollDOM.addEventListener('scroll', schedule, { passive: true })
               schedule()
             }}

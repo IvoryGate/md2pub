@@ -17,7 +17,7 @@ export interface DocMeta {
 }
 
 /** 结构化内容块（图片/公式/图表/分割线/分页符均为一等公民） */
-export type Block =
+export type Block = { /** 源码起始行（0 基，滚动联动用） */ line?: number } & (
   | { type: 'heading'; level: 1 | 2 | 3 | 4; text: string }
   /** 行内 markdown 保留原文，由平台渲染器用共享行内渲染器（含 KaTeX）输出 HTML */
   | { type: 'paragraph'; text: string }
@@ -32,6 +32,7 @@ export type Block =
   | { type: 'image'; url: string; alt?: string }
   | { type: 'divider' }
   | { type: 'pagebreak' }
+)
 
 export interface Document {
   meta: DocMeta

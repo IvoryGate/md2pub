@@ -11,11 +11,17 @@ export interface ExportOptions {
   format?: 'png' | 'jpg'
 }
 
-const nodeToDataUrl = (el: HTMLElement, opts?: ExportOptions) => {
+const nodeToDataUrl = async (el: HTMLElement, opts?: ExportOptions) => {
   const scale = opts?.scale ?? 2
-  if (opts?.format === 'jpg')
-    return toJpeg(el, { pixelRatio: scale, cacheBust: true, quality: 0.95, backgroundColor: '#ffffff' })
-  return toPng(el, { pixelRatio: scale, cacheBust: true, backgroundColor: '#ffffff' })
+  // 参考线/块框只在预览出现，导出时隐藏（不修改卡片尺寸）
+  el.setAttribute('data-exporting', '1')
+  try {
+    if (opts?.format === 'jpg')
+      return await toJpeg(el, { pixelRatio: scale, cacheBust: true, quality: 0.95, backgroundColor: '#ffffff' })
+    return await toPng(el, { pixelRatio: scale, cacheBust: true, backgroundColor: '#ffffff' })
+  } finally {
+    el.removeAttribute('data-exporting')
+  }
 }
 
 function triggerDownload(blob: Blob, filename: string) {

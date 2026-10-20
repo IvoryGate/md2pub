@@ -796,10 +796,14 @@ const CoverCard = ({
   theme,
   watermark,
   coverText,
+  guides,
+  inspect,
 }: {
   theme: XhsCardTheme
   watermark?: string
   coverText?: CoverTextInfo
+  guides?: boolean
+  inspect?: string | null
 }) => {
   const p = theme.palette
   const L = theme.layout
@@ -1132,11 +1136,60 @@ const CoverCard = ({
     >
       {body}
       {L.watermark.cover && <Watermark theme={theme} text={watermark} pos={normalizeChromePos(L.watermark.coverPos)} />}
+      {guides && <GuideOverlay theme={theme} inspect={inspect} cover />}
     </div>
   )
 }
 
-export const CardPage = ({ card, theme, watermark, coverText }: { card: XhsCard; theme: XhsCardTheme; watermark?: string; coverText?: CoverTextInfo }) => {
+const GuideLabel = ({ theme, style, text }: { theme: XhsCardTheme; style: CSSProperties; text: string }) => (
+  <div
+    style={{
+      position: 'absolute',
+      fontFamily: 'ui-monospace, Consolas, monospace',
+      fontSize: 15,
+      lineHeight: 1.2,
+      color: theme.palette.accent,
+      background: `${theme.palette.bg}d9`,
+      padding: '1px 5px',
+      borderRadius: 3,
+      ...style,
+    }}
+  >
+    {text}
+  </div>
+)
+
+/** 参考线：边距带、版心框、页眉/页脚带 */
+const GuideOverlay = ({ theme, inspect, cover }: { theme: XhsCardTheme; inspect?: string | null; cover?: boolean }) => {
+  const L = theme.layout
+  const p = theme.palette
+  const on = (k: string) => (inspect === k ? '1f' : '0c')
+  return (
+    <div className="xhs-guide" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 4 }}>
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: L.padding.top, background: `${p.accent}${on('header')}` }} />
+      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: L.padding.bottom, background: `${p.accent}${on(cover ? 'cover' : 'watermark')}` }} />
+      <div style={{ position: 'absolute', top: L.padding.top, bottom: L.padding.bottom, left: 0, width: L.padding.left, background: `${p.accent}${on('padding')}` }} />
+      <div style={{ position: 'absolute', top: L.padding.top, bottom: L.padding.bottom, right: 0, width: L.padding.right, background: `${p.accent}${on('padding')}` }} />
+      <div
+        style={{
+          position: 'absolute',
+          top: L.padding.top,
+          left: L.padding.left,
+          right: L.padding.right,
+          bottom: L.padding.bottom,
+          border: `1px dashed ${p.accent}99`,
+        }}
+      />
+      <GuideLabel theme={theme} text={`${L.padding.top}`} style={{ top: L.padding.top / 2 - 9, left: L.padding.left + 8 }} />
+      <GuideLabel theme={theme} text={`${L.padding.bottom}`} style={{ bottom: L.padding.bottom / 2 - 9, left: L.padding.left + 8 }} />
+      <GuideLabel theme={theme} text={`${L.padding.left}`} style={{ top: L.padding.top + 10, left: 8 }} />
+      <GuideLabel theme={theme} text={`${L.padding.right}`} style={{ top: L.padding.top + 10, right: 8 }} />
+      {!cover && <GuideLabel theme={theme} text="版心" style={{ bottom: L.padding.bottom + 8, right: L.padding.right + 8 }} />}
+    </div>
+  )
+}
+
+export const CardPage = ({ card, theme, watermark, coverText, guides, inspect }: { card: XhsCard; theme: XhsCardTheme; watermark?: string; coverText?: CoverTextInfo; guides?: boolean; inspect?: string | null }) => {
   const p = theme.palette
   const L = theme.layout
   /* KP 排版需要渲染前知道内容宽：卡片根自测（clientWidth − 左右 padding），
@@ -1153,13 +1206,14 @@ export const CardPage = ({ card, theme, watermark, coverText }: { card: XhsCard;
     return () => ro.disconnect()
   }, [L.padding.left, L.padding.right])
 
-  if (card.kind === 'cover') return <CoverCard theme={theme} watermark={watermark} coverText={coverText} />
+  if (card.kind === 'cover') return <CoverCard theme={theme} watermark={watermark} coverText={coverText} guides={guides} inspect={inspect} />
 
   return (
     <div
       ref={rootRef}
       data-xhs-card
       data-xhs-theme={theme.id}
+      className={guides ? 'xhs-guides' : undefined}
       style={{
         width: '100%',
         height: '100%',
@@ -1197,6 +1251,7 @@ export const CardPage = ({ card, theme, watermark, coverText }: { card: XhsCard;
       {L.header.showPageNum && (
         <PageNumber theme={theme} page={card.page} total={card.totalPages} pos={normalizeChromePos(L.header.pageNumPos)} />
       )}
+      {guides && <GuideOverlay theme={theme} inspect={inspect} />}
     </div>
   )
 }

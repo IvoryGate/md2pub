@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { Download, Files, Sheet } from 'lucide-react'
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
+import { Download, Files, Ruler, Sheet } from 'lucide-react'
 import { parseDocument } from '../core/document/parse'
 import {
   XHS_THEMES,
@@ -16,31 +16,91 @@ import {
   safeFilename,
   type XhsCardSet,
 } from '../platforms/xhs'
-import { bindSyncScroll, type ScrollBus } from './scrollSync'
+import type { LineBus } from './scrollSync'
 import { useStore } from '../store'
+import { useShallow } from 'zustand/react/shallow'
 
 
 /** 画布内容：卡片轨道 + 底部悬浮工具条（面板遮避由 App 的 CSS 变量驱动） */
-export const XhsPreview = ({ bus }: { bus: ScrollBus }) => {
-  const { markdown, themeId, size, overrides, watermark, coverText, previewScale, setPreviewScale, exportScale, exportFormat } = useStore()
+export const XhsPreview = ({ bus }: { bus: LineBus }) => {
+  const {
+    markdown, themeId, size, overrides, watermark, coverText,
+    previewScale, setPreviewScale, exportScale, exportFormat,
+    showGuides, setShowGuides, inspect,
+  } = useStore(
+    useShallow((s) => ({
+      markdown: s.markdown,
+      themeId: s.themeId,
+      size: s.size,
+      overrides: s.overrides,
+      watermark: s.watermark,
+      coverText: s.coverText,
+      previewScale: s.previewScale,
+      setPreviewScale: s.setPreviewScale,
+      exportScale: s.exportScale,
+      exportFormat: s.exportFormat,
+      showGuides: s.showGuides,
+      setShowGuides: s.setShowGuides,
+      inspect: s.inspect,
+    })),
+  )
   const [exporting, setExporting] = useState(false)
   const cardRefs = useRef<Array<HTMLElement | null>>([])
   const railRef = useRef<HTMLDivElement>(null)
 
-  // 卡片轨道滚动 ⇋ 编辑器滚动（双向）
-  useEffect(() => {
-    const el = railRef.current
-    if (!el) return
-    return bindSyncScroll(el, 'rail', bus)
-  }, [bus])
+  const [cardSet, setCardSet] = useState<XhsCardSet | null>(null)
 
-  const doc = useMemo(() => parseDocument(markdown), [markdown])
+  // 卡片轨道滚动 ⇋ 编辑器滚动（按源码行，双向）
+  useEffect(() => {
+    const rail = railRef.current
+    if (!rail || !cardSet) return
+    const startLines = cardSet.cards.map((c) => {
+      const lines = c.blocks.map((b) => (b as { line?: number }).line).filter((n): n is number => typeof n === 'number')
+      return lines.length ? Math.min(...lines) : 0
+    })
+    if (!startLines.length) return
+    const topOf = (el: HTMLElement) => el.getBoundingClientRect().top - rail.getBoundingClientRect().top + rail.scrollTop
+    let raf = 0
+    const onScroll = () => {
+      if (raf) return
+      raf = requestAnimationFrame(() => {
+        raf = 0
+        if (bus.info.applying) return
+        const y = rail.scrollTop + 8
+        let idx = 0
+        for (let i = 0; i < cardRefs.current.length; i++) {
+          const el = cardRefs.current[i]
+          if (el && topOf(el) <= y) idx = i
+        }
+        bus.reportLine('rail', startLines[idx] ?? 0)
+      })
+    }
+    rail.addEventListener('scroll', onScroll, { passive: true })
+    const unsub = bus.onLine((src, line) => {
+      if (src === 'rail' || bus.info.applying) return
+      bus.info.applying = true
+      let idx = 0
+      for (let i = 0; i < startLines.length; i++) if ((startLines[i] ?? 0) <= line) idx = i
+      const el = cardRefs.current[idx]
+      if (el) rail.scrollTop = Math.max(0, topOf(el) - 8)
+      window.setTimeout(() => {
+        bus.info.applying = false
+      }, 90)
+    })
+    return () => {
+      rail.removeEventListener('scroll', onScroll)
+      unsub()
+      if (raf) cancelAnimationFrame(raf)
+    }
+  }, [bus, cardSet])
+
+  const deferredMarkdown = useDeferredValue(markdown)
+  const doc = useMemo(() => parseDocument(deferredMarkdown), [deferredMarkdown])
   const theme = useMemo(() => {
     const base = XHS_THEMES.find(t => t.id === themeId) ?? XHS_THEMES[0]!
     return applyXhsOverrides(base, overrides)
   }, [themeId, overrides])
 
-  const [cardSet, setCardSet] = useState<XhsCardSet | null>(null)
   const [toast, setToast] = useState('')
   const toastTimer = useRef<number | null>(null)
   const flash = (msg: string) => {
@@ -183,7 +243,7 @@ export const XhsPreview = ({ bus }: { bus: ScrollBus }) => {
               onExportSingle={handleExportOne}
               exporting={exporting}
             >
-              <CardPage card={card} theme={theme} watermark={watermark} coverText={coverText} />
+              <CardPage card={card} theme={theme} watermark={watermark} coverText={coverText} guides={showGuides} inspect={inspect} />
             </CardFrame>
           ))}
           {cardSet && <div className="h-8" />}
@@ -209,6 +269,16 @@ export const XhsPreview = ({ bus }: { bus: ScrollBus }) => {
           </span>
         )}
         <div className="mx-0.5 h-4 w-px bg-black/10" />
+        <button
+          className={`flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] transition-colors ${
+            showGuides ? 'border-black/[0.18] bg-ink text-white' : 'border-black/[0.14] bg-white text-ink-soft hover:bg-black/[0.04]'
+          }`}
+          onClick={() => setShowGuides(!showGuides)}
+          title="显示参考线：边距、页眉页脚、内容框"
+        >
+          <Ruler className="h-3.5 w-3.5" strokeWidth={1.8} />
+          参考线
+        </button>
         <label className="flex items-center gap-1 rounded-full border border-black/[0.12] bg-white px-2 py-[3px] text-[10.5px] text-ink-soft">
           缩放
           <select

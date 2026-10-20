@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef } from 'react'
+import type { LineBus } from './scrollSync'
 import { parseDocument, renderInline } from '../core/document/parse'
 import type { Block } from '../core/document/types'
 import { renderMathHtml, useDiagramSvg } from '../platforms/shared-blocks'
-import { bindSyncScroll, type ScrollBus } from './scrollSync'
 
 /**
  * 编辑器「阅读模式」：同一文档的不可编辑完整渲染（Obsidian 阅读视图对位）。
@@ -10,13 +10,7 @@ import { bindSyncScroll, type ScrollBus } from './scrollSync'
  * - 视觉为紧凑文档风（非小红书卡片风），与卡片轨道（发布预览）各司其职
  * - 滚动经同一 bus 上报 'editor' 侧，与卡片轨道保持双向同步
  */
-export const ReadView = ({
-  markdown,
-  bus,
-}: {
-  markdown: string
-  bus: ScrollBus
-}) => {
+export const ReadView = ({ markdown, bus }: { markdown: string; bus: LineBus }) => {
   const doc = useMemo(() => parseDocument(markdown), [markdown])
   const scrollRef = useRef<HTMLDivElement | null>(null)
   // 正文里有 H1 时，front-matter 标题不重复展示
@@ -24,12 +18,49 @@ export const ReadView = ({
     ? null
     : doc.meta.title
 
-  // 阅读视图滚动 = 'editor' 侧（顶替编辑器与卡片轨道同步）
+  // 阅读视图 ↔ 卡片轨道：按源码行联动（每个块元素对应一个 Block）
   useEffect(() => {
     const el = scrollRef.current
     if (!el) return
-    return bindSyncScroll(el, 'editor', bus)
-  }, [bus])
+    const offset = doc.blocks.some((b) => b.type === 'heading' && b.level === 1) ? 0 : 1
+    const kids = () => [...el.children] as HTMLElement[]
+    const lineOf = (idx: number) => doc.blocks[idx]?.line ?? 0
+    let raf = 0
+    const onScroll = () => {
+      if (raf) return
+      raf = requestAnimationFrame(() => {
+        raf = 0
+        if (bus.info.applying) return
+        const top = el.scrollTop + 8
+        let idx = 0
+        const list = kids()
+        for (let i = 0; i < doc.blocks.length; i++) {
+          const child = list[i + offset]
+          if (child && child.offsetTop <= top) idx = i
+        }
+        bus.reportLine('editor', lineOf(idx))
+      })
+    }
+    el.addEventListener('scroll', onScroll, { passive: true })
+    const unsub = bus.onLine((src, line) => {
+      if (src === 'editor' || bus.info.applying) return
+      bus.info.applying = true
+      let idx = 0
+      doc.blocks.forEach((b, i) => {
+        if ((b.line ?? 0) <= line) idx = i
+      })
+      const child = kids()[idx + offset]
+      if (child) el.scrollTop = Math.max(0, child.offsetTop - 8)
+      window.setTimeout(() => {
+        bus.info.applying = false
+      }, 90)
+    })
+    return () => {
+      el.removeEventListener('scroll', onScroll)
+      unsub()
+      if (raf) cancelAnimationFrame(raf)
+    }
+  }, [bus, doc])
 
   return (
     <div className="relative min-h-0 flex-1 overflow-hidden">

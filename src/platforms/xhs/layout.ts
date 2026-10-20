@@ -44,8 +44,8 @@ export interface FlowMetrics {
 /** 卡片里的块：原块 / 列表切片（纯逻辑可复现）/ 段落 HTML 切片（DOM 捕获） */
 export type XhsCardBlock =
   | Block
-  | { type: 'listSlice'; block: Extract<Block, { type: 'list' }>; from: number; to: number }
-  | { type: 'paraSplit'; lines: string[] }
+  | { type: 'listSlice'; block: Extract<Block, { type: 'list' }>; from: number; to: number; line?: number }
+  | { type: 'paraSplit'; lines: string[]; line?: number }
 
 export interface XhsCard {
   kind: 'cover' | 'content'

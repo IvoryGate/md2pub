@@ -85,13 +85,15 @@ function scanTokens(tokens: Token[]): Block[] {
 
     while (i < tokens.length) {
       const t = tokens[i]!
+      // 记录源码起始行，供编辑器 ↔ 卡片轨道的位置级滚动联动使用
+      const pushAt = (b: Block) => state.blocks.push({ line: t.map?.[0], ...b })
 
       switch (t.type) {
         // 标题: heading_open, inline, heading_close
         case 'heading_open': {
           const inline = tokens[i + 1]
           const level = parseInt(t.tag!.slice(1), 10) as 1 | 2 | 3 | 4
-          push({ type: 'heading', level, text: stripInline(inline?.content ?? '') })
+          pushAt({ type: 'heading', level, text: stripInline(inline?.content ?? '') })
           i += 3
           continue
         }
@@ -102,12 +104,12 @@ function scanTokens(tokens: Token[]): Block[] {
           // 段落若只包含一张图片（独立图片行），识别为 image 块
           const imageChild = inline?.children?.find(c => c.type === 'image')
           if (inline?.children && inline.children.filter(c => c.type !== 'text' && c.type !== 'softbreak').length === 1 && imageChild) {
-            push({ type: 'image', url: imageChild.attrGet('src') ?? '', alt: stripInline(imageChild.content || '') || undefined })
+            pushAt({ type: 'image', url: imageChild.attrGet('src') ?? '', alt: stripInline(imageChild.content || '') || undefined })
           } else if (PAGEBREAK_RE.test((inline?.content ?? '').trim())) {
             // html:false 时，独立成行的 HTML 注释会落在段落里——还原为显式分页
-            push({ type: 'pagebreak' })
+            pushAt({ type: 'pagebreak' })
           } else {
-            push({ type: 'paragraph', text: inline?.content ?? '' })
+            pushAt({ type: 'paragraph', text: inline?.content ?? '' })
           }
           i += 3
           continue
@@ -116,7 +118,7 @@ function scanTokens(tokens: Token[]): Block[] {
         // 围栏代码 / mermaid / plantuml
         case 'fence': {
           const info = (t.info ?? '').trim()
-          if (info === 'mermaid') push({ type: 'mermaid', text: t.content ?? '' })
+          if (info === 'mermaid') pushAt({ type: 'mermaid', text: t.content ?? '' })
           else if (info === 'plantuml') push({ type: 'plantuml', text: t.content ?? '' })
           else push({ type: 'code', lang: info || undefined, text: t.content ?? '' })
           i++
@@ -125,7 +127,7 @@ function scanTokens(tokens: Token[]): Block[] {
 
         // 块级公式
         case 'math_block': {
-          push({ type: 'math', text: t.content ?? '' })
+          pushAt({ type: 'math', text: t.content ?? '' })
           i++
           continue
         }
@@ -160,7 +162,7 @@ function scanTokens(tokens: Token[]): Block[] {
             }
             i++
           }
-          push({ type: 'table', head, rows })
+          pushAt({ type: 'table', head, rows })
           continue
         }
 
@@ -181,7 +183,7 @@ function scanTokens(tokens: Token[]): Block[] {
             if (tk.type === 'inline') parts.push(tk.content)
             i++
           }
-          push({ type: 'quote', text: parts.join('\n') })
+          pushAt({ type: 'quote', text: parts.join('\n') })
           continue
         }
 
@@ -202,27 +204,27 @@ function scanTokens(tokens: Token[]): Block[] {
             }
             i++
           }
-          push({ type: 'list', ordered, items: items.filter(s => s.trim() !== '') })
+          pushAt({ type: 'list', ordered, items: items.filter(s => s.trim() !== '') })
           continue
         }
 
         // 图片 token（如由 front-matter/特殊场景产生）
         case 'image': {
-          push({ type: 'image', url: t.attrGet('src') ?? '', alt: stripInline(t.content || '') || undefined })
+          pushAt({ type: 'image', url: t.attrGet('src') ?? '', alt: stripInline(t.content || '') || undefined })
           i++
           continue
         }
 
         // hr（thematic break，如 `---`）
         case 'hr': {
-          push({ type: 'divider' })
+          pushAt({ type: 'divider' })
           i++
           continue
         }
 
         // 显式分页注释
         case 'html_block': {
-          if (PAGEBREAK_RE.test(t.content)) push({ type: 'pagebreak' })
+          if (PAGEBREAK_RE.test(t.content)) pushAt({ type: 'pagebreak' })
           i++
           continue
         }

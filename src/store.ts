@@ -69,6 +69,15 @@ export const useStore = create<{
   setExportScale: (v: 1 | 2 | 3) => void
   exportFormat: 'png' | 'jpg'
   setExportFormat: (v: 'png' | 'jpg') => void
+  /** 预览参考线（边距/页眉页脚/内容框） */
+  showGuides: boolean
+  setShowGuides: (v: boolean) => void
+  /** 右侧面板悬停时的检查目标（padding/header/footer/cover/...） */
+  inspect: string | null
+  setInspect: (v: string | null) => void
+  /** 自定义 CSS（全局注入，谨慎使用） */
+  customCss: string
+  setCustomCss: (v: string) => void
 }>()(
   persist(
     (set) => ({
@@ -148,6 +157,12 @@ export const useStore = create<{
       setExportScale: (exportScale) => set({ exportScale }),
       exportFormat: 'png',
       setExportFormat: (exportFormat) => set({ exportFormat }),
+      showGuides: false,
+      setShowGuides: (showGuides) => set({ showGuides }),
+      inspect: null,
+      setInspect: (inspect) => set({ inspect }),
+      customCss: '',
+      setCustomCss: (customCss) => set({ customCss }),
     }),
     {
       name: 'md2pub-store',

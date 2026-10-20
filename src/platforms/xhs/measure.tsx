@@ -116,7 +116,7 @@ export const XhsMeasureLayer = ({ doc, theme, sizeName, cover, onCardSet }: Meas
         const listing = bodyBlocks[u.index]!
         if (listing.type !== 'list') return listing
         if (u.fromItem === 0 && u.toItem >= listing.items.length) return listing
-        return { type: 'listSlice', block: listing, from: u.fromItem, to: u.toItem }
+        return { type: 'listSlice', block: listing, from: u.fromItem, to: u.toItem, line: listing.line }
       }
       // text：从活 DOM 捕获行区间；整段回源
       const full = lineCount(offset + u.index)
@@ -127,11 +127,11 @@ export const XhsMeasureLayer = ({ doc, theme, sizeName, cover, onCardSet }: Meas
       const lineEls = Array.from(para.querySelectorAll(':scope > .xhs-kp-line'))
       if (lineEls.length > 0) {
         const lines = lineEls.slice(u.fromLine, u.toLine).map(el => el.innerHTML)
-        return { type: 'paraSplit', lines }
+        return { type: 'paraSplit', lines, line: bodyBlocks[u.index]!.line }
       }
       // 回退（浏览器流式排版）：字符级切片，整体作为一行数组
       const html = extractLines(para, u.fromLine, u.toLine, measures[offset + u.index]!.lineHeight ?? paraLineHeight)
-      return { type: 'paraSplit', lines: [html] }
+      return { type: 'paraSplit', lines: [html], line: bodyBlocks[u.index]!.line }
     }
     const cards = pages.map(p => ({
       blocks: p.map(u => extract(u)),
@@ -146,12 +146,15 @@ export const XhsMeasureLayer = ({ doc, theme, sizeName, cover, onCardSet }: Meas
   useEffect(() => {
     const root = rootRef.current
     if (!root) return
-    // 初测 + 异步内容（图片 / KaTeX 字体 / Mermaid SVG）改变高度后的跟踪
-    measure()
+    // 初测防抖：连续输入时让出主线程；异步内容仍由 ResizeObserver 跟踪
+    const t = window.setTimeout(measure, 140)
     const ro = new ResizeObserver(() => measure())
     Array.from(root.children).forEach(w => ro.observe(w))
     if (document.fonts?.status === 'loading') document.fonts.ready.then(measure).catch(() => {})
-    return () => ro.disconnect()
+    return () => {
+      window.clearTimeout(t)
+      ro.disconnect()
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doc, theme, sizeName, cover])
 

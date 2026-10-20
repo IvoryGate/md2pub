@@ -69,3 +69,30 @@ export const bindSyncScroll: ScrollBusHandler = (el, side, bus) => {
     unsub()
   }
 }
+
+
+/* ---------- 位置级联动（按源码行） ---------- */
+
+export interface LineBus {
+  info: { applying: boolean }
+  reportLine(source: ScrollSource, line: number): void
+  onLine(fn: (source: ScrollSource, line: number) => void): () => void
+}
+
+export function createLineBus(): LineBus {
+  const subs = new Set<(source: ScrollSource, line: number) => void>()
+  const info = { applying: false }
+  return {
+    info,
+    reportLine(source, line) {
+      if (info.applying) return
+      for (const fn of subs) fn(source, line)
+    },
+    onLine(fn) {
+      subs.add(fn)
+      return () => {
+        subs.delete(fn)
+      }
+    },
+  }
+}
