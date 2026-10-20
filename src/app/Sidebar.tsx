@@ -8,7 +8,9 @@ import {
   type XhsCardTheme,
   type HeadingDecoration,
   type ChromePos,
-  CLASSICAL_COLORS,
+  COLOR_PRESETS,
+  SCHEMES,
+  paletteRampsFromPalette,
   paletteOf,
   derivePalette,
   contrastOf,
@@ -231,11 +233,30 @@ const hsvToHex = (h: number, s: number, v: number) => {
   return rgbToHex((r + m) * 255, (g + m) * 255, (b + m) * 255)
 }
 
-const ColorWheel = ({ seed, onChange }: { seed: string; onChange: (hex: string) => void }) => {
+const ColorWheel = ({
+  seed,
+  onChange,
+  palette = [],
+}: {
+  seed: string
+  onChange: (hex: string) => void
+  palette?: Array<{ color: string; label: string }>
+}) => {
   const [rgb] = [hexToRgb(seed)]
   const hsv = rgbToHsv(rgb[0], rgb[1], rgb[2])
   const ring = 126
   const sq = 126
+  const center = ring / 2
+  const marker = (color: string) => {
+    const { h, l } = hexToOklch(color)
+    const r = 24 + (1 - Math.min(1, Math.max(0, l))) * 30
+    const rad = (h * Math.PI) / 180
+    return { x: center + Math.sin(rad) * r, y: center - Math.cos(rad) * r }
+  }
+  const ordered = [...palette].sort((a, b) => hexToOklch(a.color).h - hexToOklch(b.color).h)
+  const points = ordered.map((m) => marker(m.color))
+  const polygon = points.map((p) => `${p.x},${p.y}`).join(' ')
+  const primaryColor = palette[0]?.color
   const pickRing = (e: React.PointerEvent<HTMLDivElement>) => {
     const r = e.currentTarget.getBoundingClientRect()
     const dx = e.clientX - (r.left + r.width / 2)
@@ -268,13 +289,31 @@ const ColorWheel = ({ seed, onChange }: { seed: string; onChange: (hex: string) 
         }}
       >
         <div className="absolute inset-[18px] rounded-full bg-[#fcfcfa]" />
-        <span
-          className="absolute left-1/2 top-1/2 h-2.5 w-2.5 rounded-full border-2 border-white shadow"
-          style={{
-            background: seed,
-            transform: `translate(-50%,-50%) rotate(${hsv.h}deg) translateY(-${ring / 2 - 9}px)`,
-          }}
-        />
+        {points.length > 1 && (
+          <svg className="pointer-events-none absolute inset-0" width={ring} height={ring}>
+            <polygon
+              points={polygon}
+              fill="none"
+              stroke="rgba(0,0,0,0.28)"
+              strokeWidth="1"
+              strokeDasharray="3 3"
+            />
+          </svg>
+        )}
+        {ordered.map((m, i) => {
+          const p = points[i]!
+          const primary = m.color.toLowerCase() === primaryColor?.toLowerCase()
+          return (
+            <span
+              key={`${m.label}-${m.color}`}
+              title={m.label}
+              className={`absolute -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow ${
+                primary ? 'h-3 w-3' : 'h-2.5 w-2.5'
+              }`}
+              style={{ left: p.x, top: p.y, background: m.color }}
+            />
+          )
+        })}
       </div>
       <div
         className="relative shrink-0 cursor-crosshair rounded-md ring-1 ring-black/10"
@@ -380,7 +419,7 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
   const [presetName, setPresetName] = useState('')
   const [savingPreset, setSavingPreset] = useState(false)
   const [seed, setSeed] = useState(P.accent)
-  const [scheme, setScheme] = useState<ColorScheme>('analogous')
+  const [scheme, setScheme] = useState<ColorScheme>('complement')
   const [paper, setPaper] = useState<PaperTone>('warm')
   const [tone, setTone] = useState<PaletteTone>(contrastOf(P.bg, '#000000') < 3 ? 'dark' : 'light')
   // 画廊/预设可能直接换了 palette，色轮种子要跟着走，避免显示旧颜色
@@ -406,8 +445,16 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
 
   const headingSize = H.size ?? Math.round(L.body.size * H.sizeRatio)
   const coverTitlePx = L.coverTitleSize ?? Math.round(L.body.size * 2.35)
-  const warmColor = CLASSICAL_COLORS.find((c) => c.id === 'chase')
-  const coolColor = CLASSICAL_COLORS.find((c) => c.id === 'dailan')
+  const warmColor = COLOR_PRESETS.find((c) => c.id === 'chase-mono')
+  const coolColor = COLOR_PRESETS.find((c) => c.id === 'dailan')
+  const defaultPalette = XHS_THEMES[0]!.palette
+  const ramps = paletteRampsFromPalette(P, tone)
+  const wheelPalette = [
+    { color: P.accent, label: '主色' },
+    { color: P.accent2 ?? P.italic, label: '第二色' },
+    { color: P.accent3 ?? P.strong, label: '第三色' },
+    { color: P.strong, label: '强调' },
+  ].filter((m, i, arr) => arr.findIndex((x) => x.color.toLowerCase() === m.color.toLowerCase()) === i)
   const galleryThumbs = [
     warmColor ? paletteOf(warmColor) : P,
     coolColor ? paletteOf(coolColor) : P,
@@ -1160,10 +1207,14 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
 
         {tab === 'color' && (
           <>
-            <Section title="古典配色" defaultOpen>
-              <div className="grid grid-cols-2 gap-1">
-                {CLASSICAL_COLORS.map((preset) => {
-                  const pal = paletteOf(preset)
+            <Section title="配色方案" defaultOpen>
+              <div className="grid grid-cols-3 gap-1">
+                {COLOR_PRESETS.map((preset) => {
+                  const pal = preset.isDefault ? defaultPalette : paletteOf(preset, tone)
+                  const swatches = [pal.bg, pal.accent, pal.accent2 ?? pal.strong, pal.accent3 ?? pal.italic]
+                  const active = preset.isDefault
+                    ? !overrides.palette
+                    : pal.accent.toLowerCase() === P.accent.toLowerCase()
                   return (
                     <button
                       key={preset.id}
@@ -1171,33 +1222,76 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
                         setSeed(preset.seed)
                         setScheme(preset.scheme)
                         setPaper(preset.paper)
-                        patch({ palette: paletteOf(preset, tone) })
+                        if (preset.isDefault) {
+                          setTone('light')
+                          patch({ palette: undefined })
+                        } else {
+                          patch({ palette: paletteOf(preset, tone) })
+                        }
                       }}
-                      className="flex h-8 items-center gap-1.5 rounded-md border border-transparent px-1.5 text-left transition-colors hover:border-black/[0.08] hover:bg-black/[0.03]"
+                      className={`rounded-md border p-1.5 text-left transition-colors hover:bg-white ${
+                        active ? 'border-black/[0.2] ring-1 ring-black/[0.04]' : 'border-black/[0.06] hover:border-black/[0.14]'
+                      }`}
                     >
-                      <span className="flex shrink-0 -space-x-1">
-                        {[pal.bg, pal.accent, pal.strong].map((c, i) => (
-                          <i key={i} className="h-3.5 w-3.5 rounded-full ring-1 ring-black/10" style={{ background: c }} />
+                      <div className="flex h-5 overflow-hidden rounded-[3px] ring-1 ring-black/[0.05]">
+                        {swatches.map((c, i) => (
+                          <span key={i} className="flex-1" style={{ background: c }} />
                         ))}
-                      </span>
-                      <span className="truncate text-[10.5px] text-ink-soft">{preset.name}</span>
+                      </div>
+                      <div className="mt-1 truncate text-[8.5px] font-medium text-ink">{preset.name}</div>
                     </button>
                   )
                 })}
               </div>
+              <p className="mt-1.5 text-[9px] leading-relaxed text-ink-faint">
+                点选即换整套配色；色轮会标出主色、第二色、第三色与强调色。
+              </p>
             </Section>
 
-            <Section title="配色关系" defaultOpen>
-              <Field label="主色（种子）">
-                <div className="flex items-center gap-1.5">
+            <Section title="方案色板" defaultOpen>
+              {ramps.length === 1 ? (
+                <div>
+                  <div className="flex h-9 overflow-hidden rounded-md ring-1 ring-black/[0.06]">
+                    {ramps[0]!.colors.map((c) => (
+                      <span key={c} className="flex-1" style={{ background: c }} />
+                    ))}
+                  </div>
+                  <div className="mt-1 text-center text-[8.5px] text-ink-faint">5 阶明度</div>
+                </div>
+              ) : (
+                <div
+                  className={`grid gap-1 ${
+                    ramps.length === 2 ? 'grid-cols-2' : ramps.length === 3 ? 'grid-cols-3' : 'grid-cols-4'
+                  }`}
+                >
+                  {ramps.map((r) => (
+                    <div key={r.name}>
+                      <div className="flex h-16 flex-col overflow-hidden rounded-[4px] ring-1 ring-black/[0.06]">
+                        {r.colors.map((c) => (
+                          <span key={c} className="flex-1" style={{ background: c }} />
+                        ))}
+                      </div>
+                      <div className="mt-1 text-center text-[8px] text-ink-faint">{r.name}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <p className="mt-1.5 text-[9px] leading-relaxed text-ink-faint">
+                引用与双子塔用第二色，表头用第三色；每个色族 5 阶明度。默认素笺不强制套用。
+              </p>
+            </Section>
+
+            <Section title="自定义" defaultOpen>
+              <Field label="种子色">
+                <div className="flex items-center gap-1">
                   <input
                     type="color"
+                    className="h-6 w-6 cursor-pointer rounded-[4px] border border-black/[0.12] bg-transparent p-0"
                     value={seed}
                     onChange={(e) => {
                       setSeed(e.target.value)
                       applyColor(e.target.value)
                     }}
-                    className="h-6 w-6 cursor-pointer rounded-[4px] border border-black/[0.12] bg-transparent p-0"
                   />
                   <input
                     className="h-6 min-w-0 flex-1 rounded-md bg-black/[0.045] px-2 font-mono text-[10.5px] uppercase text-ink outline-none focus:bg-white focus:ring-1 focus:ring-black/[0.14]"
@@ -1213,20 +1307,27 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
               </Field>
               <div className="mt-1.5">
                 <Field label="色相关系">
-                  <Seg
-                    value={scheme}
-                    options={[
-                      { value: 'mono' as const, label: '单色' },
-                      { value: 'analogous' as const, label: '类似' },
-                      { value: 'complement' as const, label: '互补' },
-                      { value: 'split' as const, label: '分裂' },
-                      { value: 'triadic' as const, label: '三分' },
-                    ]}
-                    onChange={(v) => {
-                      setScheme(v)
-                      applyColor(seed, v)
-                    }}
-                  />
+                  <div className="grid grid-cols-7 gap-0.5">
+                    {SCHEMES.map((sc) => (
+                      <button
+                        key={sc.id}
+                        onClick={() => {
+                          setScheme(sc.id)
+                          applyColor(seed, sc.id)
+                        }}
+                        className={`h-6 rounded-[4px] text-[9px] transition-colors ${
+                          scheme === sc.id
+                            ? 'bg-ink font-medium text-white'
+                            : 'bg-black/[0.045] text-ink-soft hover:bg-black/[0.08]'
+                        }`}
+                      >
+                        {sc.label}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mt-1 text-[9px] leading-relaxed text-ink-faint">
+                    {SCHEMES.find((sc) => sc.id === scheme)?.hint}
+                  </p>
                 </Field>
               </div>
               <div className="mt-1.5">
@@ -1263,25 +1364,43 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
                 <Field label="色轮">
                   <ColorWheel
                     seed={seed}
+                    palette={wheelPalette}
                     onChange={(hex) => {
                       setSeed(hex)
                       applyColor(hex)
                     }}
                   />
                 </Field>
+                <div className="mt-1.5 flex flex-wrap gap-1">
+                  {wheelPalette.map((m) => (
+                    <span
+                      key={m.label}
+                      className="flex items-center gap-1 rounded-full bg-black/[0.035] px-1.5 py-0.5 text-[8.5px] text-ink-soft"
+                    >
+                      <span className="h-2.5 w-2.5 rounded-full ring-1 ring-black/10" style={{ background: m.color }} />
+                      {m.label}
+                    </span>
+                  ))}
+                </div>
               </div>
               <div className="mt-1.5">
                 <ToggleRow label="纸面颗粒" value={L.paperTexture} onChange={(v) => patch({ paperTexture: v })} />
                 {L.paperTexture && (
                   <div className="mt-1 grid grid-cols-2 items-end gap-1.5">
                     <Field label="颗粒强度">
-                      <Num value={L.paperTextureStrength ?? 5} min={1} max={10} suffix="/10" onChange={(v) => patch({ paperTextureStrength: Math.round(v) })} />
+                      <Num
+                        value={L.paperTextureStrength ?? 5}
+                        min={1}
+                        max={10}
+                        suffix="/10"
+                        onChange={(v) => patch({ paperTextureStrength: Math.round(v) })}
+                      />
                     </Field>
                   </div>
                 )}
               </div>
               <p className="mt-1.5 text-[9px] leading-relaxed text-ink-faint">
-                色轮定关系（OKLCH 等感知步长）；明度建层级、彩度反向补偿；文字对比度自动校验。
+                色轮定色相；切换方案会用当前种子色重新派生整套色板。
               </p>
             </Section>
 
@@ -1308,6 +1427,8 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
                 <ColorRow label="标题" value={P.heading} onChange={(v) => patch({ palette: { heading: v } })} />
                 <ColorRow label="次要" value={P.muted} onChange={(v) => patch({ palette: { muted: v } })} />
                 <ColorRow label="强调" value={P.accent} onChange={(v) => patch({ palette: { accent: v } })} />
+                <ColorRow label="第二色" value={P.accent2 ?? P.italic} onChange={(v) => patch({ palette: { accent2: v } })} />
+                <ColorRow label="第三色" value={P.accent3 ?? P.strong} onChange={(v) => patch({ palette: { accent3: v } })} />
                 <ColorRow label="加粗" value={P.strong} onChange={(v) => patch({ palette: { strong: v } })} />
                 <ColorRow label="斜体" value={P.italic} onChange={(v) => patch({ palette: { italic: v } })} />
                 <ColorRow label="引用底" value={P.quoteBg} onChange={(v) => patch({ palette: { quoteBg: v } })} />
@@ -1316,7 +1437,10 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
               </div>
               <button
                 className="mt-2 flex h-6 w-full items-center justify-center rounded-md border border-dashed border-black/[0.14] text-[10px] text-ink-soft transition-colors hover:border-black/[0.24] hover:text-ink"
-                onClick={() => patch({ palette: undefined })}
+                onClick={() => {
+                  setTone('light')
+                  patch({ palette: undefined })
+                }}
               >
                 恢复主题配色
               </button>
@@ -1328,6 +1452,8 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
                   ['正文 / 纸', P.text, P.bg, 4.5],
                   ['标题 / 纸', P.heading, P.bg, 4.5],
                   ['强调 / 纸', P.accent, P.bg, 3],
+                  ['第二色 / 纸', P.accent2 ?? P.italic, P.bg, 3],
+                  ['第三色 / 纸', P.accent3 ?? P.strong, P.bg, 3],
                   ['次要 / 纸', P.muted, P.bg, 3],
                 ] as Array<[string, string, string, number]>
               ).map(([label, fg, bg, need]) => {
@@ -1415,13 +1541,28 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
         open={galleryOpen}
         initialTab={galleryTab}
         onClose={() => setGalleryOpen(false)}
+        currentTheme={theme}
         onApply={(preset: GalleryPreset) => {
           const next = resolvePreset(preset)
           if (preset.kind === 'cover') {
-            // 封面模板只覆盖封面相关参数，保留正文字号/边距等个人设置
-            setThemeId(preset.themeId)
+            // 封面模板只改构图/字号/边距，配色与风格保持不变
             patchLayout(next)
           } else {
+            // 让颜色面板的种子/关系/明暗与所选风格同步
+            if (preset.colorId) {
+              const cp = COLOR_PRESETS.find((c) => c.id === preset.colorId)
+              if (cp) {
+                setSeed(cp.seed)
+                setScheme(cp.scheme)
+                setPaper(cp.paper)
+                setTone(preset.tone ?? 'light')
+              }
+            } else {
+              setSeed('#ff2e4d')
+              setScheme('complement')
+              setPaper('warm')
+              setTone('light')
+            }
             applyStylePreset(preset.themeId, next)
           }
           setGalleryOpen(false)

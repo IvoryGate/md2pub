@@ -279,7 +279,7 @@ export const BlockView = ({
                 width: '0.085em',
                 height: '0.6em',
                 borderRadius: '0.09em',
-                background: p.italic,
+                background: p.accent2 ?? p.italic,
                 opacity: 0.6,
                 verticalAlign: '0.055em',
                 marginRight: '0.427em',
@@ -333,8 +333,8 @@ export const BlockView = ({
           style={{
             margin: `${L.blocks.marginY}px 0`,
             padding: '20px 24px 20px 26px',
-            background: `${p.accent}0a`,
-            borderLeft: `4px solid ${p.accent}`,
+            background: p.accent2 ? p.quoteBg : `${p.accent}0a`,
+            borderLeft: `4px solid ${p.accent2 ?? p.accent}`,
             borderRadius: '3px 10px 10px 3px',
             color: p.text,
             fontSize: B.size * 0.95,
@@ -488,7 +488,7 @@ export const BlockView = ({
                   textIndent: 0,
                   width: indent,
                   marginRight: 0,
-                  color: p.accent,
+                  color: p.accent2 ?? p.accent,
                   fontWeight: 700,
                   fontSize: markerSize,
                   textAlign: 'left',
@@ -542,8 +542,8 @@ export const BlockView = ({
                     style={{
                       textAlign: 'left',
                       padding: `${L.table.cellPad * 0.85}px ${L.table.cellPad}px`,
-                      background: `${p.accent}0d`,
-                      borderBottom: `1px solid ${p.accent}26`,
+                      background: `${p.accent3 ?? p.accent}0d`,
+                      borderBottom: `1px solid ${p.accent3 ?? p.accent}26`,
                       color: p.heading,
                       fontWeight: 700,
                       whiteSpace: 'nowrap',
@@ -1280,7 +1280,7 @@ const CoverCard = ({
                 flexShrink: 0,
                 overflow: 'hidden',
                 borderRadius: 14,
-                background: p.quoteBg,
+                background: p.accent2 ? p.quoteBg : `${p.accent}0a`,
               }}
             >
               <img

@@ -245,7 +245,15 @@ const MiniCover = ({ theme }: { theme: XhsCardTheme }) => {
   }
 
   return (
-    <div style={{ ...base, alignItems: 'center', justifyContent: 'center', gap: 6, textAlign: 'center' }}>
+    <div
+      style={{
+        ...base,
+        alignItems: 'center',
+        justifyContent: L.cover === 'top' ? 'flex-start' : L.cover === 'bottom' ? 'flex-end' : 'center',
+        gap: 6,
+        textAlign: 'center',
+      }}
+    >
       {tag}
       {title(20, 'center')}
       {subtitle}
@@ -286,11 +294,13 @@ const SplitPreview = ({ dark, light, kind }: { dark: XhsCardTheme; light: XhsCar
 export const Gallery = ({
   open,
   initialTab,
+  currentTheme,
   onClose,
   onApply,
 }: {
   open: boolean
   initialTab: 'style' | 'cover'
+  currentTheme: XhsCardTheme
   onClose: () => void
   onApply: (preset: GalleryPreset) => void
 }) => {
@@ -326,7 +336,7 @@ export const Gallery = ({
               <LayoutGrid className="h-4 w-4 text-ink-soft" strokeWidth={1.8} />
               <span className="text-[14px] font-semibold tracking-[-0.01em]">预设画廊</span>
             </div>
-            <p className="mt-1 text-[10.5px] text-ink-faint">风格只改版式与配色，不动正文；封面模板会保留你已填的封面文案。</p>
+            <p className="mt-1 text-[10.5px] text-ink-faint">风格负责配色与标题气质；封面模板只改构图、字号与边距，配色跟随当前风格。</p>
           </div>
           <button
             className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-ink-faint transition-colors hover:bg-black/[0.06] hover:text-ink"
@@ -362,8 +372,11 @@ export const Gallery = ({
         <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-6 pt-4">
           <div className="grid grid-cols-3 gap-x-4 gap-y-5">
             {list.map((preset) => {
-              const theme = applyXhsOverrides(getTheme(preset.themeId), resolvePreset(preset))
-              const isDark = preset.tone === 'dark'
+              const theme =
+                preset.kind === 'cover'
+                  ? applyXhsOverrides(currentTheme, preset.overrides)
+                  : applyXhsOverrides(getTheme(preset.themeId), resolvePreset(preset))
+              const isDark = preset.kind === 'style' && preset.tone === 'dark'
               const lightTheme = isDark
                 ? applyXhsOverrides(getTheme(preset.themeId), resolvePreset({ ...preset, tone: 'light' }))
                 : theme
@@ -389,7 +402,7 @@ export const Gallery = ({
           </div>
           {tab === 'cover' && (
             <p className="mt-5 rounded-lg bg-black/[0.03] px-3 py-2 text-[9.5px] leading-relaxed text-ink-faint">
-              封面模板只改版式、配色和标题字号。想加图片：在右侧「封面 → 封面图」上传，再选「图上叠字」或「图文分开」。
+              封面模板只改构图、字号与边距，配色跟随当前风格。想加图片：在右侧「封面 → 封面图」上传，再选「图上叠字」或「图文分开」。
             </p>
           )}
         </div>

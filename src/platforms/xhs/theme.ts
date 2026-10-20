@@ -164,8 +164,12 @@ export interface XhsPalette {
   codeFg: string
   /** 行内加粗（Phycat light-deep 玫红） */
   strong: string
-  /** 行内斜体（Phycat secondary 紫） */
+  /** 行内斜体（方案次色） */
   italic: string
+  /** 方案第二色：引用边框、双子塔第二笔、列表标记（缺省回退 italic/accent） */
+  accent2?: string
+  /** 方案第三色：表头等辅助装饰（缺省回退 accent） */
+  accent3?: string
 }
 
 export interface XhsCardTheme {
