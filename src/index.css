@@ -602,3 +602,56 @@ body,
 [data-exporting] .xhs-guides .xhs-content > * {
   outline: none !important;
 }
+
+/* ---------- 统一悬浮提示（替代浏览器原生 title） ---------- */
+.tip {
+  position: relative;
+}
+.tip::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  transform: translateX(-50%) translateY(2px);
+  padding: 5px 8px;
+  border-radius: 6px;
+  background: #1d1d1f;
+  color: #fff;
+  font-size: 11px;
+  line-height: 1.1;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease, transform 0.12s ease;
+  z-index: 90;
+}
+.tip::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 3px);
+  width: 6px;
+  height: 6px;
+  transform: translateX(-50%) rotate(45deg);
+  background: #1d1d1f;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
+  z-index: 91;
+}
+.tip:hover::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+.tip:hover::before {
+  opacity: 1;
+}
+/* 顶部工具条：提示向下弹，避免被面板裁掉 */
+.tip-b::after {
+  bottom: auto;
+  top: calc(100% + 8px);
+}
+.tip-b::before {
+  bottom: auto;
+  top: calc(100% + 3px);
+}

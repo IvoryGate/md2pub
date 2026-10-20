@@ -75,18 +75,19 @@ export const bindSyncScroll: ScrollBusHandler = (el, side, bus) => {
 
 export interface LineBus {
   info: { applying: boolean }
-  reportLine(source: ScrollSource, line: number): void
-  onLine(fn: (source: ScrollSource, line: number) => void): () => void
+  /** line：源码行（0 基）；anchor：可见文字的归一化片段（用于跨分页精确对齐） */
+  reportLine(source: ScrollSource, line: number, anchor?: string): void
+  onLine(fn: (source: ScrollSource, line: number, anchor?: string) => void): () => void
 }
 
 export function createLineBus(): LineBus {
-  const subs = new Set<(source: ScrollSource, line: number) => void>()
+  const subs = new Set<(source: ScrollSource, line: number, anchor?: string) => void>()
   const info = { applying: false }
   return {
     info,
-    reportLine(source, line) {
+    reportLine(source, line, anchor) {
       if (info.applying) return
-      for (const fn of subs) fn(source, line)
+      for (const fn of subs) fn(source, line, anchor)
     },
     onLine(fn) {
       subs.add(fn)
@@ -95,6 +96,23 @@ export function createLineBus(): LineBus {
       }
     },
   }
+}
+
+/** 锚点归一化：只保留汉字/字母/数字，去掉 Markdown 标记与标点 */
+export const normalizeAnchor = (s: string) => s.replace(/[^\p{Script=Han}A-Za-z0-9]/gu, '')
+
+/** 归一化文本 + 到原文的字符索引映射（用于定位回源码位置） */
+export const normalizeWithMap = (s: string) => {
+  let out = ''
+  const map: number[] = []
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i]!
+    if (/[\p{Script=Han}A-Za-z0-9]/u.test(ch)) {
+      out += ch
+      map.push(i)
+    }
+  }
+  return { out, map }
 }
 
 

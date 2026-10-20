@@ -9,7 +9,7 @@ import { inlineMathPreview } from './cm/inlineMath'
 import { inlineRender } from './cm/inlineRender'
 import { livePreview } from './cm/livePreview'
 import { codeBlockStyler, fencedLines } from './cm/codeBlock'
-import { animateScroll, type LineBus } from './scrollSync'
+import { animateScroll, normalizeAnchor, normalizeWithMap, type LineBus } from './scrollSync'
 import { ReadView } from './ReadView'
 import { useStore } from '../store'
 
@@ -318,14 +318,14 @@ export const EditorPanel = ({
             {(['source', 'edit', 'read'] as const).map((m) => (
               <button
                 key={m}
-                className={editorMode === m ? 'on' : ''}
+                className={`tip tip-b ${editorMode === m ? 'on' : ''}`}
                 onClick={() => setEditorMode(m)}
-                title={
+                data-tip={
                   m === 'source'
-                    ? '源码模式：纯 markdown 源码'
+                    ? '源码模式：纯 Markdown'
                     : m === 'edit'
-                      ? '编辑模式：实时预览（行内半渲染）'
-                      : '阅读模式：完整渲染，不可编辑'
+                      ? '编辑模式：实时预览'
+                      : '阅读模式：完整渲染'
                 }
               >
                 {m === 'source' ? (
@@ -339,9 +339,9 @@ export const EditorPanel = ({
             ))}
           </nav>
           <button
-            className="flex h-6 w-6 items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-black/5 hover:text-ink"
+            className="tip tip-b flex h-6 w-6 items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-black/5 hover:text-ink"
             onClick={onCollapse}
-            title="收起面板"
+            data-tip="收起面板"
           >
             <ChevronLeft className="h-4 w-4" strokeWidth={1.8} />
           </button>
@@ -352,28 +352,28 @@ export const EditorPanel = ({
       {editorMode !== 'read' && (
         <div className="flex h-8 shrink-0 items-center gap-0.5 border-b border-black/[0.05] px-2">
           {[
-            { icon: Bold, title: '加粗 **text**', run: () => wrapInline('**', '加粗') },
-            { icon: Italic, title: '斜体 *text*', run: () => wrapInline('*', '斜体') },
-            { icon: Code, title: '行内代码 `code`', run: () => wrapInline('`', 'code') },
-            { icon: Link2, title: '链接 [text](url)', run: insertLink },
-            { icon: Heading2, title: '标题（## ）', run: () => prefixLine('## ') },
-            { icon: List, title: '列表（- ）', run: () => prefixLine('- ') },
-            { icon: Quote, title: '引用（> ）', run: () => prefixLine('> ') },
+            { icon: Bold, title: '加粗', run: () => wrapInline('**', '加粗') },
+            { icon: Italic, title: '斜体', run: () => wrapInline('*', '斜体') },
+            { icon: Code, title: '行内代码', run: () => wrapInline('`', 'code') },
+            { icon: Link2, title: '链接', run: insertLink },
+            { icon: Heading2, title: '二级标题', run: () => prefixLine('## ') },
+            { icon: List, title: '无序列表', run: () => prefixLine('- ') },
+            { icon: Quote, title: '引用', run: () => prefixLine('> ') },
           ].map(({ icon: Icon, title, run }) => (
             <button
               key={title}
-              className="flex h-6 w-6 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-black/[0.06] hover:text-ink"
+              className="tip tip-b flex h-6 w-6 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-black/[0.06] hover:text-ink"
               onClick={run}
-              title={title}
+              data-tip={title}
             >
               <Icon className="h-3.5 w-3.5" strokeWidth={1.8} />
             </button>
           ))}
           <div className="mx-1 h-3.5 w-px bg-black/10" />
           <button
-            className="flex h-6 items-center gap-1 rounded-md px-1.5 text-[10.5px] text-ink-faint transition-colors hover:bg-black/[0.06] hover:text-ink"
+            className="tip tip-b flex h-6 items-center gap-1 rounded-md px-1.5 text-[10.5px] text-ink-faint transition-colors hover:bg-black/[0.06] hover:text-ink"
             onClick={insertPageBreak}
-            title="在光标处插入分页标记"
+            data-tip="在光标处插入分页"
           >
             <SeparatorHorizontal className="h-3.5 w-3.5" strokeWidth={1.8} />
             分页
@@ -414,9 +414,25 @@ export const EditorPanel = ({
                 raf = requestAnimationFrame(() => {
                   raf = 0
                   if (bus.info.applying) return
-                  const block = view.lineBlockAtHeight(view.scrollDOM.scrollTop + 6)
-                  const line = view.state.doc.lineAt(block.from).number - 1
-                  bus.reportLine('editor', line)
+                  // 采样点要避开顶部内边距；若正好落在标点/空行，往下探几行直到拿到有效文字
+                  const rect = view.scrollDOM.getBoundingClientRect()
+                  let pos: number | null = null
+                  let anchor = ''
+                  for (const dy of [34, 48, 62, 76]) {
+                    const p = view.posAtCoords({ x: rect.left + 52, y: rect.top + dy })
+                    if (p == null) continue
+                    const line = view.state.doc.lineAt(p)
+                    const offset = Math.max(0, Math.min(line.text.length, p - line.from))
+                    anchor = normalizeAnchor(line.text.slice(offset, offset + 24)).slice(0, 12)
+                    if (anchor.length >= 4) {
+                      pos = p
+                      break
+                    }
+                    pos = p
+                  }
+                  if (pos == null) pos = view.lineBlockAtHeight(view.scrollDOM.scrollTop + 6).from
+                  const line = view.state.doc.lineAt(pos)
+                  bus.reportLine('editor', line.number - 1, anchor)
                 })
               }
               view.scrollDOM.addEventListener('scroll', onScroll, { passive: true })
@@ -434,13 +450,44 @@ export const EditorPanel = ({
                 }
               }
               view.contentDOM.addEventListener('mousedown', onWidgetDown, true)
-              const unsub = bus.onLine((src, line) => {
+              const unsub = bus.onLine((src, line, anchor) => {
                 if (src === 'editor' || bus.info.applying) return
                 bus.info.applying = true
-                const target = Math.min(Math.max(1, line + 1), view.state.doc.lines)
-                const block = view.lineBlockAt(view.state.doc.line(target).from)
-                animateScroll(view.scrollDOM, Math.max(0, block.top - 6), 340).then(() => {
-                  // 动画结束再静默 80ms，吞掉尾部 scroll 回声
+                let targetPos: number | null = null
+                if (anchor) {
+                  const total = view.state.doc.lines
+                  const start = Math.min(Math.max(1, line + 1 - 6), total)
+                  // 先向下找（分页卡多在报告行之后），再回头找；避免撞上标题里的同名词
+                  const ranges: Array<[number, number]> = [
+                    [start, total],
+                    [1, start - 1],
+                  ]
+                  outer: for (const [from, to] of ranges) {
+                    for (let lnNo = from; lnNo <= to; lnNo++) {
+                      const ln = view.state.doc.line(lnNo)
+                      if (!ln.text) continue
+                      const { out, map } = normalizeWithMap(ln.text)
+                      const idx = out.indexOf(anchor)
+                      if (idx >= 0) {
+                        targetPos = ln.from + (map[idx] ?? 0)
+                        break outer
+                      }
+                    }
+                  }
+                }
+                if (targetPos == null) {
+                  const target = Math.min(Math.max(1, line + 1), view.state.doc.lines)
+                  targetPos = view.state.doc.line(target).from
+                }
+                // 用 CM 自己的 scrollIntoView 求精确目标，再退回原位做动画：
+                // coordsAtPos 对屏幕外位置返回 null，只有 scrollIntoView 能处理软换行内部位置
+                const before = view.scrollDOM.scrollTop
+                view.dispatch({
+                  effects: EditorView.scrollIntoView(targetPos, { y: 'start', yMargin: 12 }),
+                })
+                const targetScroll = view.scrollDOM.scrollTop
+                view.scrollDOM.scrollTop = before
+                animateScroll(view.scrollDOM, Math.max(0, targetScroll), 320).then(() => {
                   window.setTimeout(() => {
                     bus.info.applying = false
                   }, 80)

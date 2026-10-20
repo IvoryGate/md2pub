@@ -1,5 +1,5 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
-import { Download, Files, Ruler, Sheet } from 'lucide-react'
+import { Check, ChevronDown, Download, Files, Ruler, Sheet, ZoomIn } from 'lucide-react'
 import { parseDocument } from '../core/document/parse'
 import {
   XHS_THEMES,
@@ -16,7 +16,7 @@ import {
   safeFilename,
   type XhsCardSet,
 } from '../platforms/xhs'
-import { animateScroll, type LineBus } from './scrollSync'
+import { animateScroll, normalizeAnchor, type LineBus } from './scrollSync'
 import { useStore } from '../store'
 import { useShallow } from 'zustand/react/shallow'
 
@@ -45,6 +45,7 @@ export const XhsPreview = ({ bus }: { bus: LineBus }) => {
     })),
   )
   const [exporting, setExporting] = useState(false)
+  const [zoomOpen, setZoomOpen] = useState(false)
   const cardRefs = useRef<Array<HTMLElement | null>>([])
   const railRef = useRef<HTMLDivElement>(null)
 
@@ -60,6 +61,12 @@ export const XhsPreview = ({ bus }: { bus: LineBus }) => {
     })
     if (!startLines.length) return
     const topOf = (el: HTMLElement) => el.getBoundingClientRect().top - rail.getBoundingClientRect().top + rail.scrollTop
+    // 只取最细粒度文字块：排除“包含行元素”的段落壳，否则整段会被当成一行，锚点永远落在段首
+    const textElsOf = (card: HTMLElement) =>
+      [...card.querySelectorAll<HTMLElement>('.xhs-kp-line, .xhs-content > div, [data-list] > div')].filter(
+        (e) => !e.querySelector('.xhs-kp-line, .xhs-content > div, [data-list] > div'),
+      )
+
     let raf = 0
     const onScroll = () => {
       if (raf) return
@@ -72,17 +79,59 @@ export const XhsPreview = ({ bus }: { bus: LineBus }) => {
           const el = cardRefs.current[i]
           if (el && topOf(el) <= y) idx = i
         }
-        bus.reportLine('rail', startLines[idx] ?? 0)
+        // 锚点 = 顶部第一段“真正可见”的文字；若当前卡只剩页脚，则顺延到下一张卡
+        let anchor = ''
+        let anchorIdx = idx
+        const railBox = rail.getBoundingClientRect()
+        const railTop = railBox.top
+        const railBottom = railBox.bottom
+        for (let j = idx; j < cardRefs.current.length && j <= idx + 1; j++) {
+          const card = cardRefs.current[j]
+          if (!card) continue
+          const els = textElsOf(card).filter((e) => (e.textContent || '').trim())
+          const visible = els.find((e) => {
+            const r = e.getBoundingClientRect()
+            // 优先取“完整可见”的第一行，避免把被视口切掉一半的行当成锚点
+            return r.height > 0 && r.top >= railTop - 1 && r.top < railBottom - 8
+          })
+          const el = visible ?? (j > idx ? els[0] : undefined)
+          if (el) {
+            // 极短文字（公式符号、标点行）向后拼接，保证锚点足够可辨识
+            let text = el.textContent || ''
+            const at = els.indexOf(el)
+            for (let k = at + 1; k < els.length && normalizeAnchor(text).length < 8; k++) {
+              text += ' ' + (els[k].textContent || '')
+            }
+            anchor = normalizeAnchor(text).slice(0, 12)
+            anchorIdx = j
+            break
+          }
+        }
+        bus.reportLine('rail', startLines[anchorIdx] ?? 0, anchor)
       })
     }
     rail.addEventListener('scroll', onScroll, { passive: true })
-    const unsub = bus.onLine((src, line) => {
+
+    const unsub = bus.onLine((src, line, anchor) => {
       if (src === 'rail' || bus.info.applying) return
       bus.info.applying = true
-      let idx = 0
-      for (let i = 0; i < startLines.length; i++) if ((startLines[i] ?? 0) <= line) idx = i
-      const el = cardRefs.current[idx]
-      const run = el ? animateScroll(rail, Math.max(0, topOf(el) - 8), 340) : Promise.resolve()
+      let target: HTMLElement | null = null
+      if (anchor) {
+        for (const card of cardRefs.current) {
+          if (!card) continue
+          const el = textElsOf(card).find((e) => normalizeAnchor(e.textContent || '').includes(anchor))
+          if (el) {
+            target = el
+            break
+          }
+        }
+      }
+      if (!target) {
+        let idx = 0
+        for (let i = 0; i < startLines.length; i++) if ((startLines[i] ?? 0) <= line) idx = i
+        target = cardRefs.current[idx]
+      }
+      const run = target ? animateScroll(rail, Math.max(0, topOf(target) - 8), 320) : Promise.resolve()
       run.then(() => {
         window.setTimeout(() => {
           bus.info.applying = false
@@ -272,51 +321,74 @@ export const XhsPreview = ({ bus }: { bus: LineBus }) => {
         )}
         <div className="mx-0.5 h-4 w-px bg-black/10" />
         <button
-          className={`flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] transition-colors ${
+          className={`tip flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] transition-colors ${
             showGuides ? 'border-black/[0.18] bg-ink text-white' : 'border-black/[0.14] bg-white text-ink-soft hover:bg-black/[0.04]'
           }`}
           onClick={() => setShowGuides(!showGuides)}
-          title="显示参考线：边距、页眉页脚、内容框"
+          data-tip="显示工程标注：边距、版心与尺寸线"
         >
           <Ruler className="h-3.5 w-3.5" strokeWidth={1.8} />
           参考线
         </button>
-        <label className="flex items-center gap-1 rounded-full border border-black/[0.12] bg-white px-2 py-[3px] text-[10.5px] text-ink-soft">
-          缩放
-          <select
-            className="cursor-pointer bg-transparent text-[10.5px] text-ink outline-none"
-            value={previewScale}
-            onChange={(e) => setPreviewScale(Number(e.target.value))}
+
+        {/* 缩放：自绘下拉，带图标与当前值勾选 */}
+        <div className="relative">
+          <button
+            className="tip flex items-center gap-1 rounded-full border border-black/[0.12] bg-white px-2.5 py-1 text-[11px] text-ink-soft transition-colors hover:bg-black/[0.04]"
+            onClick={() => setZoomOpen((v) => !v)}
+            data-tip="预览缩放"
           >
-            {[0.42, 0.56, 0.7, 0.84].map((v) => (
-              <option key={v} value={v}>
-                {Math.round(v * 100)}%
-              </option>
-            ))}
-          </select>
-        </label>
+            <ZoomIn className="h-3.5 w-3.5" strokeWidth={1.8} />
+            <span className="tabular-nums text-ink">{Math.round(previewScale * 100)}%</span>
+            <ChevronDown className={`h-3 w-3 transition-transform duration-150 ${zoomOpen ? 'rotate-180' : ''}`} strokeWidth={2} />
+          </button>
+          {zoomOpen && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setZoomOpen(false)} />
+              <div className="absolute bottom-full left-1/2 z-50 mb-2 w-[104px] -translate-x-1/2 rounded-xl border border-black/10 bg-white p-1 shadow-[0_12px_32px_rgba(0,0,0,0.14)]">
+                {[0.42, 0.56, 0.7, 0.84].map((v) => (
+                  <button
+                    key={v}
+                    onClick={() => {
+                      setPreviewScale(v)
+                      setZoomOpen(false)
+                    }}
+                    className={`flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-[11px] transition-colors ${
+                      previewScale === v ? 'bg-black/[0.06] font-medium text-ink' : 'text-ink-soft hover:bg-black/[0.04]'
+                    }`}
+                  >
+                    <span className="tabular-nums">{Math.round(v * 100)}%</span>
+                    {previewScale === v && <Check className="h-3 w-3" strokeWidth={2.2} />}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+
         <button
-          className="flex items-center gap-1 rounded-full border border-black/[0.14] bg-white px-3 py-1 text-[11.5px] text-ink transition-colors hover:bg-black/[0.04] disabled:opacity-40"
+          className="tip flex items-center gap-1 rounded-full border border-black/[0.14] bg-white px-3 py-1 text-[11.5px] text-ink transition-colors hover:bg-black/[0.04] disabled:opacity-40"
           onClick={() => handleExportOne(0)}
           disabled={exporting}
+          data-tip="导出当前页"
         >
           <Download className="h-3.5 w-3.5" strokeWidth={1.8} />
           当前
         </button>
         <button
-          className="flex items-center gap-1 rounded-full bg-ink px-3.5 py-1 text-[11.5px] font-medium text-white transition-opacity hover:opacity-85 disabled:opacity-40"
+          className="tip flex items-center gap-1 rounded-full bg-ink px-3.5 py-1 text-[11.5px] font-medium text-white transition-opacity hover:opacity-85 disabled:opacity-40"
           onClick={handleExportAll}
           disabled={exporting || !cardSet}
-          title="导出全部 PNG：优先写入项目 exports/，其次选择文件夹"
+          data-tip="导出全部：优先写入项目 exports/"
         >
           <Files className="h-3.5 w-3.5" strokeWidth={1.8} />
           {exporting ? '导出中…' : '全部'}
         </button>
         <button
-          className="rounded-full border border-black/[0.14] bg-white px-2.5 py-1 text-[11px] text-ink-soft transition-colors hover:bg-black/[0.04] disabled:opacity-40"
+          className="tip rounded-full border border-black/[0.14] bg-white px-2.5 py-1 text-[11px] text-ink-soft transition-colors hover:bg-black/[0.04] disabled:opacity-40"
           onClick={handleExportZip}
           disabled={exporting || !cardSet}
-          title="不选目录，直接下载 ZIP"
+          data-tip="打包下载 ZIP"
         >
           ZIP
         </button>
@@ -363,12 +435,12 @@ const CardFrame = ({
     </div>
     {/* 悬浮单页导出：hover 才出现，右上角 */}
     <button
-      className={`glass absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full text-ink transition-all hover:text-accent ${
+      className={`tip glass absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full text-ink transition-all hover:text-accent ${
         exporting ? 'opacity-0' : 'opacity-0 group-hover:opacity-100'
       }`}
       onClick={() => onExportSingle(onExportIndex)}
       disabled={exporting}
-      title="导出这张（PNG）"
+      data-tip="导出这张"
     >
       <Download className="h-3.5 w-3.5" strokeWidth={1.8} />
     </button>

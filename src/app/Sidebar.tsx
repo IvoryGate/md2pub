@@ -421,25 +421,25 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
         <span className="text-[11.5px] font-semibold tracking-[0.02em]">属性</span>
         <div className="flex-1" />
         <button
-          className="flex h-6 w-6 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-black/[0.06] hover:text-ink disabled:opacity-30 disabled:hover:bg-transparent"
+          className="tip tip-b flex h-6 w-6 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-black/[0.06] hover:text-ink disabled:opacity-30 disabled:hover:bg-transparent"
           onClick={undoLayout}
           disabled={!past.length}
-          title="撤销样式改动（Ctrl/Cmd+Z）"
+          data-tip="撤销样式改动"
         >
           <Undo2 className="h-3 w-3" strokeWidth={2} />
         </button>
         <button
-          className="flex h-6 w-6 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-black/[0.06] hover:text-ink disabled:opacity-30 disabled:hover:bg-transparent"
+          className="tip tip-b flex h-6 w-6 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-black/[0.06] hover:text-ink disabled:opacity-30 disabled:hover:bg-transparent"
           onClick={redoLayout}
           disabled={!future.length}
-          title="重做（Shift+Ctrl/Cmd+Z）"
+          data-tip="重做"
         >
           <Redo2 className="h-3 w-3" strokeWidth={2} />
         </button>
         <button
-          className="flex h-6 w-6 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-black/[0.06] hover:text-ink"
+          className="tip tip-b flex h-6 w-6 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-black/[0.06] hover:text-ink"
           onClick={resetOverrides}
-          title="重置为当前预设的默认值"
+          data-tip="重置为预设默认值"
         >
           <RotateCcw className="h-3 w-3" strokeWidth={2} />
         </button>
@@ -884,52 +884,40 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
 
         {tab === 'cover' && (
           <>
-            <Section title="封面" defaultOpen inspectKey="cover">
-              <ToggleRow label="显示封面" value={L.coverOn} onChange={(v) => patch({ coverOn: v })} />
-              {!L.coverOn && (
-                <p className="mt-1.5 text-[9px] leading-relaxed text-ink-faint">开启封面后可编辑文案、版式、边距与封面水印。</p>
-              )}
-              {L.coverOn && (
-                <div className="mt-1.5 space-y-1.5">
-                  <Field label="标题">
-                    <TextInput value={coverText.title} placeholder="封面标题" multiline onChange={(v) => setCoverText({ title: v })} />
-                  </Field>
-                  <p className="text-[9px] leading-relaxed text-ink-faint">回车换行 = 断行位置；标签用逗号或空格分隔</p>
-                  <Pair>
-                    <Field label="副标题">
-                      <TextInput value={coverText.subtitle} placeholder="可选" onChange={(v) => setCoverText({ subtitle: v })} />
-                    </Field>
-                    <Field label="作者">
-                      <TextInput value={coverText.author} placeholder="可选" onChange={(v) => setCoverText({ author: v })} />
-                    </Field>
-                  </Pair>
-                  <Field label="标签">
-                    <TextInput value={coverText.tags} placeholder="游戏, 出海" onChange={(v) => setCoverText({ tags: v })} />
-                  </Field>
-                  <Field label="版式">
-                    <div className="grid grid-cols-3 gap-1">
-                      {(
-                        [
-                          ['classic', '经典'],
-                          ['vertical', '竖排'],
-                          ['big', '巨字'],
-                          ['editorial', '杂志'],
-                          ['jacket', '书封'],
-                          ['index', '索引'],
-                        ] as const
-                      ).map(([value, label]) => (
-                        <button
-                          key={value}
-                          onClick={() => patch({ coverStyle: value })}
-                          className={`h-6 rounded-[5px] text-[10.5px] transition-colors ${
-                            L.coverStyle === value ? 'bg-[#1d1d1f] font-medium text-white' : 'bg-black/[0.045] text-ink-soft hover:bg-black/[0.08]'
-                          }`}
-                        >
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                  </Field>
+            {/* 顶层开关：关闭后本页一切设置都不显示 */}
+            <div className="flex h-11 items-center justify-between border-b border-black/[0.055] px-3">
+              <div>
+                <div className="text-[10.5px] font-semibold tracking-[0.06em] text-[#6d6d66]">显示封面</div>
+                <div className="mt-0.5 text-[9px] text-ink-faint">关闭后封面卡与其全部设置隐藏</div>
+              </div>
+              <Toggle value={L.coverOn} onChange={(v) => patch({ coverOn: v })} />
+            </div>
+
+            {L.coverOn ? (
+              <>
+                <Section title="封面样式" defaultOpen inspectKey="cover">
+                  <div className="grid grid-cols-3 gap-1">
+                    {(
+                      [
+                        ['classic', '经典'],
+                        ['vertical', '竖排'],
+                        ['big', '巨字'],
+                        ['editorial', '杂志'],
+                        ['jacket', '书封'],
+                        ['index', '索引'],
+                      ] as const
+                    ).map(([value, label]) => (
+                      <button
+                        key={value}
+                        onClick={() => patch({ coverStyle: value })}
+                        className={`h-6 rounded-[5px] text-[10.5px] transition-colors ${
+                          L.coverStyle === value ? 'bg-[#1d1d1f] font-medium text-white' : 'bg-black/[0.045] text-ink-soft hover:bg-black/[0.08]'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
                   {L.coverStyle === 'classic' ? (
                     <Pair>
                       <Field label="经典位置">
@@ -954,41 +942,59 @@ export const Sidebar = ({ baseTheme }: { baseTheme: XhsCardTheme }) => {
                       </Field>
                     </div>
                   )}
+                </Section>
 
-                  <div className="mt-2 border-t border-black/[0.055] pt-2">
-                    <Pair>
-                      <Field label="封面上边距">
-                        <Num value={L.coverPadding.top} min={40} max={220} suffix="px" onChange={(v) => patch({ coverPadding: { top: v } })} />
-                      </Field>
-                      <Field label="封面下边距">
-                        <Num value={L.coverPadding.bottom} min={40} max={220} suffix="px" onChange={(v) => patch({ coverPadding: { bottom: v } })} />
-                      </Field>
-                    </Pair>
-                    <Pair>
-                      <Field label="封面左边距">
-                        <Num value={L.coverPadding.left} min={40} max={220} suffix="px" onChange={(v) => patch({ coverPadding: { left: v } })} />
-                      </Field>
-                      <Field label="封面右边距">
-                        <Num value={L.coverPadding.right} min={40} max={220} suffix="px" onChange={(v) => patch({ coverPadding: { right: v } })} />
-                      </Field>
-                    </Pair>
+                <Section title="封面文案" defaultOpen>
+                  <Field label="标题">
+                    <TextInput value={coverText.title} placeholder="封面标题" multiline onChange={(v) => setCoverText({ title: v })} />
+                  </Field>
+                  <p className="mt-1 text-[9px] leading-relaxed text-ink-faint">回车换行 = 断行位置；标签用逗号或空格分隔</p>
+                  <Pair>
+                    <Field label="副标题">
+                      <TextInput value={coverText.subtitle} placeholder="可选" onChange={(v) => setCoverText({ subtitle: v })} />
+                    </Field>
+                    <Field label="作者">
+                      <TextInput value={coverText.author} placeholder="可选" onChange={(v) => setCoverText({ author: v })} />
+                    </Field>
+                  </Pair>
+                  <Field label="标签">
+                    <TextInput value={coverText.tags} placeholder="游戏, 出海" onChange={(v) => setCoverText({ tags: v })} />
+                  </Field>
+                </Section>
+
+                <Section title="封面边距" defaultOpen>
+                  <Pair>
+                    <Field label="上边距">
+                      <Num value={L.coverPadding.top} min={40} max={220} suffix="px" onChange={(v) => patch({ coverPadding: { top: v } })} />
+                    </Field>
+                    <Field label="下边距">
+                      <Num value={L.coverPadding.bottom} min={40} max={220} suffix="px" onChange={(v) => patch({ coverPadding: { bottom: v } })} />
+                    </Field>
+                  </Pair>
+                  <Pair>
+                    <Field label="左边距">
+                      <Num value={L.coverPadding.left} min={40} max={220} suffix="px" onChange={(v) => patch({ coverPadding: { left: v } })} />
+                    </Field>
+                    <Field label="右边距">
+                      <Num value={L.coverPadding.right} min={40} max={220} suffix="px" onChange={(v) => patch({ coverPadding: { right: v } })} />
+                    </Field>
+                  </Pair>
+                </Section>
+
+                <Section title="封面水印" defaultOpen>
+                  <ToggleRow label="显示水印" value={L.watermark.cover} onChange={(v) => patch({ watermark: { cover: v } })} />
+                  <Field label="位置">
+                    <PosGrid value={normalizeChromePos(L.watermark.coverPos)} onChange={(v) => patch({ watermark: { coverPos: v } })} />
+                  </Field>
+                  <div className="mt-1.5">
+                    <Field label="文案（共用）">
+                      <TextInput value={watermark} placeholder="@你的账号" onChange={setWatermark} />
+                    </Field>
                   </div>
-                </div>
-              )}
-            </Section>
-
-            {L.coverOn && (
-            <Section title="封面水印" defaultOpen>
-              <ToggleRow label="显示水印" value={L.watermark.cover} onChange={(v) => patch({ watermark: { cover: v } })} />
-              <Field label="位置">
-                <PosGrid value={normalizeChromePos(L.watermark.coverPos)} onChange={(v) => patch({ watermark: { coverPos: v } })} />
-              </Field>
-              <div className="mt-1.5">
-                <Field label="文案（共用）">
-                  <TextInput value={watermark} placeholder="@你的账号" onChange={setWatermark} />
-                </Field>
-              </div>
-            </Section>
+                </Section>
+              </>
+            ) : (
+              <div className="px-3 py-3 text-[9.5px] leading-relaxed text-ink-faint">开启封面后，可在这里设置样式、文案、边距与水印。</div>
             )}
           </>
         )}

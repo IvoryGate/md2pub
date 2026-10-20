@@ -1201,7 +1201,7 @@ const GuideOverlay = ({
         lineHeight: 1.15,
         whiteSpace: 'nowrap',
         color: accent,
-        background: `${p.bg}ee`,
+        background: p.bg,
         padding: '2px 7px',
         borderRadius: 4,
         boxShadow: `0 0 0 1px ${accent}3d`,
@@ -1237,7 +1237,12 @@ const GuideOverlay = ({
       {solid({ left: 0, top: pad.top, width: pad.left, height: 1 }, 0.35)}
       {tick(xL, 0, false)}
       {tick(xL, pad.top, false)}
-      {label(`上 ${pad.top}`, { left: xL - 64, top: Math.round(pad.top / 2) - 12, transform: 'rotate(-90deg)' })}
+      {label(`上 ${pad.top}`, {
+        left: xL,
+        top: Math.round(pad.top / 2),
+        transform: 'translate(-50%, -50%) rotate(-90deg)',
+        transformOrigin: 'center',
+      })}
 
       {/* ② 地脚：竖直尺寸线，页底到版心下沿 */}
       {solid({ left: xL, bottom: 0, width: 1.5, height: pad.bottom })}
@@ -1245,7 +1250,12 @@ const GuideOverlay = ({
       {solid({ left: 0, bottom: 0, width: pad.left, height: 1 }, 0.35)}
       {tick(xL, h - pad.bottom, false)}
       {tick(xL, h, false)}
-      {label(`下 ${pad.bottom}`, { left: xL - 64, bottom: Math.round(pad.bottom / 2) - 12, transform: 'rotate(-90deg)' })}
+      {label(`下 ${pad.bottom}`, {
+        left: xL,
+        top: h - Math.round(pad.bottom / 2),
+        transform: 'translate(-50%, -50%) rotate(-90deg)',
+        transformOrigin: 'center',
+      })}
 
       {/* ③ 左边距：水平尺寸线放在中线处（页左到版心左） */}
       {solid({ top: Math.round(h / 2), left: 0, height: 1.5, width: pad.left })}
@@ -1253,7 +1263,11 @@ const GuideOverlay = ({
       {solid({ left: pad.left, top: Math.round(h / 2) - 14, width: 1, height: 28 }, 0.35)}
       {tick(0, Math.round(h / 2), true)}
       {tick(pad.left, Math.round(h / 2), true)}
-      {label(`左 ${pad.left}`, { left: 8, top: Math.round(h / 2) - 38 })}
+      {label(`左 ${pad.left}`, {
+        left: Math.round(pad.left / 2),
+        top: Math.round(h / 2),
+        transform: 'translate(-50%, -50%)',
+      })}
 
       {/* ④ 右边距：水平尺寸线放在上边距中线处（版心右到页右） */}
       {solid({ top: yT, left: w - pad.right, height: 1.5, width: pad.right })}
@@ -1261,7 +1275,11 @@ const GuideOverlay = ({
       {solid({ left: w - 1, top: yT - 14, width: 1, height: 28 }, 0.35)}
       {tick(w - pad.right, yT, true)}
       {tick(w, yT, true)}
-      {label(`右 ${pad.right}`, { right: 8, top: yT - 38 })}
+      {label(`右 ${pad.right}`, {
+        left: w - Math.round(pad.right / 2),
+        top: yT,
+        transform: 'translate(-50%, -50%)',
+      })}
 
       {/* ⑤ 版心宽：水平尺寸线放在地脚中线处（版心左到版心右） */}
       {solid({ top: h - yB, left: pad.left, height: 1.5, width: cw })}
@@ -1269,7 +1287,11 @@ const GuideOverlay = ({
       {solid({ left: pad.left + cw, top: h - pad.bottom, width: 1, height: yB }, 0.35)}
       {tick(pad.left, h - yB, true)}
       {tick(pad.left + cw, h - yB, true)}
-      {label(`版心宽 ${cw}`, { left: Math.round(w / 2 - 58), top: h - yB - 38 })}
+      {label(`版心宽 ${cw}`, {
+        left: Math.round(w / 2),
+        top: h - yB,
+        transform: 'translate(-50%, -50%)',
+      })}
 
       {/* ⑥ 版心高：竖直尺寸线放在右边距内（版心上沿到版心下沿） */}
       {solid({ left: w - xR, top: pad.top, width: 1.5, height: ch })}
@@ -1277,7 +1299,12 @@ const GuideOverlay = ({
       {solid({ left: w - pad.right, top: pad.top + ch, width: xR, height: 1 }, 0.35)}
       {tick(w - xR, pad.top, false)}
       {tick(w - xR, pad.top + ch, false)}
-      {label(`版心高 ${ch}`, { left: w - xR + 10, top: pad.top + Math.round(ch / 2) - 12, transform: 'rotate(90deg)' })}
+      {label(`版心高 ${ch}`, {
+        left: w - xR,
+        top: pad.top + Math.round(ch / 2),
+        transform: 'translate(-50%, -50%) rotate(90deg)',
+        transformOrigin: 'center',
+      })}
     </div>
   )
 }
